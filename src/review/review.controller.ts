@@ -15,6 +15,14 @@ interface FileReviewDto {
   extraInstructions?: string;
 }
 
+interface CodebaseReviewDto {
+  directory: string;
+  extensions?: string[];
+  maxBatchSize?: number;
+  checks?: string[];
+  extraInstructions?: string;
+}
+
 @Controller('review')
 export class ReviewController {
   constructor(@Inject(ReviewService) private readonly reviewService: ReviewService) {}
@@ -33,6 +41,16 @@ export class ReviewController {
   async reviewFiles(@Body() dto: FileReviewDto): Promise<ReviewResult> {
     return this.reviewService.reviewFiles(
       dto.files,
+      dto.checks,
+      dto.extraInstructions,
+    );
+  }
+
+  @Post('codebase')
+  async reviewCodebase(@Body() dto: CodebaseReviewDto): Promise<ReviewResult> {
+    return this.reviewService.reviewCodebase(
+      dto.directory,
+      { extensions: dto.extensions, maxBatchSize: dto.maxBatchSize },
       dto.checks,
       dto.extraInstructions,
     );

@@ -18,6 +18,12 @@ describe('ReviewController', () => {
       individualReviews: [],
       summary: { reviewer: 'Claude', aggregatedReview: 'OK', issues: [] },
     }),
+    reviewCodebase: vi.fn().mockResolvedValue({
+      id: 'review-ghi',
+      status: 'completed',
+      individualReviews: [],
+      summary: { reviewer: 'Claude', aggregatedReview: 'OK', issues: [] },
+    }),
   };
 
   beforeEach(async () => {
@@ -28,6 +34,10 @@ describe('ReviewController', () => {
     });
     mockReviewService.reviewFiles.mockResolvedValue({
       id: 'review-def', status: 'completed', individualReviews: [],
+      summary: { reviewer: 'Claude', aggregatedReview: 'OK', issues: [] },
+    });
+    mockReviewService.reviewCodebase.mockResolvedValue({
+      id: 'review-ghi', status: 'completed', individualReviews: [],
       summary: { reviewer: 'Claude', aggregatedReview: 'OK', issues: [] },
     });
 
@@ -53,5 +63,20 @@ describe('ReviewController', () => {
     });
     expect(result.status).toBe('completed');
     expect(mockReviewService.reviewFiles).toHaveBeenCalledWith(['src/app.ts'], undefined, undefined);
+  });
+
+  it('should handle POST /review/codebase', async () => {
+    const result = await controller.reviewCodebase({
+      directory: '/tmp/project',
+      extensions: ['.ts', '.js'],
+      maxBatchSize: 50000,
+    });
+    expect(result.status).toBe('completed');
+    expect(mockReviewService.reviewCodebase).toHaveBeenCalledWith(
+      '/tmp/project',
+      { extensions: ['.ts', '.js'], maxBatchSize: 50000 },
+      undefined,
+      undefined,
+    );
   });
 });

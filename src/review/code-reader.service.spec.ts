@@ -39,4 +39,39 @@ describe('CodeReaderService', () => {
       service.readGitDiff('/nonexistent/path', 'main'),
     ).rejects.toThrow();
   });
+
+  describe('readCodebase', () => {
+    it('should read git-tracked codebase files', async () => {
+      const batches = await service.readCodebase(process.cwd());
+      expect(batches.length).toBeGreaterThanOrEqual(1);
+      const allFiles = batches.flat();
+      expect(allFiles.length).toBeGreaterThan(0);
+      const hasTsFile = allFiles.some((f) => f.path.endsWith('.ts'));
+      expect(hasTsFile).toBe(true);
+    });
+
+    it('should filter by extensions', async () => {
+      const batches = await service.readCodebase(process.cwd(), {
+        extensions: ['.json'],
+      });
+      const allFiles = batches.flat();
+      expect(allFiles.length).toBeGreaterThan(0);
+      for (const file of allFiles) {
+        expect(file.path).toMatch(/\.json$/);
+      }
+    });
+
+    it('should split into batches with small batch size', async () => {
+      const batches = await service.readCodebase(process.cwd(), {
+        maxBatchSize: 500,
+      });
+      expect(batches.length).toBeGreaterThan(1);
+    });
+
+    it('should throw on invalid directory', async () => {
+      await expect(
+        service.readCodebase('/nonexistent/path'),
+      ).rejects.toThrow();
+    });
+  });
 });

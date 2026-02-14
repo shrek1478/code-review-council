@@ -1,10 +1,10 @@
 import { Injectable, Logger, Inject } from '@nestjs/common';
 import { randomUUID } from 'node:crypto';
-import { CodeReaderService } from './code-reader.service.js';
+import { CodeReaderService, CodebaseOptions } from './code-reader.service.js';
 import { CouncilService } from './council.service.js';
 import { SummarizerService } from './summarizer.service.js';
 import { AcpService } from '../acp/acp.service.js';
-import { ReviewResult } from './review.types.js';
+import { IndividualReview, ReviewResult } from './review.types.js';
 
 @Injectable()
 export class ReviewService {
@@ -46,6 +46,55 @@ export class ReviewService {
       const files = await this.codeReader.readFiles(filePaths);
       const code = files.map((f) => `=== ${f.path} ===\n${f.content}`).join('\n\n');
       return await this.runReview(id, code, checks, extraInstructions);
+    } finally {
+      await this.acpService.stopAll();
+    }
+  }
+
+  async reviewCodebase(
+    directory: string,
+    options: CodebaseOptions = {},
+    checks: string[] = [],
+    extraInstructions?: string,
+  ): Promise<ReviewResult> {
+    const id = `review-${randomUUID().slice(0, 8)}`;
+    this.logger.log(`Starting codebase review ${id}`);
+
+    try {
+      const batches = await this.codeReader.readCodebase(directory, options);
+      this.logger.log(`Codebase split into ${batches.length} batch(es)`);
+
+      if (batches.length === 1) {
+        const code = batches[0]
+          .map((f) => `=== ${f.path} ===\n${f.content}`)
+          .join('\n\n');
+        return await this.runReview(id, code, checks, extraInstructions);
+      }
+
+      const allReviews: IndividualReview[] = [];
+      for (let i = 0; i < batches.length; i++) {
+        const batch = batches[i];
+        const code = batch
+          .map((f) => `=== ${f.path} ===\n${f.content}`)
+          .join('\n\n');
+
+        const batchExtra = [
+          `[Batch ${i + 1}/${batches.length}]`,
+          extraInstructions,
+        ]
+          .filter(Boolean)
+          .join(' ');
+
+        const reviews = await this.council.dispatchReviews({
+          code,
+          checks,
+          extraInstructions: batchExtra,
+        });
+        allReviews.push(...reviews);
+      }
+
+      const summary = await this.summarizer.summarize(allReviews);
+      return { id, status: 'completed', individualReviews: allReviews, summary };
     } finally {
       await this.acpService.stopAll();
     }
