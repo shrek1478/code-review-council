@@ -14,7 +14,7 @@ describe('CodeReaderService', () => {
 
   it('should read git diff from a repo', async () => {
     // Use the current project's own repo for testing
-    const diff = await service.readGitDiff(process.cwd(), 'HEAD~1');
+    const diff = await service.readGitDiff(process.cwd(), 'HEAD');
     expect(typeof diff).toBe('string');
   });
 
