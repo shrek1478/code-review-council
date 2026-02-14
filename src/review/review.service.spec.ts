@@ -2,7 +2,7 @@ import { Test } from '@nestjs/testing';
 import { ReviewService } from './review.service.js';
 import { CodeReaderService } from './code-reader.service.js';
 import { CouncilService } from './council.service.js';
-import { SummarizerService } from './summarizer.service.js';
+import { DecisionMakerService } from './decision-maker.service.js';
 import { AcpService } from '../acp/acp.service.js';
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 
@@ -20,14 +20,15 @@ describe('ReviewService', () => {
   const mockCouncil = {
     dispatchReviews: vi.fn().mockResolvedValue([
       { reviewer: 'Gemini', review: 'Looks good' },
-      { reviewer: 'Claude', review: 'LGTM' },
+      { reviewer: 'Codex', review: 'LGTM' },
     ]),
   };
-  const mockSummarizer = {
-    summarize: vi.fn().mockResolvedValue({
-      reviewer: 'Claude (Summarizer)',
-      aggregatedReview: 'Code is clean.',
-      issues: [],
+  const mockDecisionMaker = {
+    decide: vi.fn().mockResolvedValue({
+      reviewer: 'Claude (Decision Maker)',
+      overallAssessment: 'Code is clean.',
+      decisions: [],
+      additionalFindings: [],
     }),
   };
   const mockAcpService = { stopAll: vi.fn().mockResolvedValue(undefined) };
@@ -42,12 +43,13 @@ describe('ReviewService', () => {
     ]]);
     mockCouncil.dispatchReviews.mockResolvedValue([
       { reviewer: 'Gemini', review: 'Looks good' },
-      { reviewer: 'Claude', review: 'LGTM' },
+      { reviewer: 'Codex', review: 'LGTM' },
     ]);
-    mockSummarizer.summarize.mockResolvedValue({
-      reviewer: 'Claude (Summarizer)',
-      aggregatedReview: 'Code is clean.',
-      issues: [],
+    mockDecisionMaker.decide.mockResolvedValue({
+      reviewer: 'Claude (Decision Maker)',
+      overallAssessment: 'Code is clean.',
+      decisions: [],
+      additionalFindings: [],
     });
     mockAcpService.stopAll.mockResolvedValue(undefined);
 
@@ -56,7 +58,7 @@ describe('ReviewService', () => {
         ReviewService,
         { provide: CodeReaderService, useValue: mockCodeReader },
         { provide: CouncilService, useValue: mockCouncil },
-        { provide: SummarizerService, useValue: mockSummarizer },
+        { provide: DecisionMakerService, useValue: mockDecisionMaker },
         { provide: AcpService, useValue: mockAcpService },
       ],
     }).compile();
@@ -67,8 +69,15 @@ describe('ReviewService', () => {
     const result = await service.reviewDiff('/tmp/repo', 'main');
     expect(result.status).toBe('completed');
     expect(result.individualReviews.length).toBe(2);
-    expect(result.summary).toBeDefined();
+    expect(result.decision).toBeDefined();
     expect(mockCodeReader.readGitDiff).toHaveBeenCalledWith('/tmp/repo', 'main');
+    // Decision maker receives both code and reviews
+    expect(mockDecisionMaker.decide).toHaveBeenCalledWith(
+      'diff --git a/test.ts',
+      expect.arrayContaining([
+        expect.objectContaining({ reviewer: 'Gemini' }),
+      ]),
+    );
   });
 
   it('should review files end-to-end', async () => {
@@ -83,7 +92,7 @@ describe('ReviewService', () => {
       const result = await service.reviewCodebase('/tmp/project');
       expect(result.status).toBe('completed');
       expect(result.individualReviews.length).toBe(2);
-      expect(result.summary).toBeDefined();
+      expect(result.decision).toBeDefined();
       expect(mockCodeReader.readCodebase).toHaveBeenCalledWith('/tmp/project', {});
       expect(mockCouncil.dispatchReviews).toHaveBeenCalledTimes(1);
     });
@@ -99,7 +108,7 @@ describe('ReviewService', () => {
       expect(mockCouncil.dispatchReviews).toHaveBeenCalledTimes(3);
       // 3 batches * 2 reviewers each = 6 individual reviews
       expect(result.individualReviews.length).toBe(6);
-      expect(mockSummarizer.summarize).toHaveBeenCalledTimes(1);
+      expect(mockDecisionMaker.decide).toHaveBeenCalledTimes(1);
     });
 
     it('should throw when no files found', async () => {

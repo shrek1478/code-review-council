@@ -62,15 +62,24 @@ export class CodebaseCommand extends CommandRunner {
       console.log(review.review);
       console.log();
     }
-    if (result.summary) {
-      console.log('=== Summary (by ' + result.summary.reviewer + ') ===\n');
-      console.log(result.summary.aggregatedReview);
-      if (result.summary.issues?.length > 0) {
-        console.log('\nIssues:');
-        for (const issue of result.summary.issues) {
-          console.log(`  [${issue.severity}] ${issue.category}: ${issue.description}`);
-          if (issue.suggestion) console.log(`    Fix: ${issue.suggestion}`);
-          if (issue.agreedBy?.length > 0) console.log(`    Agreed by: ${issue.agreedBy.join(', ')}`);
+    if (result.decision) {
+      console.log('=== Final Decision (by ' + result.decision.reviewer + ') ===\n');
+      console.log(result.decision.overallAssessment);
+      if (result.decision.decisions?.length > 0) {
+        console.log('\nDecisions:');
+        for (const d of result.decision.decisions) {
+          const verdict = d.verdict === 'accepted' ? '\u2705' : d.verdict === 'rejected' ? '\u274C' : '\u270F\uFE0F';
+          console.log(`  ${verdict} [${d.severity}] ${d.category}: ${d.description}`);
+          if (d.reasoning) console.log(`    Reasoning: ${d.reasoning}`);
+          if (d.suggestion) console.log(`    Action: ${d.suggestion}`);
+          if (d.raisedBy?.length > 0) console.log(`    Raised by: ${d.raisedBy.join(', ')}`);
+        }
+      }
+      if (result.decision.additionalFindings?.length > 0) {
+        console.log('\nAdditional Findings (by Decision Maker):');
+        for (const f of result.decision.additionalFindings) {
+          console.log(`  [${f.severity}] ${f.category}: ${f.description}`);
+          if (f.suggestion) console.log(`    Action: ${f.suggestion}`);
         }
       }
     }

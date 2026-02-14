@@ -3,27 +3,38 @@ export interface IndividualReview {
   review: string;
 }
 
-export interface ReviewIssue {
+export interface ReviewDecisionItem {
   severity: 'high' | 'medium' | 'low';
   category: string;
   description: string;
   file?: string;
   line?: number;
-  agreedBy: string[];
+  raisedBy: string[];
+  verdict: 'accepted' | 'rejected' | 'modified';
+  reasoning: string;
   suggestion: string;
 }
 
-export interface ReviewSummary {
+export interface AdditionalFinding {
+  severity: 'high' | 'medium' | 'low';
+  category: string;
+  description: string;
+  file?: string;
+  suggestion: string;
+}
+
+export interface ReviewDecision {
   reviewer: string;
-  aggregatedReview: string;
-  issues: ReviewIssue[];
+  overallAssessment: string;
+  decisions: ReviewDecisionItem[];
+  additionalFindings: AdditionalFinding[];
 }
 
 export interface ReviewResult {
   id: string;
   status: 'pending' | 'reviewing' | 'completed' | 'failed';
   individualReviews: IndividualReview[];
-  summary?: ReviewSummary;
+  decision?: ReviewDecision;
 }
 
 export interface ReviewRequest {

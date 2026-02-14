@@ -10,19 +10,19 @@ describe('ReviewController', () => {
       id: 'review-abc',
       status: 'completed',
       individualReviews: [],
-      summary: { reviewer: 'Claude', aggregatedReview: 'OK', issues: [] },
+      decision: { reviewer: 'Claude (Decision Maker)', overallAssessment: 'OK', decisions: [], additionalFindings: [] },
     }),
     reviewFiles: vi.fn().mockResolvedValue({
       id: 'review-def',
       status: 'completed',
       individualReviews: [],
-      summary: { reviewer: 'Claude', aggregatedReview: 'OK', issues: [] },
+      decision: { reviewer: 'Claude (Decision Maker)', overallAssessment: 'OK', decisions: [], additionalFindings: [] },
     }),
     reviewCodebase: vi.fn().mockResolvedValue({
       id: 'review-ghi',
       status: 'completed',
       individualReviews: [],
-      summary: { reviewer: 'Claude', aggregatedReview: 'OK', issues: [] },
+      decision: { reviewer: 'Claude (Decision Maker)', overallAssessment: 'OK', decisions: [], additionalFindings: [] },
     }),
   };
 
@@ -30,15 +30,15 @@ describe('ReviewController', () => {
     vi.clearAllMocks();
     mockReviewService.reviewDiff.mockResolvedValue({
       id: 'review-abc', status: 'completed', individualReviews: [],
-      summary: { reviewer: 'Claude', aggregatedReview: 'OK', issues: [] },
+      decision: { reviewer: 'Claude (Decision Maker)', overallAssessment: 'OK', decisions: [], additionalFindings: [] },
     });
     mockReviewService.reviewFiles.mockResolvedValue({
       id: 'review-def', status: 'completed', individualReviews: [],
-      summary: { reviewer: 'Claude', aggregatedReview: 'OK', issues: [] },
+      decision: { reviewer: 'Claude (Decision Maker)', overallAssessment: 'OK', decisions: [], additionalFindings: [] },
     });
     mockReviewService.reviewCodebase.mockResolvedValue({
       id: 'review-ghi', status: 'completed', individualReviews: [],
-      summary: { reviewer: 'Claude', aggregatedReview: 'OK', issues: [] },
+      decision: { reviewer: 'Claude (Decision Maker)', overallAssessment: 'OK', decisions: [], additionalFindings: [] },
     });
 
     const module = await Test.createTestingModule({

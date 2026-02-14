@@ -2,7 +2,7 @@ import { Injectable, Logger, Inject } from '@nestjs/common';
 import { randomUUID } from 'node:crypto';
 import { CodeReaderService, CodebaseOptions } from './code-reader.service.js';
 import { CouncilService } from './council.service.js';
-import { SummarizerService } from './summarizer.service.js';
+import { DecisionMakerService } from './decision-maker.service.js';
 import { AcpService } from '../acp/acp.service.js';
 import { IndividualReview, ReviewResult } from './review.types.js';
 
@@ -13,7 +13,7 @@ export class ReviewService {
   constructor(
     @Inject(CodeReaderService) private readonly codeReader: CodeReaderService,
     @Inject(CouncilService) private readonly council: CouncilService,
-    @Inject(SummarizerService) private readonly summarizer: SummarizerService,
+    @Inject(DecisionMakerService) private readonly decisionMaker: DecisionMakerService,
     @Inject(AcpService) private readonly acpService: AcpService,
   ) {}
 
@@ -72,11 +72,13 @@ export class ReviewService {
       }
 
       const allReviews: IndividualReview[] = [];
+      const allCode: string[] = [];
       for (let i = 0; i < batches.length; i++) {
         const batch = batches[i];
         const code = batch
           .map((f) => `=== ${f.path} ===\n${f.content}`)
           .join('\n\n');
+        allCode.push(code);
 
         const batchExtra = [
           `[Batch ${i + 1}/${batches.length}]`,
@@ -93,8 +95,9 @@ export class ReviewService {
         allReviews.push(...reviews);
       }
 
-      const summary = await this.summarizer.summarize(allReviews);
-      return { id, status: 'completed', individualReviews: allReviews, summary };
+      const fullCode = allCode.join('\n\n');
+      const decision = await this.decisionMaker.decide(fullCode, allReviews);
+      return { id, status: 'completed', individualReviews: allReviews, decision };
     } finally {
       await this.acpService.stopAll();
     }
@@ -112,13 +115,13 @@ export class ReviewService {
       extraInstructions,
     });
 
-    const summary = await this.summarizer.summarize(individualReviews);
+    const decision = await this.decisionMaker.decide(code, individualReviews);
 
     return {
       id,
       status: 'completed',
       individualReviews,
-      summary,
+      decision,
     };
   }
 }

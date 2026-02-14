@@ -16,7 +16,7 @@ describe('ConfigService', () => {
     const config = await service.loadConfig();
     expect(config.reviewers).toBeDefined();
     expect(config.reviewers.length).toBeGreaterThan(0);
-    expect(config.summarizer).toBeDefined();
+    expect(config.decisionMaker).toBeDefined();
     expect(config.review.defaultChecks).toBeDefined();
   });
 
@@ -33,6 +33,6 @@ describe('ConfigService', () => {
     await service.loadConfig();
     const config = service.getConfig();
     expect(config.reviewers).toBeDefined();
-    expect(config.summarizer.name).toBe('Claude');
+    expect(config.decisionMaker.name).toBe('Claude');
   });
 });

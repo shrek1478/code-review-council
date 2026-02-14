@@ -35,9 +35,18 @@ export class FileCommand extends CommandRunner {
       console.log(review.review);
       console.log();
     }
-    if (result.summary) {
-      console.log('=== Summary (by ' + result.summary.reviewer + ') ===\n');
-      console.log(result.summary.aggregatedReview);
+    if (result.decision) {
+      console.log('=== Final Decision (by ' + result.decision.reviewer + ') ===\n');
+      console.log(result.decision.overallAssessment);
+      if (result.decision.decisions?.length > 0) {
+        console.log('\nDecisions:');
+        for (const d of result.decision.decisions) {
+          const verdict = d.verdict === 'accepted' ? '\u2705' : d.verdict === 'rejected' ? '\u274C' : '\u270F\uFE0F';
+          console.log(`  ${verdict} [${d.severity}] ${d.category}: ${d.description}`);
+          if (d.reasoning) console.log(`    Reasoning: ${d.reasoning}`);
+          if (d.suggestion) console.log(`    Action: ${d.suggestion}`);
+        }
+      }
     }
   }
 
