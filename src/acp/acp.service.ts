@@ -12,6 +12,12 @@ export class AcpService {
   private readonly logger = new Logger(AcpService.name);
   private clients: AcpClientHandle[] = [];
 
+  constructor() {
+    // Each ACP client subprocess registers exit/SIGINT/SIGTERM listeners on process.
+    // With multiple reviewers + summarizer, this exceeds the default limit of 10.
+    process.setMaxListeners(process.getMaxListeners() + 20);
+  }
+
   async createClient(config: ReviewerConfig): Promise<AcpClientHandle> {
     this.logger.log(`Creating ACP client: ${config.name} (${config.cliPath})`);
     const client = new CopilotClient({
