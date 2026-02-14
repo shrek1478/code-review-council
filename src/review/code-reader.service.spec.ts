@@ -1,6 +1,8 @@
 import { Test } from '@nestjs/testing';
 import { CodeReaderService } from './code-reader.service.js';
 import { describe, it, expect, beforeEach } from 'vitest';
+import { writeFile, unlink } from 'node:fs/promises';
+import { join } from 'node:path';
 
 describe('CodeReaderService', () => {
   let service: CodeReaderService;
@@ -13,9 +15,16 @@ describe('CodeReaderService', () => {
   });
 
   it('should read git diff from a repo', async () => {
-    // Use the current project's own repo for testing
-    const diff = await service.readGitDiff(process.cwd(), 'HEAD');
-    expect(typeof diff).toBe('string');
+    // Create a temp file to generate an unstaged diff
+    const tmpFile = join(process.cwd(), '__test_diff_tmp__');
+    await writeFile(tmpFile, 'test content\n');
+    try {
+      const diff = await service.readGitDiff(process.cwd(), 'HEAD');
+      expect(typeof diff).toBe('string');
+      expect(diff).toContain('__test_diff_tmp__');
+    } finally {
+      await unlink(tmpFile);
+    }
   });
 
   it('should read file contents', async () => {
