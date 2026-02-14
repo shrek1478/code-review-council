@@ -1,98 +1,146 @@
-<p align="center">
-  <a href="http://nestjs.com/" target="blank"><img src="https://nestjs.com/img/logo-small.svg" width="120" alt="Nest Logo" /></a>
-</p>
+# Code Review Council
 
-[circleci-image]: https://img.shields.io/circleci/build/github/nestjs/nest/master?token=abc123def456
-[circleci-url]: https://circleci.com/gh/nestjs/nest
+多模型 AI Code Review 工具，同時派遣多個 AI 模型（Gemini、Claude、Codex）審查程式碼，再由摘要模型統整所有意見，產出完整的 review 報告。
 
-  <p align="center">A progressive <a href="http://nodejs.org" target="_blank">Node.js</a> framework for building efficient and scalable server-side applications.</p>
-    <p align="center">
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/v/@nestjs/core.svg" alt="NPM Version" /></a>
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/l/@nestjs/core.svg" alt="Package License" /></a>
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/dm/@nestjs/common.svg" alt="NPM Downloads" /></a>
-<a href="https://circleci.com/gh/nestjs/nest" target="_blank"><img src="https://img.shields.io/circleci/build/github/nestjs/nest/master" alt="CircleCI" /></a>
-<a href="https://discord.gg/G7Qnnhy" target="_blank"><img src="https://img.shields.io/badge/discord-online-brightgreen.svg" alt="Discord"/></a>
-<a href="https://opencollective.com/nest#backer" target="_blank"><img src="https://opencollective.com/nest/backers/badge.svg" alt="Backers on Open Collective" /></a>
-<a href="https://opencollective.com/nest#sponsor" target="_blank"><img src="https://opencollective.com/nest/sponsors/badge.svg" alt="Sponsors on Open Collective" /></a>
-  <a href="https://paypal.me/kamilmysliwiec" target="_blank"><img src="https://img.shields.io/badge/Donate-PayPal-ff3f59.svg" alt="Donate us"/></a>
-    <a href="https://opencollective.com/nest#sponsor"  target="_blank"><img src="https://img.shields.io/badge/Support%20us-Open%20Collective-41B883.svg" alt="Support us"></a>
-  <a href="https://twitter.com/nestframework" target="_blank"><img src="https://img.shields.io/twitter/follow/nestframework.svg?style=social&label=Follow" alt="Follow us on Twitter"></a>
-</p>
-  <!--[![Backers on Open Collective](https://opencollective.com/nest/backers/badge.svg)](https://opencollective.com/nest#backer)
-  [![Sponsors on Open Collective](https://opencollective.com/nest/sponsors/badge.svg)](https://opencollective.com/nest#sponsor)-->
+## 功能
 
-## Description
+- **diff** — 審查 git 分支差異
+- **file** — 審查指定檔案
+- **codebase** — 掃描整個專案目錄，自動分批送審
 
-[Nest](https://github.com/nestjs/nest) framework TypeScript starter repository.
+支援 CLI 與 REST API 兩種使用方式。
 
-## Project setup
+## 技術架構
 
-```bash
-$ npm install
+- **框架**: NestJS 11 (ESM)
+- **CLI**: nest-commander
+- **Git 操作**: simple-git
+- **AI 整合**: GitHub Copilot SDK (ACP)
+- **測試**: Vitest
+
+```
+src/
+├── cli/                  # CLI 指令 (diff, file, codebase)
+├── config/               # 設定檔管理
+├── review/               # 核心 review 邏輯
+│   ├── code-reader       # 讀取 diff / 檔案 / codebase
+│   ├── council           # 派遣多模型審查
+│   ├── summarizer        # 統整多份 review
+│   ├── review.service    # 流程編排
+│   └── review.controller # REST API
+├── acp/                  # ACP 客戶端管理
+├── cli.ts                # CLI 進入點
+└── main.ts               # HTTP 伺服器進入點
 ```
 
-## Compile and run the project
+## 安裝
 
 ```bash
-# development
-$ npm run start
-
-# watch mode
-$ npm run start:dev
-
-# production mode
-$ npm run start:prod
+npm install
+npm run build
 ```
 
-## Run tests
+## CLI 使用方式
+
+### 審查 git diff
 
 ```bash
-# unit tests
-$ npm run test
-
-# e2e tests
-$ npm run test:e2e
-
-# test coverage
-$ npm run test:cov
+node dist/cli.js diff --repo /path/to/repo --base main
 ```
 
-## Deployment
-
-When you're ready to deploy your NestJS application to production, there are some key steps you can take to ensure it runs as efficiently as possible. Check out the [deployment documentation](https://docs.nestjs.com/deployment) for more information.
-
-If you are looking for a cloud-based platform to deploy your NestJS application, check out [Mau](https://mau.nestjs.com), our official platform for deploying NestJS applications on AWS. Mau makes deployment straightforward and fast, requiring just a few simple steps:
+### 審查指定檔案
 
 ```bash
-$ npm install -g @nestjs/mau
-$ mau deploy
+node dist/cli.js file src/app.ts src/main.ts
 ```
 
-With Mau, you can deploy your application in just a few clicks, allowing you to focus on building features rather than managing infrastructure.
+### 審查整個 codebase
 
-## Resources
+```bash
+node dist/cli.js codebase --dir /path/to/project
+```
 
-Check out a few resources that may come in handy when working with NestJS:
+可選參數：
 
-- Visit the [NestJS Documentation](https://docs.nestjs.com) to learn more about the framework.
-- For questions and support, please visit our [Discord channel](https://discord.gg/G7Qnnhy).
-- To dive deeper and get more hands-on experience, check out our official video [courses](https://courses.nestjs.com/).
-- Deploy your application to AWS with the help of [NestJS Mau](https://mau.nestjs.com) in just a few clicks.
-- Visualize your application graph and interact with the NestJS application in real-time using [NestJS Devtools](https://devtools.nestjs.com).
-- Need help with your project (part-time to full-time)? Check out our official [enterprise support](https://enterprise.nestjs.com).
-- To stay in the loop and get updates, follow us on [X](https://x.com/nestframework) and [LinkedIn](https://linkedin.com/company/nestjs).
-- Looking for a job, or have a job to offer? Check out our official [Jobs board](https://jobs.nestjs.com).
+| 參數 | 說明 | 預設值 |
+|------|------|--------|
+| `--dir <path>` | 專案目錄路徑 | 當前目錄 |
+| `--extensions <list>` | 逗號分隔的副檔名 (如 `ts,js,py`) | 常見程式語言副檔名 |
+| `--batch-size <chars>` | 每批最大字元數 | 100,000 |
+| `--checks <list>` | 逗號分隔的檢查類別 | 設定檔中的 defaultChecks |
+| `--extra <text>` | 額外的 review 指示 | — |
+| `--config <path>` | 設定檔路徑 | `review-council.config.json` |
 
-## Support
+## REST API
 
-Nest is an MIT-licensed open source project. It can grow thanks to the sponsors and support by the amazing backers. If you'd like to join them, please [read more here](https://docs.nestjs.com/support).
+啟動 HTTP 伺服器：
 
-## Stay in touch
+```bash
+npm run start
+```
 
-- Author - [Kamil Myśliwiec](https://twitter.com/kammysliwiec)
-- Website - [https://nestjs.com](https://nestjs.com/)
-- Twitter - [@nestframework](https://twitter.com/nestframework)
+伺服器預設監聽 `http://localhost:3000`。
 
-## License
+### `POST /review/diff`
 
-Nest is [MIT licensed](https://github.com/nestjs/nest/blob/master/LICENSE).
+```json
+{
+  "repoPath": "/path/to/repo",
+  "baseBranch": "main",
+  "checks": ["security", "performance"],
+  "extraInstructions": "請特別注意 SQL injection"
+}
+```
+
+### `POST /review/file`
+
+```json
+{
+  "files": ["src/app.ts", "src/main.ts"],
+  "checks": ["code-quality"]
+}
+```
+
+### `POST /review/codebase`
+
+```json
+{
+  "directory": "/path/to/project",
+  "extensions": [".ts", ".js"],
+  "maxBatchSize": 100000,
+  "checks": ["security", "best-practices"]
+}
+```
+
+## 設定檔
+
+`review-council.config.json`：
+
+```json
+{
+  "reviewers": [
+    { "name": "Gemini", "cliPath": "gemini", "cliArgs": ["--experimental-acp"] },
+    { "name": "Claude", "cliPath": "claude-code-acp", "cliArgs": [] },
+    { "name": "Codex", "cliPath": "codex-acp", "cliArgs": [] }
+  ],
+  "summarizer": {
+    "name": "Claude",
+    "cliPath": "claude-code-acp",
+    "cliArgs": []
+  },
+  "review": {
+    "defaultChecks": ["code-quality", "security", "performance", "readability", "best-practices"],
+    "language": "zh-tw"
+  }
+}
+```
+
+## 測試
+
+```bash
+npx vitest run
+```
+
+## 授權
+
+UNLICENSED
