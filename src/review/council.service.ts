@@ -41,16 +41,16 @@ export class CouncilService {
     const checks = request.checks.length > 0 ? request.checks : config.review.defaultChecks;
 
     let prompt = `You are a senior code reviewer. Please review the following code.
-Reply in ${lang}.
+You MUST reply entirely in ${lang}. All descriptions, suggestions, and explanations must be written in ${lang}.
 
 Check for: ${checks.join(', ')}
 
 For each issue found, provide:
 - Severity (high/medium/low)
 - Category
-- Description
+- Description (in ${lang})
 - File and line number if applicable
-- Suggested fix
+- Suggested fix (in ${lang})
 
 Code to review:
 \`\`\`

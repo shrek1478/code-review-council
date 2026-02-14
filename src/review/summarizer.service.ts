@@ -27,23 +27,23 @@ export class SummarizerService {
 
     const prompt = `You are a senior engineering lead. Multiple AI code reviewers have reviewed the same code.
 Your job is to aggregate their feedback, judge the reasonableness of each suggestion, and produce a final summary.
-Reply in ${lang}.
+You MUST reply entirely in ${lang}. All text content in the JSON (aggregatedReview, description, suggestion) must be written in ${lang}.
 
 Individual reviews:
 ${reviewsText}
 
 Please output a JSON object with this structure:
 {
-  "aggregatedReview": "Overall assessment in 2-3 paragraphs",
+  "aggregatedReview": "Overall assessment in 2-3 paragraphs (in ${lang})",
   "issues": [
     {
       "severity": "high|medium|low",
       "category": "security|performance|readability|code-quality|best-practices",
-      "description": "What the issue is",
+      "description": "What the issue is (in ${lang})",
       "file": "filename if mentioned",
       "line": null,
       "agreedBy": ["reviewer names who flagged this"],
-      "suggestion": "How to fix it"
+      "suggestion": "How to fix it (in ${lang})"
     }
   ]
 }
