@@ -1,7 +1,7 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, ConsoleLogger, Inject } from '@nestjs/common';
 import { simpleGit } from 'simple-git';
-import { readFile } from 'node:fs/promises';
-import { join, extname } from 'node:path';
+import { readFile, stat } from 'node:fs/promises';
+import { join, extname, basename } from 'node:path';
 
 export interface FileContent {
   path: string;
@@ -22,9 +22,24 @@ export const DEFAULT_EXTENSIONS = [
   '.json', '.yaml', '.yml',
 ];
 
+const SENSITIVE_PATTERNS = [
+  /^\.env($|\.)/,
+  /\.pem$/,
+  /\.key$/,
+  /\.p12$/,
+  /\.pfx$/,
+  /secret/i,
+  /credential/i,
+  /\.keystore$/,
+];
+
+const MAX_FILE_SIZE = 1_048_576; // 1MB
+
 @Injectable()
 export class CodeReaderService {
-  private readonly logger = new Logger(CodeReaderService.name);
+  constructor(@Inject(ConsoleLogger) private readonly logger: ConsoleLogger) {
+    this.logger.setContext(CodeReaderService.name);
+  }
 
   async readGitDiff(
     repoPath: string,
@@ -76,7 +91,8 @@ export class CodeReaderService {
       .split('\n')
       .map((f) => f.trim())
       .filter((f) => f.length > 0)
-      .filter((f) => extensions.includes(extname(f)));
+      .filter((f) => extensions.includes(extname(f)))
+      .filter((f) => !this.isSensitiveFile(f));
 
     this.logger.log(`Found ${allFiles.length} files matching extensions`);
 
@@ -84,6 +100,11 @@ export class CodeReaderService {
     for (const relativePath of allFiles) {
       const fullPath = join(directory, relativePath);
       try {
+        const fileStat = await stat(fullPath);
+        if (fileStat.size > MAX_FILE_SIZE) {
+          this.logger.warn(`Skipping large file (${(fileStat.size / 1024 / 1024).toFixed(1)}MB): ${relativePath}`);
+          continue;
+        }
         const content = await readFile(fullPath, 'utf-8');
         files.push({ path: relativePath, content });
       } catch {
@@ -96,6 +117,11 @@ export class CodeReaderService {
     }
 
     return this.splitIntoBatches(files, maxBatchSize);
+  }
+
+  private isSensitiveFile(filePath: string): boolean {
+    const name = basename(filePath);
+    return SENSITIVE_PATTERNS.some((pattern) => pattern.test(name));
   }
 
   private splitIntoBatches(

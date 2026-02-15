@@ -1,4 +1,5 @@
 import { Test } from '@nestjs/testing';
+import { ConsoleLogger } from '@nestjs/common';
 import { CodeReaderService } from './code-reader.service.js';
 import { describe, it, expect, beforeEach } from 'vitest';
 import { writeFile, unlink } from 'node:fs/promises';
@@ -9,7 +10,7 @@ describe('CodeReaderService', () => {
 
   beforeEach(async () => {
     const module = await Test.createTestingModule({
-      providers: [CodeReaderService],
+      providers: [CodeReaderService, { provide: ConsoleLogger, useValue: new ConsoleLogger() }],
     }).compile();
     service = module.get(CodeReaderService);
   });
