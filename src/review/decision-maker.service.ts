@@ -10,6 +10,7 @@ import {
 
 const MAX_CODE_LENGTH = 60_000;
 const MAX_REVIEWS_LENGTH = 30_000;
+const MAX_SUMMARY_LENGTH = 30_000;
 
 const VALID_SEVERITIES = new Set(['high', 'medium', 'low']);
 const VALID_VERDICTS = new Set(['accepted', 'rejected', 'modified']);
@@ -184,7 +185,9 @@ Rules:
           f && typeof f.severity === 'string' && typeof f.description === 'string',
       )
       .map((f: Record<string, unknown>) => ({
-        severity: f.severity as AdditionalFinding['severity'],
+        severity: VALID_SEVERITIES.has(String(f.severity))
+          ? (f.severity as AdditionalFinding['severity'])
+          : 'medium',
         category: String(f.category ?? ''),
         description: String(f.description),
         file: f.file ? String(f.file) : undefined,
@@ -233,6 +236,11 @@ Rules:
   }
 
   private buildSummarySection(fileSummary: string): string {
-    return `## Files reviewed (file summary — full code was split into batches for individual reviewers):\n<file_summary>\n${fileSummary}\n</file_summary>`;
+    if (fileSummary.length <= MAX_SUMMARY_LENGTH) {
+      return `## Files reviewed (file summary — full code was split into batches for individual reviewers):\n<file_summary>\n${fileSummary}\n</file_summary>`;
+    }
+
+    this.logger.log(`File summary too large (${fileSummary.length} chars), truncating to ${MAX_SUMMARY_LENGTH}`);
+    return `## Files reviewed (file summary, truncated from ${fileSummary.length} to ${MAX_SUMMARY_LENGTH} chars):\n<file_summary>\n${fileSummary.slice(0, MAX_SUMMARY_LENGTH)}\n...(truncated)\n</file_summary>`;
   }
 }

@@ -1,5 +1,6 @@
 import { Command, CommandRunner, Option } from 'nest-commander';
 import { Inject } from '@nestjs/common';
+import { existsSync } from 'node:fs';
 import { ReviewService } from '../review/review.service.js';
 import { ConfigService } from '../config/config.service.js';
 import { printResult } from './result-printer.js';
@@ -61,6 +62,9 @@ export class CodebaseCommand extends CommandRunner {
     description: 'Directory to review (default: cwd)',
   })
   parseDir(val: string) {
+    if (!existsSync(val)) {
+      throw new Error(`Directory not found: "${val}"`);
+    }
     return val;
   }
 

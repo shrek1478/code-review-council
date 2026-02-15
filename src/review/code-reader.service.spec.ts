@@ -1,9 +1,11 @@
 import { Test } from '@nestjs/testing';
 import { ConsoleLogger } from '@nestjs/common';
 import { CodeReaderService } from './code-reader.service.js';
-import { describe, it, expect, beforeEach } from 'vitest';
-import { writeFile, unlink } from 'node:fs/promises';
+import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import { writeFile, mkdtemp, rm } from 'node:fs/promises';
 import { join } from 'node:path';
+import { tmpdir } from 'node:os';
+import { simpleGit } from 'simple-git';
 
 describe('CodeReaderService', () => {
   let service: CodeReaderService;
@@ -15,17 +17,44 @@ describe('CodeReaderService', () => {
     service = module.get(CodeReaderService);
   });
 
-  it('should read git diff from a repo', async () => {
-    // Create a temp file to generate an unstaged diff
-    const tmpFile = join(process.cwd(), '__test_diff_tmp__');
-    await writeFile(tmpFile, 'test content\n');
-    try {
-      const diff = await service.readGitDiff(process.cwd(), 'HEAD');
+  describe('readGitDiff', () => {
+    let tmpDir: string;
+
+    beforeEach(async () => {
+      tmpDir = await mkdtemp(join(tmpdir(), 'cr-test-'));
+      const git = simpleGit(tmpDir);
+      await git.init();
+      await git.addConfig('user.email', 'test@test.com');
+      await git.addConfig('user.name', 'Test');
+      await writeFile(join(tmpDir, 'initial.txt'), 'initial\n');
+      await git.add('initial.txt');
+      await git.commit('initial commit');
+    });
+
+    afterEach(async () => {
+      await rm(tmpDir, { recursive: true, force: true });
+    });
+
+    it('should read git diff from a repo', async () => {
+      await writeFile(join(tmpDir, 'initial.txt'), 'modified content\n');
+      const diff = await service.readGitDiff(tmpDir, 'HEAD');
       expect(typeof diff).toBe('string');
-      expect(diff).toContain('__test_diff_tmp__');
-    } finally {
-      await unlink(tmpFile);
-    }
+      expect(diff).toContain('modified content');
+    });
+
+    it('should read staged diff when no unstaged changes', async () => {
+      await writeFile(join(tmpDir, 'new.txt'), 'staged content\n');
+      const git = simpleGit(tmpDir);
+      await git.add('new.txt');
+      const diff = await service.readGitDiff(tmpDir, 'HEAD');
+      expect(diff).toContain('staged content');
+    });
+
+    it('should reject branch names starting with dash', async () => {
+      await expect(
+        service.readGitDiff(tmpDir, '--staged'),
+      ).rejects.toThrow('Invalid base branch name');
+    });
   });
 
   it('should read file contents', async () => {

@@ -6,9 +6,11 @@ import {
 
 // eslint-disable-next-line no-control-regex
 const ANSI_REGEX = /[\u001b\u009b][[()#;?]*(?:\d{1,4}(?:;\d{0,4})*)?[\d<=>A-ORZcf-nqry]/g;
+// eslint-disable-next-line no-control-regex
+const C0_CONTROL_REGEX = /[\x00-\x08\x0B\x0C\x0E-\x1F]/g;
 
 function sanitize(text: string): string {
-  return text.replace(ANSI_REGEX, '');
+  return text.replace(ANSI_REGEX, '').replace(C0_CONTROL_REGEX, '');
 }
 
 export function getVerdictIcon(verdict: ReviewDecisionItem['verdict']): string {

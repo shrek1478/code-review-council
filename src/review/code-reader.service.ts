@@ -1,6 +1,6 @@
 import { Injectable, ConsoleLogger, Inject } from '@nestjs/common';
 import { simpleGit } from 'simple-git';
-import { readFile, stat } from 'node:fs/promises';
+import { readFile, stat, realpath, lstat } from 'node:fs/promises';
 import { join, extname, basename, resolve } from 'node:path';
 
 export interface FileContent {
@@ -34,7 +34,9 @@ const SENSITIVE_PATTERNS = [
 ];
 
 const MAX_FILE_SIZE = 1_048_576; // 1MB
+const MAX_TOTAL_SIZE = 200 * 1_048_576; // 200MB cumulative limit
 const BRANCH_PATTERN = /^[A-Za-z0-9._\-/]+$/;
+const CONCURRENCY = 16;
 
 @Injectable()
 export class CodeReaderService {
@@ -46,7 +48,7 @@ export class CodeReaderService {
     repoPath: string,
     baseBranch: string = 'main',
   ): Promise<string> {
-    if (!BRANCH_PATTERN.test(baseBranch)) {
+    if (!BRANCH_PATTERN.test(baseBranch) || baseBranch.startsWith('-')) {
       throw new Error(`Invalid base branch name: "${baseBranch}"`);
     }
     this.logger.log(`Reading git diff: ${repoPath} (base: ${baseBranch})`);
@@ -69,30 +71,48 @@ export class CodeReaderService {
     this.logger.log(`Reading ${filePaths.length} files`);
     const rootDir = resolve(allowedRoot);
     const results: FileContent[] = [];
-    for (const filePath of filePaths) {
+
+    const readOne = async (filePath: string): Promise<FileContent | null> => {
       const resolved = resolve(filePath);
       if (!resolved.startsWith(rootDir + '/') && resolved !== rootDir) {
         this.logger.warn(`Skipping file outside allowed root: ${filePath}`);
-        continue;
+        return null;
       }
       if (this.isSensitiveFile(resolved)) {
         this.logger.warn(`Skipping sensitive file: ${filePath}`);
-        continue;
+        return null;
       }
       try {
-        const fileStat = await stat(resolved);
+        const fileStat = await lstat(resolved);
+        if (fileStat.isSymbolicLink()) {
+          const real = await realpath(resolved);
+          if (!real.startsWith(rootDir + '/') && real !== rootDir) {
+            this.logger.warn(`Skipping symlink pointing outside root: ${filePath}`);
+            return null;
+          }
+        }
         if (fileStat.size > MAX_FILE_SIZE) {
           this.logger.warn(
             `Skipping large file (${(fileStat.size / 1024 / 1024).toFixed(1)}MB): ${filePath}`,
           );
-          continue;
+          return null;
         }
         const content = await readFile(resolved, 'utf-8');
-        results.push({ path: filePath, content });
+        return { path: filePath, content };
       } catch {
         this.logger.warn(`Skipping unreadable file: ${filePath}`);
+        return null;
+      }
+    };
+
+    for (let i = 0; i < filePaths.length; i += CONCURRENCY) {
+      const chunk = filePaths.slice(i, i + CONCURRENCY);
+      const batch = await Promise.all(chunk.map(readOne));
+      for (const item of batch) {
+        if (item) results.push(item);
       }
     }
+
     if (results.length === 0) {
       throw new Error('No readable files found');
     }
@@ -127,19 +147,38 @@ export class CodeReaderService {
     this.logger.log(`Found ${allFiles.length} files matching extensions`);
 
     const files: FileContent[] = [];
-    for (const relativePath of allFiles) {
+    let totalSize = 0;
+
+    const readOne = async (relativePath: string): Promise<FileContent | null> => {
       const fullPath = join(directory, relativePath);
       try {
         const fileStat = await stat(fullPath);
         if (fileStat.size > MAX_FILE_SIZE) {
           this.logger.warn(`Skipping large file (${(fileStat.size / 1024 / 1024).toFixed(1)}MB): ${relativePath}`);
-          continue;
+          return null;
         }
         const content = await readFile(fullPath, 'utf-8');
-        files.push({ path: relativePath, content });
+        return { path: relativePath, content };
       } catch {
         this.logger.warn(`Skipping unreadable file: ${relativePath}`);
+        return null;
       }
+    };
+
+    for (let i = 0; i < allFiles.length; i += CONCURRENCY) {
+      const chunk = allFiles.slice(i, i + CONCURRENCY);
+      const batch = await Promise.all(chunk.map(readOne));
+      for (const item of batch) {
+        if (item) {
+          totalSize += item.content.length;
+          if (totalSize > MAX_TOTAL_SIZE) {
+            this.logger.warn(`Cumulative size exceeded ${MAX_TOTAL_SIZE / 1_048_576}MB, stopping file reads`);
+            break;
+          }
+          files.push(item);
+        }
+      }
+      if (totalSize > MAX_TOTAL_SIZE) break;
     }
 
     if (files.length === 0) {

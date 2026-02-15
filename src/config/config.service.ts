@@ -63,5 +63,8 @@ export class ConfigService {
     if (!Array.isArray(r.cliArgs)) {
       throw new Error(`Invalid config (${filePath}): "${path}.cliArgs" must be an array`);
     }
+    if (!r.cliArgs.every((a: unknown) => typeof a === 'string')) {
+      throw new Error(`Invalid config (${filePath}): "${path}.cliArgs" elements must be strings`);
+    }
   }
 }

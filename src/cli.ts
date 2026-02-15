@@ -16,6 +16,8 @@ class CliLogger extends ConsoleLogger {
   }
 }
 
+// CopilotClient spawns child processes that register exit/signal listeners on `process`.
+// With 3+ reviewers in parallel, this exceeds the default 10 listeners limit.
 process.setMaxListeners(30);
 
 async function bootstrap() {

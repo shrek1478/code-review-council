@@ -4,7 +4,6 @@ import { ReviewService } from './review.service.js';
 import { CodeReaderService } from './code-reader.service.js';
 import { CouncilService } from './council.service.js';
 import { DecisionMakerService } from './decision-maker.service.js';
-import { AcpService } from '../acp/acp.service.js';
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 
 describe('ReviewService', () => {
@@ -32,8 +31,6 @@ describe('ReviewService', () => {
       additionalFindings: [],
     }),
   };
-  const mockAcpService = { stopAll: vi.fn().mockResolvedValue(undefined) };
-
   beforeEach(async () => {
     vi.clearAllMocks();
     mockCodeReader.readGitDiff.mockResolvedValue('diff --git a/test.ts');
@@ -52,8 +49,6 @@ describe('ReviewService', () => {
       decisions: [],
       additionalFindings: [],
     });
-    mockAcpService.stopAll.mockResolvedValue(undefined);
-
     const module = await Test.createTestingModule({
       providers: [
         ReviewService,
@@ -61,7 +56,6 @@ describe('ReviewService', () => {
         { provide: CodeReaderService, useValue: mockCodeReader },
         { provide: CouncilService, useValue: mockCouncil },
         { provide: DecisionMakerService, useValue: mockDecisionMaker },
-        { provide: AcpService, useValue: mockAcpService },
       ],
     }).compile();
     service = module.get(ReviewService);

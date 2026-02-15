@@ -58,8 +58,13 @@ export class AcpService {
 
     const sessionOpts: AcpSessionOptions = { streaming: true };
     if (handle.model) sessionOpts.model = handle.model;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const clientAny = handle.client as any;
+    if (typeof clientAny.createSession !== 'function') {
+      throw new Error(`SDK incompatible: ${handle.name} client has no createSession method`);
+    }
     const session: AcpSession = await (
-      handle.client as unknown as CopilotClientWithSession
+      clientAny as CopilotClientWithSession
     ).createSession(sessionOpts);
 
     try {
@@ -70,10 +75,7 @@ export class AcpService {
         const timer = setTimeout(() => {
           if (!settled) {
             settled = true;
-            const timeoutDisplay = timeoutMs < 1000
-              ? `${timeoutMs}ms`
-              : `${Math.ceil(timeoutMs / 1000)}s`;
-            reject(new Error(`${handle.name} timed out after ${timeoutDisplay}`));
+            reject(new Error(`${handle.name} timed out after ${timeoutMs}ms`));
           }
         }, timeoutMs);
 
