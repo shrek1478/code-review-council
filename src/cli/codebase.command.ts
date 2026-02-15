@@ -33,7 +33,11 @@ export class CodebaseCommand extends CommandRunner {
         `Invalid batch-size: "${options.batchSize}". Must be a positive integer.`,
       );
     }
-    const checks = options.checks?.split(',').filter(Boolean) ?? [];
+    const checks =
+      options.checks
+        ?.split(',')
+        .map((s) => s.trim())
+        .filter(Boolean) ?? [];
     const extra = options.extra;
 
     console.log('\n=== Code Review Council ===\n');

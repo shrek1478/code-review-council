@@ -18,7 +18,7 @@ export class DiffCommand extends CommandRunner {
 
     const repoPath = options.repo ?? process.cwd();
     const baseBranch = options.base ?? 'main';
-    const checks = options.checks?.split(',').filter(Boolean) ?? [];
+    const checks = options.checks?.split(',').map((s) => s.trim()).filter(Boolean) ?? [];
     const extra = options.extra;
 
     console.log('\n=== Code Review Council ===\n');

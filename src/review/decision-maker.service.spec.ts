@@ -31,6 +31,7 @@ describe('DecisionMakerService', () => {
         },
       ],
     })),
+    stopClient: vi.fn().mockResolvedValue(undefined),
     stopAll: vi.fn().mockResolvedValue(undefined),
   };
   const mockConfigService = {

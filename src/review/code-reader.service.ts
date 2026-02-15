@@ -62,11 +62,19 @@ export class CodeReaderService {
     return diff;
   }
 
-  async readFiles(filePaths: string[]): Promise<FileContent[]> {
+  async readFiles(
+    filePaths: string[],
+    allowedRoot: string = process.cwd(),
+  ): Promise<FileContent[]> {
     this.logger.log(`Reading ${filePaths.length} files`);
+    const rootDir = resolve(allowedRoot);
     const results: FileContent[] = [];
     for (const filePath of filePaths) {
       const resolved = resolve(filePath);
+      if (!resolved.startsWith(rootDir + '/') && resolved !== rootDir) {
+        this.logger.warn(`Skipping file outside allowed root: ${filePath}`);
+        continue;
+      }
       if (this.isSensitiveFile(resolved)) {
         this.logger.warn(`Skipping sensitive file: ${filePath}`);
         continue;
@@ -106,7 +114,6 @@ export class CodeReaderService {
     const result = await git.raw([
       'ls-files',
       '--cached',
-      '--others',
       '--exclude-standard',
     ]);
 
@@ -143,8 +150,10 @@ export class CodeReaderService {
   }
 
   private isSensitiveFile(filePath: string): boolean {
-    const name = basename(filePath);
-    return SENSITIVE_PATTERNS.some((pattern) => pattern.test(name));
+    const segments = filePath.split('/');
+    return segments.some((segment) =>
+      SENSITIVE_PATTERNS.some((pattern) => pattern.test(segment)),
+    );
   }
 
   private splitIntoBatches(

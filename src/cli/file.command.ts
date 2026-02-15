@@ -20,7 +20,7 @@ export class FileCommand extends CommandRunner {
 
     await this.configService.loadConfig(options.config);
 
-    const checks = options.checks?.split(',').filter(Boolean) ?? [];
+    const checks = options.checks?.split(',').map((s) => s.trim()).filter(Boolean) ?? [];
     const extra = options.extra;
 
     console.log('\n=== Code Review Council ===\n');

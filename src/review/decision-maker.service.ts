@@ -11,6 +11,9 @@ import {
 const MAX_CODE_LENGTH = 60_000;
 const MAX_REVIEWS_LENGTH = 30_000;
 
+const VALID_SEVERITIES = new Set(['high', 'medium', 'low']);
+const VALID_VERDICTS = new Set(['accepted', 'rejected', 'modified']);
+
 @Injectable()
 export class DecisionMakerService {
   constructor(
@@ -34,6 +37,7 @@ export class DecisionMakerService {
 
     const handle = await this.acpService.createClient(dmConfig);
 
+    try {
     const reviewsText = this.buildReviewsSection(reviews);
     const codeSection = isSummaryMode
       ? this.buildSummarySection(code)
@@ -103,6 +107,9 @@ Rules:
     const response = await this.acpService.sendPrompt(handle, prompt, 300_000);
 
     return this.parseResponse(response, dmConfig.name);
+    } finally {
+      await this.acpService.stopClient(handle);
+    }
   }
 
   private parseResponse(response: string, dmName: string): ReviewDecision {
@@ -156,13 +163,17 @@ Rules:
           d && typeof d.severity === 'string' && typeof d.description === 'string',
       )
       .map((d: Record<string, unknown>) => ({
-        severity: d.severity as ReviewDecisionItem['severity'],
+        severity: VALID_SEVERITIES.has(String(d.severity))
+          ? (d.severity as ReviewDecisionItem['severity'])
+          : 'medium',
         category: String(d.category ?? ''),
         description: String(d.description),
         file: d.file ? String(d.file) : undefined,
         line: typeof d.line === 'number' ? d.line : undefined,
         raisedBy: Array.isArray(d.raisedBy) ? d.raisedBy.map(String) : [],
-        verdict: (d.verdict as ReviewDecisionItem['verdict']) ?? 'modified',
+        verdict: VALID_VERDICTS.has(String(d.verdict))
+          ? (d.verdict as ReviewDecisionItem['verdict'])
+          : 'modified',
         reasoning: String(d.reasoning ?? ''),
         suggestion: String(d.suggestion ?? ''),
       }));
@@ -214,14 +225,14 @@ Rules:
 
   private buildCodeSection(code: string): string {
     if (code.length <= MAX_CODE_LENGTH) {
-      return `## Code to review:\n\`\`\`\n${code}\n\`\`\``;
+      return `## Code to review:\n<code_to_review>\n${code}\n</code_to_review>`;
     }
 
     this.logger.log(`Code too large (${code.length} chars), truncating to ${MAX_CODE_LENGTH}`);
-    return `## Code to review (truncated from ${code.length} to ${MAX_CODE_LENGTH} chars):\n\`\`\`\n${code.slice(0, MAX_CODE_LENGTH)}\n...(truncated)\n\`\`\``;
+    return `## Code to review (truncated from ${code.length} to ${MAX_CODE_LENGTH} chars):\n<code_to_review>\n${code.slice(0, MAX_CODE_LENGTH)}\n...(truncated)\n</code_to_review>`;
   }
 
   private buildSummarySection(fileSummary: string): string {
-    return `## Files reviewed (file summary — full code was split into batches for individual reviewers):\n\`\`\`\n${fileSummary}\n\`\`\``;
+    return `## Files reviewed (file summary — full code was split into batches for individual reviewers):\n<file_summary>\n${fileSummary}\n</file_summary>`;
   }
 }
