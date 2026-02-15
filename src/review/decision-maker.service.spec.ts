@@ -1,4 +1,5 @@
 import { Test } from '@nestjs/testing';
+import { ConsoleLogger } from '@nestjs/common';
 import { DecisionMakerService } from './decision-maker.service.js';
 import { AcpService } from '../acp/acp.service.js';
 import { ConfigService } from '../config/config.service.js';
@@ -59,6 +60,7 @@ describe('DecisionMakerService', () => {
     const module = await Test.createTestingModule({
       providers: [
         DecisionMakerService,
+        { provide: ConsoleLogger, useValue: new ConsoleLogger() },
         { provide: AcpService, useValue: mockAcpService },
         { provide: ConfigService, useValue: mockConfigService },
       ],
@@ -95,5 +97,32 @@ describe('DecisionMakerService', () => {
     expect(decision.overallAssessment).toBe('This is just plain text, not JSON.');
     expect(decision.decisions).toEqual([]);
     expect(decision.additionalFindings).toEqual([]);
+  });
+
+  it('should parse JSON embedded in text with markdown fences', async () => {
+    const jsonObj = {
+      overallAssessment: 'Good code.',
+      decisions: [],
+      additionalFindings: [],
+    };
+    mockAcpService.sendPrompt.mockResolvedValue(
+      'Here is my analysis:\n```json\n' + JSON.stringify(jsonObj) + '\n```\nEnd.'
+    );
+    const decision = await service.decide(
+      'const x = 1;',
+      [{ reviewer: 'Test', review: 'OK' }],
+    );
+    expect(decision.overallAssessment).toBe('Good code.');
+  });
+
+  it('should use summary mode prompt when isSummaryMode is true', async () => {
+    await service.decide(
+      'file1.ts (10 lines)\nfile2.ts (20 lines)',
+      [{ reviewer: 'Test', review: 'OK' }],
+      true,
+    );
+    const sentPrompt = mockAcpService.sendPrompt.mock.calls[0][1];
+    expect(sentPrompt).toContain('file summary');
+    expect(sentPrompt).not.toContain('Review the code yourself');
   });
 });

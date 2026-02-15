@@ -1,4 +1,4 @@
-import { Injectable, Logger, Inject } from '@nestjs/common';
+import { Injectable, ConsoleLogger, Inject } from '@nestjs/common';
 import { AcpService } from '../acp/acp.service.js';
 import { ConfigService } from '../config/config.service.js';
 import { IndividualReview, ReviewDecision } from './review.types.js';
@@ -8,14 +8,19 @@ const MAX_REVIEWS_LENGTH = 30_000;
 
 @Injectable()
 export class DecisionMakerService {
-  private readonly logger = new Logger(DecisionMakerService.name);
-
   constructor(
+    @Inject(ConsoleLogger) private readonly logger: ConsoleLogger,
     @Inject(AcpService) private readonly acpService: AcpService,
     @Inject(ConfigService) private readonly configService: ConfigService,
-  ) {}
+  ) {
+    this.logger.setContext(DecisionMakerService.name);
+  }
 
-  async decide(code: string, reviews: IndividualReview[]): Promise<ReviewDecision> {
+  async decide(
+    code: string,
+    reviews: IndividualReview[],
+    isSummaryMode = false,
+  ): Promise<ReviewDecision> {
     const config = this.configService.getConfig();
     const dmConfig = config.decisionMaker;
     const lang = config.review.language ?? 'zh-tw';
@@ -25,17 +30,26 @@ export class DecisionMakerService {
     const handle = await this.acpService.createClient(dmConfig);
 
     const reviewsText = this.buildReviewsSection(reviews);
+    const codeSection = isSummaryMode
+      ? this.buildSummarySection(code)
+      : this.buildCodeSection(code);
 
-    const codeSection = this.buildCodeSection(code);
+    const responsibilities = isSummaryMode
+      ? `## Your responsibilities:
+1. **Read the file summary** — understand the scope of the codebase being reviewed
+2. **Read other reviewers' opinions** — consider their findings carefully
+3. **Make final decisions** — agree or disagree with each suggestion based on your judgement
+Note: The codebase was too large to include in full. You are given a file summary instead. Focus on evaluating the reviewers' opinions rather than reviewing code directly.`
+      : `## Your responsibilities:
+1. **Review the code yourself** — form your own independent opinion based on the code provided
+2. **Read other reviewers' opinions** — consider their findings
+3. **Make final decisions** — agree or disagree with each suggestion based on your own judgement`;
 
     const prompt = `You are a senior engineering lead and the final decision maker in a code review council.
 You MUST reply entirely in ${lang}. All text content must be written in ${lang}.
 Respond with ONLY a JSON object. No other text.
 
-## Your responsibilities:
-1. **Review the code yourself** — form your own independent opinion based on the code provided
-2. **Read other reviewers' opinions** — consider their findings
-3. **Make final decisions** — agree or disagree with each suggestion based on your own judgement
+${responsibilities}
 
 ${codeSection}
 
@@ -83,24 +97,57 @@ Rules:
     this.logger.log(`Sending prompt to decision maker (${prompt.length} chars)`);
     const response = await this.acpService.sendPrompt(handle, prompt, 300_000);
 
+    return this.parseResponse(response, dmConfig.name);
+  }
+
+  private parseResponse(response: string, dmName: string): ReviewDecision {
+    // Strategy 1: try direct parse
     try {
-      const jsonMatch = response.match(/\{[\s\S]*\}/);
-      const parsed = JSON.parse(jsonMatch ? jsonMatch[0] : response);
-      return {
-        reviewer: `${dmConfig.name} (Decision Maker)`,
-        overallAssessment: parsed.overallAssessment ?? response,
-        decisions: parsed.decisions ?? [],
-        additionalFindings: parsed.additionalFindings ?? [],
-      };
+      const parsed = JSON.parse(response.trim());
+      return this.toDecision(parsed, dmName);
     } catch {
-      this.logger.warn('Failed to parse decision maker response as JSON, returning raw text');
-      return {
-        reviewer: `${dmConfig.name} (Decision Maker)`,
-        overallAssessment: response,
-        decisions: [],
-        additionalFindings: [],
-      };
+      // continue to strategy 2
     }
+
+    // Strategy 2: extract JSON from markdown fences or surrounding text
+    const stripped = response
+      .replace(/```json\s*/g, '')
+      .replace(/```\s*/g, '')
+      .trim();
+    try {
+      const parsed = JSON.parse(stripped);
+      return this.toDecision(parsed, dmName);
+    } catch {
+      // continue to strategy 3
+    }
+
+    // Strategy 3: greedy regex to find JSON object in surrounding text
+    const jsonMatch = stripped.match(/\{[\s\S]*\}/);
+    if (jsonMatch) {
+      try {
+        const parsed = JSON.parse(jsonMatch[0]);
+        return this.toDecision(parsed, dmName);
+      } catch {
+        // fall through
+      }
+    }
+
+    this.logger.warn('Failed to parse decision maker response as JSON, returning raw text');
+    return {
+      reviewer: `${dmName} (Decision Maker)`,
+      overallAssessment: response,
+      decisions: [],
+      additionalFindings: [],
+    };
+  }
+
+  private toDecision(parsed: any, dmName: string): ReviewDecision {
+    return {
+      reviewer: `${dmName} (Decision Maker)`,
+      overallAssessment: parsed.overallAssessment ?? '',
+      decisions: parsed.decisions ?? [],
+      additionalFindings: parsed.additionalFindings ?? [],
+    };
   }
 
   private buildReviewsSection(reviews: IndividualReview[]): string {
@@ -132,5 +179,9 @@ Rules:
 
     this.logger.log(`Code too large (${code.length} chars), truncating to ${MAX_CODE_LENGTH}`);
     return `## Code to review (truncated from ${code.length} to ${MAX_CODE_LENGTH} chars):\n\`\`\`\n${code.slice(0, MAX_CODE_LENGTH)}\n...(truncated)\n\`\`\``;
+  }
+
+  private buildSummarySection(fileSummary: string): string {
+    return `## Files reviewed (file summary — full code was split into batches for individual reviewers):\n\`\`\`\n${fileSummary}\n\`\`\``;
   }
 }
