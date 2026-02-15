@@ -16,7 +16,9 @@ export class ConfigService {
       ? resolve(configPath)
       : resolve(PROJECT_ROOT, 'review-council.config.json');
     const content = await readFile(filePath, 'utf-8');
-    this.config = JSON.parse(content) as CouncilConfig;
+    const parsed = JSON.parse(content);
+    this.validateConfig(parsed, filePath);
+    this.config = parsed as CouncilConfig;
     return this.config;
   }
 
@@ -25,5 +27,33 @@ export class ConfigService {
       throw new Error('Config not loaded. Call loadConfig() first.');
     }
     return this.config;
+  }
+
+  private validateConfig(config: any, filePath: string): void {
+    if (!Array.isArray(config.reviewers) || config.reviewers.length === 0) {
+      throw new Error(`Invalid config (${filePath}): "reviewers" must be a non-empty array`);
+    }
+    for (const [i, r] of config.reviewers.entries()) {
+      this.validateReviewerConfig(r, `reviewers[${i}]`, filePath);
+    }
+    if (!config.decisionMaker) {
+      throw new Error(`Invalid config (${filePath}): "decisionMaker" is required`);
+    }
+    this.validateReviewerConfig(config.decisionMaker, 'decisionMaker', filePath);
+    if (!config.review || !Array.isArray(config.review.defaultChecks)) {
+      throw new Error(`Invalid config (${filePath}): "review.defaultChecks" must be an array`);
+    }
+  }
+
+  private validateReviewerConfig(r: any, path: string, filePath: string): void {
+    if (!r.name || typeof r.name !== 'string') {
+      throw new Error(`Invalid config (${filePath}): "${path}.name" is required`);
+    }
+    if (!r.cliPath || typeof r.cliPath !== 'string') {
+      throw new Error(`Invalid config (${filePath}): "${path}.cliPath" is required`);
+    }
+    if (!Array.isArray(r.cliArgs)) {
+      throw new Error(`Invalid config (${filePath}): "${path}.cliArgs" must be an array`);
+    }
   }
 }

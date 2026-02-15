@@ -1,6 +1,8 @@
 import { Test } from '@nestjs/testing';
 import { ConfigService } from './config.service.js';
 import { describe, it, expect, beforeEach } from 'vitest';
+import { writeFile, unlink } from 'node:fs/promises';
+import { join } from 'node:path';
 
 describe('ConfigService', () => {
   let service: ConfigService;
@@ -22,7 +24,7 @@ describe('ConfigService', () => {
 
   it('should load config from custom path', async () => {
     const config = await service.loadConfig('./review-council.config.json');
-    expect(config.reviewers[0].name).toBe('Gemini');
+    expect(config.reviewers[0].name).toBe('Codex');
   });
 
   it('should throw when getConfig() called before loadConfig()', () => {
@@ -34,5 +36,29 @@ describe('ConfigService', () => {
     const config = service.getConfig();
     expect(config.reviewers).toBeDefined();
     expect(config.decisionMaker.name).toBe('Claude');
+  });
+
+  it('should throw on config missing required fields', async () => {
+    const tmpPath = join(process.cwd(), '__test_invalid_config__.json');
+    await writeFile(tmpPath, JSON.stringify({ reviewers: [] }));
+    try {
+      await expect(service.loadConfig(tmpPath)).rejects.toThrow('reviewers');
+    } finally {
+      await unlink(tmpPath);
+    }
+  });
+
+  it('should throw on config with invalid reviewer (missing cliPath)', async () => {
+    const tmpPath = join(process.cwd(), '__test_bad_reviewer__.json');
+    await writeFile(tmpPath, JSON.stringify({
+      reviewers: [{ name: 'Test' }],
+      decisionMaker: { name: 'DM', cliPath: 'dm', cliArgs: [] },
+      review: { defaultChecks: ['code-quality'], language: 'en' },
+    }));
+    try {
+      await expect(service.loadConfig(tmpPath)).rejects.toThrow('cliPath');
+    } finally {
+      await unlink(tmpPath);
+    }
   });
 });
