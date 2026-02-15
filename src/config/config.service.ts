@@ -66,5 +66,8 @@ export class ConfigService {
     if (!r.cliArgs.every((a: unknown) => typeof a === 'string')) {
       throw new Error(`Invalid config (${filePath}): "${path}.cliArgs" elements must be strings`);
     }
+    if (r.model !== undefined && typeof r.model !== 'string') {
+      throw new Error(`Invalid config (${filePath}): "${path}.model" must be a string if provided`);
+    }
   }
 }

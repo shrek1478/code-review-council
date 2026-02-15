@@ -1,7 +1,7 @@
 import { Injectable, ConsoleLogger, Inject } from '@nestjs/common';
 import { simpleGit } from 'simple-git';
 import { readFile, stat, realpath } from 'node:fs/promises';
-import { join, extname, basename, resolve } from 'node:path';
+import { join, extname, resolve } from 'node:path';
 
 export interface FileContent {
   path: string;
@@ -94,8 +94,9 @@ export class CodeReaderService {
         }
         const content = await readFile(real, 'utf-8');
         return { path: filePath, content };
-      } catch {
-        this.logger.warn(`Skipping unreadable file: ${filePath}`);
+      } catch (error) {
+        const msg = error instanceof Error ? error.message : String(error);
+        this.logger.warn(`Skipping unreadable file: ${filePath} (${msg})`);
         return null;
       }
     };
@@ -169,8 +170,9 @@ export class CodeReaderService {
         }
         const content = await readFile(real, 'utf-8');
         return { path: relativePath, content };
-      } catch {
-        this.logger.warn(`Skipping unreadable file: ${relativePath}`);
+      } catch (error) {
+        const msg = error instanceof Error ? error.message : String(error);
+        this.logger.warn(`Skipping unreadable file: ${relativePath} (${msg})`);
         return null;
       }
     };

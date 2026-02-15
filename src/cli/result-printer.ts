@@ -13,6 +13,10 @@ function sanitize(text: string): string {
   return text.replace(ANSI_REGEX, '').replace(C0_CONTROL_REGEX, '');
 }
 
+function sanitizeLine(text: string): string {
+  return sanitize(text).replace(/[\r\n]+/g, ' ');
+}
+
 export function getVerdictIcon(verdict: ReviewDecisionItem['verdict']): string {
   if (verdict === 'accepted') return '\u2705';
   if (verdict === 'rejected') return '\u274C';
@@ -21,16 +25,16 @@ export function getVerdictIcon(verdict: ReviewDecisionItem['verdict']): string {
 
 function printDecisionItem(d: ReviewDecisionItem): void {
   const icon = getVerdictIcon(d.verdict);
-  console.log(`  ${icon} [${sanitize(d.severity)}] ${sanitize(d.category)}: ${sanitize(d.description)}`);
+  console.log(`  ${icon} [${sanitizeLine(d.severity)}] ${sanitizeLine(d.category)}: ${sanitize(d.description)}`);
   if (d.reasoning) console.log(`    Reasoning: ${sanitize(d.reasoning)}`);
   if (d.suggestion) console.log(`    Action: ${sanitize(d.suggestion)}`);
   if (d.raisedBy?.length > 0) {
-    console.log(`    Raised by: ${d.raisedBy.map(sanitize).join(', ')}`);
+    console.log(`    Raised by: ${d.raisedBy.map(sanitizeLine).join(', ')}`);
   }
 }
 
 function printDecision(decision: ReviewDecision): void {
-  console.log(`\n=== Final Decision (by ${sanitize(decision.reviewer)}) ===\n`);
+  console.log(`\n=== Final Decision (by ${sanitizeLine(decision.reviewer)}) ===\n`);
   console.log(sanitize(decision.overallAssessment));
   if (decision.decisions.length > 0) {
     console.log('\nDecisions:');
@@ -41,7 +45,7 @@ function printDecision(decision: ReviewDecision): void {
   if (decision.additionalFindings.length > 0) {
     console.log('\nAdditional Findings (by Decision Maker):');
     for (const f of decision.additionalFindings) {
-      console.log(`  [${sanitize(f.severity)}] ${sanitize(f.category)}: ${sanitize(f.description)}`);
+      console.log(`  [${sanitizeLine(f.severity)}] ${sanitizeLine(f.category)}: ${sanitize(f.description)}`);
       if (f.suggestion) console.log(`    Action: ${sanitize(f.suggestion)}`);
     }
   }
@@ -50,7 +54,7 @@ function printDecision(decision: ReviewDecision): void {
 export function printResult(result: ReviewResult): void {
   console.log('\n=== Individual Reviews ===\n');
   for (const r of result.individualReviews) {
-    console.log(`\n--- ${sanitize(r.reviewer)} ---`);
+    console.log(`\n--- ${sanitizeLine(r.reviewer)} ---`);
     console.log(sanitize(r.review));
     console.log();
   }
