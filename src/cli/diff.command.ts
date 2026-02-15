@@ -2,6 +2,7 @@ import { Command, CommandRunner, Option } from 'nest-commander';
 import { Inject } from '@nestjs/common';
 import { ReviewService } from '../review/review.service.js';
 import { ConfigService } from '../config/config.service.js';
+import { ReviewResult } from '../review/review.types.js';
 
 @Command({ name: 'diff', description: 'Review git diff' })
 export class DiffCommand extends CommandRunner {
@@ -17,7 +18,7 @@ export class DiffCommand extends CommandRunner {
 
     const repoPath = options.repo ?? process.cwd();
     const baseBranch = options.base ?? 'main';
-    const checks = options.checks?.split(',') ?? [];
+    const checks = options.checks?.split(',').filter(Boolean) ?? [];
     const extra = options.extra;
 
     console.log('\n=== Code Review Council ===\n');
@@ -25,7 +26,40 @@ export class DiffCommand extends CommandRunner {
     console.log(`Base: ${baseBranch}`);
     console.log('Reviewing...\n');
 
-    await this.reviewService.reviewDiff(repoPath, baseBranch, checks, extra);
+    const result = await this.reviewService.reviewDiff(repoPath, baseBranch, checks, extra);
+
+    this.printResult(result);
+  }
+
+  private printResult(result: ReviewResult): void {
+    console.log('\n=== Individual Reviews ===\n');
+    for (const r of result.individualReviews) {
+      console.log(`\n--- ${r.reviewer} ---`);
+      console.log(r.review);
+      console.log();
+    }
+
+    if (result.decision) {
+      console.log('\n=== Final Decision (by ' + result.decision.reviewer + ') ===\n');
+      console.log(result.decision.overallAssessment);
+      if (result.decision.decisions?.length > 0) {
+        console.log('\nDecisions:');
+        for (const d of result.decision.decisions) {
+          const verdict = d.verdict === 'accepted' ? '\u2705' : d.verdict === 'rejected' ? '\u274C' : '\u270F\uFE0F';
+          console.log(`  ${verdict} [${d.severity}] ${d.category}: ${d.description}`);
+          if (d.reasoning) console.log(`    Reasoning: ${d.reasoning}`);
+          if (d.suggestion) console.log(`    Action: ${d.suggestion}`);
+          if (d.raisedBy?.length > 0) console.log(`    Raised by: ${d.raisedBy.join(', ')}`);
+        }
+      }
+      if (result.decision.additionalFindings?.length > 0) {
+        console.log('\nAdditional Findings (by Decision Maker):');
+        for (const f of result.decision.additionalFindings) {
+          console.log(`  [${f.severity}] ${f.category}: ${f.description}`);
+          if (f.suggestion) console.log(`    Action: ${f.suggestion}`);
+        }
+      }
+    }
   }
 
   @Option({ flags: '--repo <path>', description: 'Repository path' })

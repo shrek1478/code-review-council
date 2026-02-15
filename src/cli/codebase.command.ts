@@ -2,6 +2,7 @@ import { Command, CommandRunner, Option } from 'nest-commander';
 import { Inject } from '@nestjs/common';
 import { ReviewService } from '../review/review.service.js';
 import { ConfigService } from '../config/config.service.js';
+import { ReviewResult } from '../review/review.types.js';
 
 @Command({ name: 'codebase', description: 'Review entire codebase' })
 export class CodebaseCommand extends CommandRunner {
@@ -16,9 +17,10 @@ export class CodebaseCommand extends CommandRunner {
     await this.configService.loadConfig(options.config);
 
     const directory = options.dir ?? process.cwd();
-    const extensions = options.extensions?.split(',').map((e: string) => e.trim()) ?? undefined;
-    const maxBatchSize = options.batchSize ? parseInt(options.batchSize, 10) : undefined;
-    const checks = options.checks?.split(',') ?? [];
+    const extensions = options.extensions?.split(',').map((e: string) => e.trim()).filter(Boolean) ?? undefined;
+    const parsedBatchSize = options.batchSize ? parseInt(options.batchSize, 10) : undefined;
+    const maxBatchSize = parsedBatchSize !== undefined && isNaN(parsedBatchSize) ? undefined : parsedBatchSize;
+    const checks = options.checks?.split(',').filter(Boolean) ?? [];
     const extra = options.extra;
 
     console.log('\n=== Code Review Council ===\n');
@@ -27,12 +29,49 @@ export class CodebaseCommand extends CommandRunner {
     if (maxBatchSize) console.log(`Batch size: ${maxBatchSize}`);
     console.log('Reviewing...\n');
 
-    await this.reviewService.reviewCodebase(
+    const result = await this.reviewService.reviewCodebase(
       directory,
       { extensions, maxBatchSize },
       checks,
       extra,
     );
+
+    this.printResult(result);
+  }
+
+  private printResult(result: ReviewResult): void {
+    console.log('\n=== Individual Reviews ===\n');
+    for (const r of result.individualReviews) {
+      console.log(`\n--- ${r.reviewer} ---`);
+      console.log(r.review);
+      console.log();
+    }
+
+    if (result.decision) {
+      this.printDecision(result.decision);
+    }
+  }
+
+  private printDecision(decision: any): void {
+    console.log('\n=== Final Decision (by ' + decision.reviewer + ') ===\n');
+    console.log(decision.overallAssessment);
+    if (decision.decisions?.length > 0) {
+      console.log('\nDecisions:');
+      for (const d of decision.decisions) {
+        const verdict = d.verdict === 'accepted' ? '\u2705' : d.verdict === 'rejected' ? '\u274C' : '\u270F\uFE0F';
+        console.log(`  ${verdict} [${d.severity}] ${d.category}: ${d.description}`);
+        if (d.reasoning) console.log(`    Reasoning: ${d.reasoning}`);
+        if (d.suggestion) console.log(`    Action: ${d.suggestion}`);
+        if (d.raisedBy?.length > 0) console.log(`    Raised by: ${d.raisedBy.join(', ')}`);
+      }
+    }
+    if (decision.additionalFindings?.length > 0) {
+      console.log('\nAdditional Findings (by Decision Maker):');
+      for (const f of decision.additionalFindings) {
+        console.log(`  [${f.severity}] ${f.category}: ${f.description}`);
+        if (f.suggestion) console.log(`    Action: ${f.suggestion}`);
+      }
+    }
   }
 
   @Option({ flags: '--dir <path>', description: 'Directory to review (default: cwd)' })
