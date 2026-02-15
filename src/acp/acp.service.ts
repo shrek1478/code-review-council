@@ -1,6 +1,26 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Inject, Injectable, ConsoleLogger } from '@nestjs/common';
 import { CopilotClient } from '@github/copilot-sdk';
 import { ReviewerConfig } from '../config/config.types.js';
+
+export interface AcpSessionOptions {
+  streaming: boolean;
+  model?: string;
+}
+
+export interface AcpEvent {
+  type: string;
+  data?: {
+    content?: string;
+    deltaContent?: string;
+    message?: string;
+  };
+}
+
+export interface AcpSession {
+  on(callback: (event: AcpEvent) => void): void;
+  send(params: { prompt: string }): Promise<void>;
+  destroy(): Promise<void>;
+}
 
 export interface AcpClientHandle {
   name: string;
@@ -10,13 +30,10 @@ export interface AcpClientHandle {
 
 @Injectable()
 export class AcpService {
-  private readonly logger = new Logger(AcpService.name);
   private clients: AcpClientHandle[] = [];
 
-  constructor() {
-    // Each ACP client subprocess registers exit/SIGINT/SIGTERM listeners on process.
-    // With multiple reviewers + decision maker, this exceeds the default limit of 10.
-    process.setMaxListeners(process.getMaxListeners() + 20);
+  constructor(@Inject(ConsoleLogger) private readonly logger: ConsoleLogger) {
+    this.logger.setContext(AcpService.name);
   }
 
   async createClient(config: ReviewerConfig): Promise<AcpClientHandle> {
@@ -25,7 +42,7 @@ export class AcpService {
       cliPath: config.cliPath,
       cliArgs: config.cliArgs,
       protocol: 'acp',
-    } as any);
+    } as ConstructorParameters<typeof CopilotClient>[0]);
     await client.start();
     const handle: AcpClientHandle = { name: config.name, client, model: config.model };
     this.clients.push(handle);
@@ -35,9 +52,9 @@ export class AcpService {
   async sendPrompt(handle: AcpClientHandle, prompt: string, timeoutMs = 180_000): Promise<string> {
     this.logger.log(`📝 ${handle.name} reviewing...`);
 
-    const sessionOpts: Record<string, any> = { streaming: true };
+    const sessionOpts: AcpSessionOptions = { streaming: true };
     if (handle.model) sessionOpts.model = handle.model;
-    const session = await (handle.client as any).createSession(sessionOpts);
+    const session: AcpSession = await (handle.client as any).createSession(sessionOpts);
 
     try {
       const result = await new Promise<string>((resolve, reject) => {
@@ -47,11 +64,11 @@ export class AcpService {
         const timer = setTimeout(() => {
           if (!settled) {
             settled = true;
-            reject(new Error(`${handle.name} timed out after ${timeoutMs / 1000}s`));
+            reject(new Error(`${handle.name} timed out after ${(timeoutMs / 1000).toFixed(0)}s`));
           }
         }, timeoutMs);
 
-        session.on((event: any) => {
+        session.on((event: AcpEvent) => {
           if (settled) return;
 
           if (event.type === 'assistant.message_delta') {
@@ -60,7 +77,7 @@ export class AcpService {
               responseContent += delta;
             }
           } else if (event.type === 'assistant.message') {
-            responseContent = event.data.content || responseContent;
+            responseContent = event.data?.content || responseContent;
           } else if (event.type === 'session.idle') {
             settled = true;
             clearTimeout(timer);
@@ -84,7 +101,11 @@ export class AcpService {
       this.logger.log(`✅ ${handle.name} done.`);
       return result;
     } finally {
-      try { await session.destroy(); } catch {}
+      try {
+        await session.destroy();
+      } catch (error) {
+        this.logger.warn(`Failed to destroy session for ${handle.name}: ${error}`);
+      }
     }
   }
 

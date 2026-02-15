@@ -1,4 +1,5 @@
 import { Test } from '@nestjs/testing';
+import { ConsoleLogger } from '@nestjs/common';
 import { AcpService } from './acp.service.js';
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 
@@ -20,7 +21,10 @@ describe('AcpService', () => {
 
   beforeEach(async () => {
     const module = await Test.createTestingModule({
-      providers: [AcpService],
+      providers: [
+        AcpService,
+        { provide: ConsoleLogger, useValue: new ConsoleLogger() },
+      ],
     }).compile();
     service = module.get(AcpService);
   });
@@ -113,7 +117,7 @@ describe('AcpService', () => {
 
     await expect(
       service.sendPrompt(handle, 'Review this code', 100),
-    ).rejects.toThrow('SlowReviewer timed out after 0.1s');
+    ).rejects.toThrow('SlowReviewer timed out after 0s');
 
     expect(mockSession.destroy).toHaveBeenCalled();
   });

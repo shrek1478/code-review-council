@@ -16,6 +16,8 @@ class CliLogger extends ConsoleLogger {
   }
 }
 
+process.setMaxListeners(30);
+
 async function bootstrap() {
   await CommandFactory.run(CliModule, { logger: new CliLogger() });
 }
