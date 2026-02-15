@@ -1,4 +1,5 @@
 import { Test } from '@nestjs/testing';
+import { ConsoleLogger } from '@nestjs/common';
 import { ReviewService } from './review.service.js';
 import { CodeReaderService } from './code-reader.service.js';
 import { CouncilService } from './council.service.js';
@@ -56,6 +57,7 @@ describe('ReviewService', () => {
     const module = await Test.createTestingModule({
       providers: [
         ReviewService,
+        { provide: ConsoleLogger, useValue: new ConsoleLogger() },
         { provide: CodeReaderService, useValue: mockCodeReader },
         { provide: CouncilService, useValue: mockCouncil },
         { provide: DecisionMakerService, useValue: mockDecisionMaker },
@@ -97,7 +99,7 @@ describe('ReviewService', () => {
       expect(mockCouncil.dispatchReviews).toHaveBeenCalledTimes(1);
     });
 
-    it('should review multi-batch codebase', async () => {
+    it('should review multi-batch codebase with file summary for decision maker', async () => {
       mockCodeReader.readCodebase.mockResolvedValue([
         [{ path: 'batch1.ts', content: 'a' }],
         [{ path: 'batch2.ts', content: 'b' }],
@@ -109,6 +111,12 @@ describe('ReviewService', () => {
       // 3 batches * 2 reviewers each = 6 individual reviews
       expect(result.individualReviews.length).toBe(6);
       expect(mockDecisionMaker.decide).toHaveBeenCalledTimes(1);
+
+      // Decision maker receives file summary (not full code) in multi-batch mode
+      const decideCalls = mockDecisionMaker.decide.mock.calls[0];
+      expect(decideCalls[0]).toContain('batch1.ts');
+      expect(decideCalls[0]).toContain('lines');
+      expect(decideCalls[2]).toBe(true); // isSummaryMode
     });
 
     it('should throw when no files found', async () => {

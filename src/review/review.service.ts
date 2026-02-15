@@ -1,4 +1,4 @@
-import { Injectable, Logger, Inject } from '@nestjs/common';
+import { Injectable, ConsoleLogger, Inject } from '@nestjs/common';
 import { randomUUID } from 'node:crypto';
 import { CodeReaderService, CodebaseOptions } from './code-reader.service.js';
 import { CouncilService } from './council.service.js';
@@ -8,14 +8,15 @@ import { IndividualReview, ReviewResult } from './review.types.js';
 
 @Injectable()
 export class ReviewService {
-  private readonly logger = new Logger(ReviewService.name);
-
   constructor(
+    @Inject(ConsoleLogger) private readonly logger: ConsoleLogger,
     @Inject(CodeReaderService) private readonly codeReader: CodeReaderService,
     @Inject(CouncilService) private readonly council: CouncilService,
     @Inject(DecisionMakerService) private readonly decisionMaker: DecisionMakerService,
     @Inject(AcpService) private readonly acpService: AcpService,
-  ) {}
+  ) {
+    this.logger.setContext(ReviewService.name);
+  }
 
   async reviewDiff(
     repoPath: string,
@@ -71,14 +72,19 @@ export class ReviewService {
         return await this.runReview(id, code, checks, extraInstructions);
       }
 
+      // Multi-batch: review each batch, then pass file summary (not full code) to decision maker
       const allReviews: IndividualReview[] = [];
-      const allCode: string[] = [];
+      const allFileNames: string[] = [];
       for (let i = 0; i < batches.length; i++) {
         const batch = batches[i];
         const code = batch
           .map((f) => `=== ${f.path} ===\n${f.content}`)
           .join('\n\n');
-        allCode.push(code);
+
+        for (const f of batch) {
+          const lineCount = f.content.split('\n').length;
+          allFileNames.push(`${f.path} (${lineCount} lines)`);
+        }
 
         const batchExtra = [
           `[Batch ${i + 1}/${batches.length}]`,
@@ -87,18 +93,20 @@ export class ReviewService {
           .filter(Boolean)
           .join(' ');
 
-        console.log(`\n=== Individual Reviews (Batch ${i + 1}/${batches.length}) ===\n`);
         const reviews = await this.council.dispatchReviews({
           code,
           checks,
           extraInstructions: batchExtra,
         });
         allReviews.push(...reviews);
+
+        // Release clients after each batch (A1)
+        await this.acpService.stopAll();
       }
 
-      const fullCode = allCode.join('\n\n');
-      const decision = await this.decisionMaker.decide(fullCode, allReviews);
-      this.printDecision(decision);
+      // Pass file summary instead of full code to decision maker (A2)
+      const fileSummary = allFileNames.join('\n');
+      const decision = await this.decisionMaker.decide(fileSummary, allReviews, true);
       return { id, status: 'completed', individualReviews: allReviews, decision };
     } finally {
       await this.acpService.stopAll();
@@ -111,7 +119,6 @@ export class ReviewService {
     checks: string[],
     extraInstructions?: string,
   ): Promise<ReviewResult> {
-    console.log('\n=== Individual Reviews ===\n');
     const individualReviews = await this.council.dispatchReviews({
       code,
       checks,
@@ -119,7 +126,6 @@ export class ReviewService {
     });
 
     const decision = await this.decisionMaker.decide(code, individualReviews);
-    this.printDecision(decision);
 
     return {
       id,
@@ -127,27 +133,5 @@ export class ReviewService {
       individualReviews,
       decision,
     };
-  }
-
-  private printDecision(decision: any): void {
-    console.log('\n=== Final Decision (by ' + decision.reviewer + ') ===\n');
-    console.log(decision.overallAssessment);
-    if (decision.decisions?.length > 0) {
-      console.log('\nDecisions:');
-      for (const d of decision.decisions) {
-        const verdict = d.verdict === 'accepted' ? '\u2705' : d.verdict === 'rejected' ? '\u274C' : '\u270F\uFE0F';
-        console.log(`  ${verdict} [${d.severity}] ${d.category}: ${d.description}`);
-        if (d.reasoning) console.log(`    Reasoning: ${d.reasoning}`);
-        if (d.suggestion) console.log(`    Action: ${d.suggestion}`);
-        if (d.raisedBy?.length > 0) console.log(`    Raised by: ${d.raisedBy.join(', ')}`);
-      }
-    }
-    if (decision.additionalFindings?.length > 0) {
-      console.log('\nAdditional Findings (by Decision Maker):');
-      for (const f of decision.additionalFindings) {
-        console.log(`  [${f.severity}] ${f.category}: ${f.description}`);
-        if (f.suggestion) console.log(`    Action: ${f.suggestion}`);
-      }
-    }
   }
 }
