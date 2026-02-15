@@ -2,7 +2,11 @@ import { Command, CommandRunner, Option } from 'nest-commander';
 import { Inject } from '@nestjs/common';
 import { ReviewService } from '../review/review.service.js';
 import { ConfigService } from '../config/config.service.js';
-import { ReviewResult } from '../review/review.types.js';
+import {
+  ReviewResult,
+  ReviewDecision,
+  ReviewDecisionItem,
+} from '../review/review.types.js';
 
 @Command({ name: 'codebase', description: 'Review entire codebase' })
 export class CodebaseCommand extends CommandRunner {
@@ -13,13 +17,22 @@ export class CodebaseCommand extends CommandRunner {
     super();
   }
 
-  async run(_params: string[], options: Record<string, any>): Promise<void> {
+  async run(_params: string[], options: Record<string, string>): Promise<void> {
     await this.configService.loadConfig(options.config);
 
     const directory = options.dir ?? process.cwd();
-    const extensions = options.extensions?.split(',').map((e: string) => e.trim()).filter(Boolean) ?? undefined;
-    const parsedBatchSize = options.batchSize ? parseInt(options.batchSize, 10) : undefined;
-    const maxBatchSize = parsedBatchSize !== undefined && isNaN(parsedBatchSize) ? undefined : parsedBatchSize;
+    const extensions =
+      options.extensions
+        ?.split(',')
+        .map((e) => e.trim())
+        .filter(Boolean) ?? undefined;
+    const parsedBatchSize = options.batchSize
+      ? Number.parseInt(options.batchSize, 10)
+      : undefined;
+    const maxBatchSize =
+      parsedBatchSize !== undefined && Number.isNaN(parsedBatchSize)
+        ? undefined
+        : parsedBatchSize;
     const checks = options.checks?.split(',').filter(Boolean) ?? [];
     const extra = options.extra;
 
@@ -52,20 +65,32 @@ export class CodebaseCommand extends CommandRunner {
     }
   }
 
-  private printDecision(decision: any): void {
-    console.log('\n=== Final Decision (by ' + decision.reviewer + ') ===\n');
+  private getVerdictIcon(verdict: ReviewDecisionItem['verdict']): string {
+    if (verdict === 'accepted') return '\u2705';
+    if (verdict === 'rejected') return '\u274C';
+    return '\u270F\uFE0F';
+  }
+
+  private printDecisionItem(d: ReviewDecisionItem): void {
+    const icon = this.getVerdictIcon(d.verdict);
+    console.log(`  ${icon} [${d.severity}] ${d.category}: ${d.description}`);
+    if (d.reasoning) console.log(`    Reasoning: ${d.reasoning}`);
+    if (d.suggestion) console.log(`    Action: ${d.suggestion}`);
+    if (d.raisedBy?.length > 0) {
+      console.log(`    Raised by: ${d.raisedBy.join(', ')}`);
+    }
+  }
+
+  private printDecision(decision: ReviewDecision): void {
+    console.log(`\n=== Final Decision (by ${decision.reviewer}) ===\n`);
     console.log(decision.overallAssessment);
-    if (decision.decisions?.length > 0) {
+    if (decision.decisions.length > 0) {
       console.log('\nDecisions:');
       for (const d of decision.decisions) {
-        const verdict = d.verdict === 'accepted' ? '\u2705' : d.verdict === 'rejected' ? '\u274C' : '\u270F\uFE0F';
-        console.log(`  ${verdict} [${d.severity}] ${d.category}: ${d.description}`);
-        if (d.reasoning) console.log(`    Reasoning: ${d.reasoning}`);
-        if (d.suggestion) console.log(`    Action: ${d.suggestion}`);
-        if (d.raisedBy?.length > 0) console.log(`    Raised by: ${d.raisedBy.join(', ')}`);
+        this.printDecisionItem(d);
       }
     }
-    if (decision.additionalFindings?.length > 0) {
+    if (decision.additionalFindings.length > 0) {
       console.log('\nAdditional Findings (by Decision Maker):');
       for (const f of decision.additionalFindings) {
         console.log(`  [${f.severity}] ${f.category}: ${f.description}`);
@@ -74,21 +99,51 @@ export class CodebaseCommand extends CommandRunner {
     }
   }
 
-  @Option({ flags: '--dir <path>', description: 'Directory to review (default: cwd)' })
-  parseDir(val: string) { return val; }
+  @Option({
+    flags: '--dir <path>',
+    description: 'Directory to review (default: cwd)',
+  })
+  parseDir(val: string) {
+    return val;
+  }
 
-  @Option({ flags: '--extensions <list>', description: 'Comma-separated file extensions (e.g. ts,js,py)' })
-  parseExtensions(val: string) { return val; }
+  @Option({
+    flags: '--extensions <list>',
+    description: 'Comma-separated file extensions (e.g. ts,js,py)',
+  })
+  parseExtensions(val: string) {
+    return val;
+  }
 
-  @Option({ flags: '--batch-size <chars>', description: 'Max characters per batch (default: 100000)' })
-  parseBatchSize(val: string) { return val; }
+  @Option({
+    flags: '--batch-size <chars>',
+    description: 'Max characters per batch (default: 100000)',
+  })
+  parseBatchSize(val: string) {
+    return val;
+  }
 
-  @Option({ flags: '--checks <list>', description: 'Comma-separated check categories' })
-  parseChecks(val: string) { return val; }
+  @Option({
+    flags: '--checks <list>',
+    description: 'Comma-separated check categories',
+  })
+  parseChecks(val: string) {
+    return val;
+  }
 
-  @Option({ flags: '--extra <instructions>', description: 'Extra review instructions' })
-  parseExtra(val: string) { return val; }
+  @Option({
+    flags: '--extra <instructions>',
+    description: 'Extra review instructions',
+  })
+  parseExtra(val: string) {
+    return val;
+  }
 
-  @Option({ flags: '--config <path>', description: 'Config file path' })
-  parseConfig(val: string) { return val; }
+  @Option({
+    flags: '--config <path>',
+    description: 'Config file path',
+  })
+  parseConfig(val: string) {
+    return val;
+  }
 }
