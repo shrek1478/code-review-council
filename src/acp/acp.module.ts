@@ -1,9 +1,9 @@
-import { Module, Global } from '@nestjs/common';
+import { Module, Global, ConsoleLogger } from '@nestjs/common';
 import { AcpService } from './acp.service.js';
 
 @Global()
 @Module({
-  providers: [AcpService],
+  providers: [ConsoleLogger, AcpService],
   exports: [AcpService],
 })
 export class AcpModule {}

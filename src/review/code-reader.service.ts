@@ -1,7 +1,7 @@
 import { Injectable, ConsoleLogger, Inject } from '@nestjs/common';
 import { simpleGit } from 'simple-git';
 import { readFile, stat } from 'node:fs/promises';
-import { join, extname, basename } from 'node:path';
+import { join, extname, basename, resolve } from 'node:path';
 
 export interface FileContent {
   path: string;
@@ -34,6 +34,7 @@ const SENSITIVE_PATTERNS = [
 ];
 
 const MAX_FILE_SIZE = 1_048_576; // 1MB
+const BRANCH_PATTERN = /^[A-Za-z0-9._\-/]+$/;
 
 @Injectable()
 export class CodeReaderService {
@@ -45,6 +46,9 @@ export class CodeReaderService {
     repoPath: string,
     baseBranch: string = 'main',
   ): Promise<string> {
+    if (!BRANCH_PATTERN.test(baseBranch)) {
+      throw new Error(`Invalid base branch name: "${baseBranch}"`);
+    }
     this.logger.log(`Reading git diff: ${repoPath} (base: ${baseBranch})`);
     const git = simpleGit(repoPath);
     const diff = await git.diff([baseBranch]);
@@ -62,8 +66,27 @@ export class CodeReaderService {
     this.logger.log(`Reading ${filePaths.length} files`);
     const results: FileContent[] = [];
     for (const filePath of filePaths) {
-      const content = await readFile(filePath, 'utf-8');
-      results.push({ path: filePath, content });
+      const resolved = resolve(filePath);
+      if (this.isSensitiveFile(resolved)) {
+        this.logger.warn(`Skipping sensitive file: ${filePath}`);
+        continue;
+      }
+      try {
+        const fileStat = await stat(resolved);
+        if (fileStat.size > MAX_FILE_SIZE) {
+          this.logger.warn(
+            `Skipping large file (${(fileStat.size / 1024 / 1024).toFixed(1)}MB): ${filePath}`,
+          );
+          continue;
+        }
+        const content = await readFile(resolved, 'utf-8');
+        results.push({ path: filePath, content });
+      } catch {
+        this.logger.warn(`Skipping unreadable file: ${filePath}`);
+      }
+    }
+    if (results.length === 0) {
+      throw new Error('No readable files found');
     }
     return results;
   }

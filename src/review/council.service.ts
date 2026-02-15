@@ -24,8 +24,13 @@ export class CouncilService {
     const results = await Promise.allSettled(
       reviewers.map(async (reviewerConfig) => {
         const handle = await this.acpService.createClient(reviewerConfig);
-        const review = await this.acpService.sendPrompt(handle, prompt);
-        return { reviewer: reviewerConfig.name, review };
+        try {
+          const review = await this.acpService.sendPrompt(handle, prompt);
+          return { reviewer: reviewerConfig.name, review };
+        } catch (error) {
+          await this.acpService.stopClient(handle);
+          throw error;
+        }
       }),
     );
 

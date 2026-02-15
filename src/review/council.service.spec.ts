@@ -10,6 +10,7 @@ describe('CouncilService', () => {
   const mockAcpService = {
     createClient: vi.fn().mockResolvedValue({ name: 'MockReviewer', client: {} }),
     sendPrompt: vi.fn().mockResolvedValue('No issues found.'),
+    stopClient: vi.fn().mockResolvedValue(undefined),
     stopAll: vi.fn().mockResolvedValue(undefined),
   };
   const mockConfigService = {

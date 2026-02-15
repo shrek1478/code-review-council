@@ -16,7 +16,13 @@ export class ConfigService {
       ? resolve(configPath)
       : resolve(PROJECT_ROOT, 'review-council.config.json');
     const content = await readFile(filePath, 'utf-8');
-    const parsed = JSON.parse(content);
+    let parsed: unknown;
+    try {
+      parsed = JSON.parse(content);
+    } catch (error) {
+      const msg = error instanceof SyntaxError ? error.message : String(error);
+      throw new Error(`Failed to parse config file "${filePath}": ${msg}`);
+    }
     this.validateConfig(parsed, filePath);
     this.config = parsed as CouncilConfig;
     return this.config;
@@ -29,6 +35,7 @@ export class ConfigService {
     return this.config;
   }
 
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- runtime validation on untrusted JSON
   private validateConfig(config: any, filePath: string): void {
     if (!Array.isArray(config.reviewers) || config.reviewers.length === 0) {
       throw new Error(`Invalid config (${filePath}): "reviewers" must be a non-empty array`);
@@ -45,6 +52,7 @@ export class ConfigService {
     }
   }
 
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- runtime validation on untrusted JSON
   private validateReviewerConfig(r: any, path: string, filePath: string): void {
     if (!r.name || typeof r.name !== 'string') {
       throw new Error(`Invalid config (${filePath}): "${path}.name" is required`);

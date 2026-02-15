@@ -1,7 +1,12 @@
 import { Injectable, ConsoleLogger, Inject } from '@nestjs/common';
 import { AcpService } from '../acp/acp.service.js';
 import { ConfigService } from '../config/config.service.js';
-import { IndividualReview, ReviewDecision } from './review.types.js';
+import {
+  IndividualReview,
+  ReviewDecision,
+  ReviewDecisionItem,
+  AdditionalFinding,
+} from './review.types.js';
 
 const MAX_CODE_LENGTH = 60_000;
 const MAX_REVIEWS_LENGTH = 30_000;
@@ -141,12 +146,47 @@ Rules:
     };
   }
 
-  private toDecision(parsed: any, dmName: string): ReviewDecision {
+  private toDecision(parsed: Record<string, unknown>, dmName: string): ReviewDecision {
+    const rawDecisions = Array.isArray(parsed.decisions) ? parsed.decisions : [];
+    const rawFindings = Array.isArray(parsed.additionalFindings) ? parsed.additionalFindings : [];
+
+    const decisions: ReviewDecisionItem[] = rawDecisions
+      .filter(
+        (d: Record<string, unknown>) =>
+          d && typeof d.severity === 'string' && typeof d.description === 'string',
+      )
+      .map((d: Record<string, unknown>) => ({
+        severity: d.severity as ReviewDecisionItem['severity'],
+        category: String(d.category ?? ''),
+        description: String(d.description),
+        file: d.file ? String(d.file) : undefined,
+        line: typeof d.line === 'number' ? d.line : undefined,
+        raisedBy: Array.isArray(d.raisedBy) ? d.raisedBy.map(String) : [],
+        verdict: (d.verdict as ReviewDecisionItem['verdict']) ?? 'modified',
+        reasoning: String(d.reasoning ?? ''),
+        suggestion: String(d.suggestion ?? ''),
+      }));
+
+    const additionalFindings: AdditionalFinding[] = rawFindings
+      .filter(
+        (f: Record<string, unknown>) =>
+          f && typeof f.severity === 'string' && typeof f.description === 'string',
+      )
+      .map((f: Record<string, unknown>) => ({
+        severity: f.severity as AdditionalFinding['severity'],
+        category: String(f.category ?? ''),
+        description: String(f.description),
+        file: f.file ? String(f.file) : undefined,
+        suggestion: String(f.suggestion ?? ''),
+      }));
+
     return {
       reviewer: `${dmName} (Decision Maker)`,
-      overallAssessment: parsed.overallAssessment ?? '',
-      decisions: parsed.decisions ?? [],
-      additionalFindings: parsed.additionalFindings ?? [],
+      overallAssessment: typeof parsed.overallAssessment === 'string'
+        ? parsed.overallAssessment
+        : '',
+      decisions,
+      additionalFindings,
     };
   }
 

@@ -22,6 +22,10 @@ export interface AcpSession {
   destroy(): Promise<void>;
 }
 
+interface CopilotClientWithSession {
+  createSession(opts: AcpSessionOptions): Promise<AcpSession>;
+}
+
 export interface AcpClientHandle {
   name: string;
   client: CopilotClient;
@@ -54,7 +58,9 @@ export class AcpService {
 
     const sessionOpts: AcpSessionOptions = { streaming: true };
     if (handle.model) sessionOpts.model = handle.model;
-    const session: AcpSession = await (handle.client as any).createSession(sessionOpts);
+    const session: AcpSession = await (
+      handle.client as unknown as CopilotClientWithSession
+    ).createSession(sessionOpts);
 
     try {
       const result = await new Promise<string>((resolve, reject) => {
@@ -64,7 +70,10 @@ export class AcpService {
         const timer = setTimeout(() => {
           if (!settled) {
             settled = true;
-            reject(new Error(`${handle.name} timed out after ${(timeoutMs / 1000).toFixed(0)}s`));
+            const timeoutDisplay = timeoutMs < 1000
+              ? `${timeoutMs}ms`
+              : `${Math.ceil(timeoutMs / 1000)}s`;
+            reject(new Error(`${handle.name} timed out after ${timeoutDisplay}`));
           }
         }, timeoutMs);
 
@@ -109,14 +118,26 @@ export class AcpService {
     }
   }
 
-  async stopAll(): Promise<void> {
-    for (const handle of this.clients) {
-      try {
-        await handle.client.stop();
-      } catch (error) {
-        this.logger.warn(`Failed to stop client ${handle.name}: ${error}`);
-      }
+  async stopClient(handle: AcpClientHandle): Promise<void> {
+    try {
+      await handle.client.stop();
+    } catch (error) {
+      this.logger.warn(`Failed to stop client ${handle.name}: ${error}`);
     }
+    this.clients = this.clients.filter((h) => h !== handle);
+  }
+
+  async stopAll(): Promise<void> {
+    const handles = [...this.clients];
     this.clients = [];
+    await Promise.allSettled(
+      handles.map(async (handle) => {
+        try {
+          await handle.client.stop();
+        } catch (error) {
+          this.logger.warn(`Failed to stop client ${handle.name}: ${error}`);
+        }
+      }),
+    );
   }
 }

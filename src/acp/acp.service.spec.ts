@@ -117,7 +117,7 @@ describe('AcpService', () => {
 
     await expect(
       service.sendPrompt(handle, 'Review this code', 100),
-    ).rejects.toThrow('SlowReviewer timed out after 0s');
+    ).rejects.toThrow('SlowReviewer timed out after 100ms');
 
     expect(mockSession.destroy).toHaveBeenCalled();
   });
