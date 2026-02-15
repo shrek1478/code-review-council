@@ -100,13 +100,21 @@ export class AcpService {
           }
         });
 
-        session.send({ prompt }).catch((err: Error) => {
+        try {
+          session.send({ prompt }).catch((err: Error) => {
+            if (!settled) {
+              settled = true;
+              clearTimeout(timer);
+              reject(err);
+            }
+          });
+        } catch (err) {
           if (!settled) {
             settled = true;
             clearTimeout(timer);
-            reject(err);
+            reject(err instanceof Error ? err : new Error(String(err)));
           }
-        });
+        }
       });
 
       this.logger.log(`✅ ${handle.name} done.`);

@@ -21,7 +21,7 @@ export function getVerdictIcon(verdict: ReviewDecisionItem['verdict']): string {
 
 function printDecisionItem(d: ReviewDecisionItem): void {
   const icon = getVerdictIcon(d.verdict);
-  console.log(`  ${icon} [${d.severity}] ${d.category}: ${sanitize(d.description)}`);
+  console.log(`  ${icon} [${sanitize(d.severity)}] ${sanitize(d.category)}: ${sanitize(d.description)}`);
   if (d.reasoning) console.log(`    Reasoning: ${sanitize(d.reasoning)}`);
   if (d.suggestion) console.log(`    Action: ${sanitize(d.suggestion)}`);
   if (d.raisedBy?.length > 0) {
@@ -41,7 +41,7 @@ function printDecision(decision: ReviewDecision): void {
   if (decision.additionalFindings.length > 0) {
     console.log('\nAdditional Findings (by Decision Maker):');
     for (const f of decision.additionalFindings) {
-      console.log(`  [${f.severity}] ${f.category}: ${sanitize(f.description)}`);
+      console.log(`  [${sanitize(f.severity)}] ${sanitize(f.category)}: ${sanitize(f.description)}`);
       if (f.suggestion) console.log(`    Action: ${sanitize(f.suggestion)}`);
     }
   }

@@ -23,4 +23,7 @@ process.setMaxListeners(30);
 async function bootstrap() {
   await CommandFactory.run(CliModule, { logger: new CliLogger() });
 }
-bootstrap();
+bootstrap().catch((err) => {
+  console.error('Fatal error:', err);
+  process.exitCode = 1;
+});

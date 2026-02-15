@@ -1,6 +1,6 @@
 import { Command, CommandRunner, Option } from 'nest-commander';
 import { Inject } from '@nestjs/common';
-import { existsSync } from 'node:fs';
+import { existsSync, statSync } from 'node:fs';
 import { ReviewService } from '../review/review.service.js';
 import { ConfigService } from '../config/config.service.js';
 import { printResult } from './result-printer.js';
@@ -64,6 +64,9 @@ export class CodebaseCommand extends CommandRunner {
   parseDir(val: string) {
     if (!existsSync(val)) {
       throw new Error(`Directory not found: "${val}"`);
+    }
+    if (!statSync(val).isDirectory()) {
+      throw new Error(`Not a directory: "${val}"`);
     }
     return val;
   }

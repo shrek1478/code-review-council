@@ -1,6 +1,6 @@
 import { Injectable, ConsoleLogger, Inject } from '@nestjs/common';
 import { simpleGit } from 'simple-git';
-import { readFile, stat, realpath, lstat } from 'node:fs/promises';
+import { readFile, stat, realpath } from 'node:fs/promises';
 import { join, extname, basename, resolve } from 'node:path';
 
 export interface FileContent {
@@ -69,35 +69,30 @@ export class CodeReaderService {
     allowedRoot: string = process.cwd(),
   ): Promise<FileContent[]> {
     this.logger.log(`Reading ${filePaths.length} files`);
-    const rootDir = resolve(allowedRoot);
+    const rootReal = await realpath(resolve(allowedRoot));
     const results: FileContent[] = [];
+    let totalSize = 0;
 
     const readOne = async (filePath: string): Promise<FileContent | null> => {
       const resolved = resolve(filePath);
-      if (!resolved.startsWith(rootDir + '/') && resolved !== rootDir) {
-        this.logger.warn(`Skipping file outside allowed root: ${filePath}`);
-        return null;
-      }
       if (this.isSensitiveFile(resolved)) {
         this.logger.warn(`Skipping sensitive file: ${filePath}`);
         return null;
       }
       try {
-        const fileStat = await lstat(resolved);
-        if (fileStat.isSymbolicLink()) {
-          const real = await realpath(resolved);
-          if (!real.startsWith(rootDir + '/') && real !== rootDir) {
-            this.logger.warn(`Skipping symlink pointing outside root: ${filePath}`);
-            return null;
-          }
+        const real = await realpath(resolved);
+        if (!real.startsWith(rootReal + '/') && real !== rootReal) {
+          this.logger.warn(`Skipping file outside allowed root: ${filePath}`);
+          return null;
         }
+        const fileStat = await stat(real);
         if (fileStat.size > MAX_FILE_SIZE) {
           this.logger.warn(
             `Skipping large file (${(fileStat.size / 1024 / 1024).toFixed(1)}MB): ${filePath}`,
           );
           return null;
         }
-        const content = await readFile(resolved, 'utf-8');
+        const content = await readFile(real, 'utf-8');
         return { path: filePath, content };
       } catch {
         this.logger.warn(`Skipping unreadable file: ${filePath}`);
@@ -109,8 +104,16 @@ export class CodeReaderService {
       const chunk = filePaths.slice(i, i + CONCURRENCY);
       const batch = await Promise.all(chunk.map(readOne));
       for (const item of batch) {
-        if (item) results.push(item);
+        if (item) {
+          totalSize += item.content.length;
+          if (totalSize > MAX_TOTAL_SIZE) {
+            this.logger.warn(`Cumulative size exceeded ${MAX_TOTAL_SIZE / 1_048_576}MB, stopping file reads`);
+            break;
+          }
+          results.push(item);
+        }
       }
+      if (totalSize > MAX_TOTAL_SIZE) break;
     }
 
     if (results.length === 0) {
@@ -149,15 +152,22 @@ export class CodeReaderService {
     const files: FileContent[] = [];
     let totalSize = 0;
 
+    const dirReal = await realpath(resolve(directory));
+
     const readOne = async (relativePath: string): Promise<FileContent | null> => {
       const fullPath = join(directory, relativePath);
       try {
-        const fileStat = await stat(fullPath);
+        const real = await realpath(fullPath);
+        if (!real.startsWith(dirReal + '/') && real !== dirReal) {
+          this.logger.warn(`Skipping symlink pointing outside repo: ${relativePath}`);
+          return null;
+        }
+        const fileStat = await stat(real);
         if (fileStat.size > MAX_FILE_SIZE) {
           this.logger.warn(`Skipping large file (${(fileStat.size / 1024 / 1024).toFixed(1)}MB): ${relativePath}`);
           return null;
         }
-        const content = await readFile(fullPath, 'utf-8');
+        const content = await readFile(real, 'utf-8');
         return { path: relativePath, content };
       } catch {
         this.logger.warn(`Skipping unreadable file: ${relativePath}`);
