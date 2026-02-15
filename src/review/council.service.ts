@@ -1,16 +1,17 @@
-import { Inject, Injectable, Logger } from '@nestjs/common';
+import { Inject, Injectable, ConsoleLogger } from '@nestjs/common';
 import { AcpService } from '../acp/acp.service.js';
 import { ConfigService } from '../config/config.service.js';
 import { IndividualReview, ReviewRequest } from './review.types.js';
 
 @Injectable()
 export class CouncilService {
-  private readonly logger = new Logger(CouncilService.name);
-
   constructor(
+    @Inject(ConsoleLogger) private readonly logger: ConsoleLogger,
     @Inject(AcpService) private readonly acpService: AcpService,
     @Inject(ConfigService) private readonly configService: ConfigService,
-  ) {}
+  ) {
+    this.logger.setContext(CouncilService.name);
+  }
 
   async dispatchReviews(request: ReviewRequest): Promise<IndividualReview[]> {
     const config = this.configService.getConfig();
@@ -20,22 +21,22 @@ export class CouncilService {
 
     const prompt = this.buildReviewPrompt(request);
 
-    const reviewPromises = reviewers.map(async (reviewerConfig) => {
-      try {
+    const results = await Promise.allSettled(
+      reviewers.map(async (reviewerConfig) => {
         const handle = await this.acpService.createClient(reviewerConfig);
         const review = await this.acpService.sendPrompt(handle, prompt);
-        console.log(`\n--- ${reviewerConfig.name} ---`);
-        console.log(review);
-        console.log();
         return { reviewer: reviewerConfig.name, review };
-      } catch (error) {
-        const msg = error instanceof Error ? error.message : String(error);
-        this.logger.error(`Reviewer ${reviewerConfig.name} failed: ${msg}`);
-        return { reviewer: reviewerConfig.name, review: `[error] ${msg}` };
-      }
-    });
+      }),
+    );
 
-    return Promise.all(reviewPromises);
+    return results.map((result, i) => {
+      if (result.status === 'fulfilled') {
+        return result.value;
+      }
+      const msg = result.reason instanceof Error ? result.reason.message : String(result.reason);
+      this.logger.error(`Reviewer ${reviewers[i].name} failed: ${msg}`);
+      return { reviewer: reviewers[i].name, review: `[error] ${msg}` };
+    });
   }
 
   private buildReviewPrompt(request: ReviewRequest): string {

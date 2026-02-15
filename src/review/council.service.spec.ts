@@ -1,4 +1,5 @@
 import { Test } from '@nestjs/testing';
+import { ConsoleLogger } from '@nestjs/common';
 import { CouncilService } from './council.service.js';
 import { AcpService } from '../acp/acp.service.js';
 import { ConfigService } from '../config/config.service.js';
@@ -36,6 +37,7 @@ describe('CouncilService', () => {
     const module = await Test.createTestingModule({
       providers: [
         CouncilService,
+        { provide: ConsoleLogger, useValue: new ConsoleLogger() },
         { provide: AcpService, useValue: mockAcpService },
         { provide: ConfigService, useValue: mockConfigService },
       ],
@@ -63,5 +65,20 @@ describe('CouncilService', () => {
     });
     expect(reviews.length).toBe(2);
     expect(reviews[1].review).toContain('error');
+  });
+
+  it('should stop clients for failed reviewers', async () => {
+    mockAcpService.createClient
+      .mockResolvedValueOnce({ name: 'Gemini', client: {} })
+      .mockRejectedValueOnce(new Error('client start failed'));
+
+    const reviews = await service.dispatchReviews({
+      code: 'const x = 1;',
+      checks: ['code-quality'],
+    });
+
+    expect(reviews.length).toBe(2);
+    expect(reviews[1].review).toContain('error');
+    expect(mockAcpService.createClient).toHaveBeenCalledTimes(2);
   });
 });
