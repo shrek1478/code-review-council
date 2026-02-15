@@ -57,10 +57,10 @@ export class AcpService {
           if (event.type === 'assistant.message_delta') {
             const delta = event.data?.deltaContent || '';
             if (delta) {
-              process.stdout.write(delta);
+              responseContent += delta;
             }
           } else if (event.type === 'assistant.message') {
-            responseContent = event.data.content || '';
+            responseContent = event.data.content || responseContent;
           } else if (event.type === 'session.idle') {
             settled = true;
             clearTimeout(timer);

@@ -24,6 +24,9 @@ export class CouncilService {
       try {
         const handle = await this.acpService.createClient(reviewerConfig);
         const review = await this.acpService.sendPrompt(handle, prompt);
+        console.log(`\n--- ${reviewerConfig.name} ---`);
+        console.log(review);
+        console.log();
         return { reviewer: reviewerConfig.name, review };
       } catch (error) {
         const msg = error instanceof Error ? error.message : String(error);

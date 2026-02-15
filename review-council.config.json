@@ -1,6 +1,8 @@
 {
   "reviewers": [
-    { "name": "Codex", "cliPath": "codex-acp", "cliArgs": [] }
+    { "name": "Codex", "cliPath": "codex-acp", "cliArgs": [] },
+    { "name": "Gemini", "cliPath": "gemini", "cliArgs": ["--experimental-acp"] },
+    { "name": "Copilot", "cliPath": "copilot", "cliArgs": ["--acp"] }
   ],
   "decisionMaker": {
     "name": "Claude",

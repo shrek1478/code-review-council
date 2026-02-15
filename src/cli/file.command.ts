@@ -27,27 +27,7 @@ export class FileCommand extends CommandRunner {
     console.log(`Files: ${params.join(', ')}`);
     console.log('Reviewing...\n');
 
-    const result = await this.reviewService.reviewFiles(params, checks, extra);
-
-    console.log('=== Individual Reviews ===\n');
-    for (const review of result.individualReviews) {
-      console.log(`--- ${review.reviewer} ---`);
-      console.log(review.review);
-      console.log();
-    }
-    if (result.decision) {
-      console.log('=== Final Decision (by ' + result.decision.reviewer + ') ===\n');
-      console.log(result.decision.overallAssessment);
-      if (result.decision.decisions?.length > 0) {
-        console.log('\nDecisions:');
-        for (const d of result.decision.decisions) {
-          const verdict = d.verdict === 'accepted' ? '\u2705' : d.verdict === 'rejected' ? '\u274C' : '\u270F\uFE0F';
-          console.log(`  ${verdict} [${d.severity}] ${d.category}: ${d.description}`);
-          if (d.reasoning) console.log(`    Reasoning: ${d.reasoning}`);
-          if (d.suggestion) console.log(`    Action: ${d.suggestion}`);
-        }
-      }
-    }
+    await this.reviewService.reviewFiles(params, checks, extra);
   }
 
   @Option({ flags: '--checks <list>', description: 'Comma-separated check categories' })

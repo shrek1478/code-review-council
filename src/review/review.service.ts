@@ -87,6 +87,7 @@ export class ReviewService {
           .filter(Boolean)
           .join(' ');
 
+        console.log(`\n=== Individual Reviews (Batch ${i + 1}/${batches.length}) ===\n`);
         const reviews = await this.council.dispatchReviews({
           code,
           checks,
@@ -97,6 +98,7 @@ export class ReviewService {
 
       const fullCode = allCode.join('\n\n');
       const decision = await this.decisionMaker.decide(fullCode, allReviews);
+      this.printDecision(decision);
       return { id, status: 'completed', individualReviews: allReviews, decision };
     } finally {
       await this.acpService.stopAll();
@@ -109,6 +111,7 @@ export class ReviewService {
     checks: string[],
     extraInstructions?: string,
   ): Promise<ReviewResult> {
+    console.log('\n=== Individual Reviews ===\n');
     const individualReviews = await this.council.dispatchReviews({
       code,
       checks,
@@ -116,6 +119,7 @@ export class ReviewService {
     });
 
     const decision = await this.decisionMaker.decide(code, individualReviews);
+    this.printDecision(decision);
 
     return {
       id,
@@ -123,5 +127,27 @@ export class ReviewService {
       individualReviews,
       decision,
     };
+  }
+
+  private printDecision(decision: any): void {
+    console.log('\n=== Final Decision (by ' + decision.reviewer + ') ===\n');
+    console.log(decision.overallAssessment);
+    if (decision.decisions?.length > 0) {
+      console.log('\nDecisions:');
+      for (const d of decision.decisions) {
+        const verdict = d.verdict === 'accepted' ? '\u2705' : d.verdict === 'rejected' ? '\u274C' : '\u270F\uFE0F';
+        console.log(`  ${verdict} [${d.severity}] ${d.category}: ${d.description}`);
+        if (d.reasoning) console.log(`    Reasoning: ${d.reasoning}`);
+        if (d.suggestion) console.log(`    Action: ${d.suggestion}`);
+        if (d.raisedBy?.length > 0) console.log(`    Raised by: ${d.raisedBy.join(', ')}`);
+      }
+    }
+    if (decision.additionalFindings?.length > 0) {
+      console.log('\nAdditional Findings (by Decision Maker):');
+      for (const f of decision.additionalFindings) {
+        console.log(`  [${f.severity}] ${f.category}: ${f.description}`);
+        if (f.suggestion) console.log(`    Action: ${f.suggestion}`);
+      }
+    }
   }
 }

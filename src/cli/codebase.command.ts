@@ -27,14 +27,12 @@ export class CodebaseCommand extends CommandRunner {
     if (maxBatchSize) console.log(`Batch size: ${maxBatchSize}`);
     console.log('Reviewing...\n');
 
-    const result = await this.reviewService.reviewCodebase(
+    await this.reviewService.reviewCodebase(
       directory,
       { extensions, maxBatchSize },
       checks,
       extra,
     );
-
-    this.printResult(result);
   }
 
   @Option({ flags: '--dir <path>', description: 'Directory to review (default: cwd)' })
@@ -54,34 +52,4 @@ export class CodebaseCommand extends CommandRunner {
 
   @Option({ flags: '--config <path>', description: 'Config file path' })
   parseConfig(val: string) { return val; }
-
-  private printResult(result: any) {
-    console.log('=== Individual Reviews ===\n');
-    for (const review of result.individualReviews) {
-      console.log(`--- ${review.reviewer} ---`);
-      console.log(review.review);
-      console.log();
-    }
-    if (result.decision) {
-      console.log('=== Final Decision (by ' + result.decision.reviewer + ') ===\n');
-      console.log(result.decision.overallAssessment);
-      if (result.decision.decisions?.length > 0) {
-        console.log('\nDecisions:');
-        for (const d of result.decision.decisions) {
-          const verdict = d.verdict === 'accepted' ? '\u2705' : d.verdict === 'rejected' ? '\u274C' : '\u270F\uFE0F';
-          console.log(`  ${verdict} [${d.severity}] ${d.category}: ${d.description}`);
-          if (d.reasoning) console.log(`    Reasoning: ${d.reasoning}`);
-          if (d.suggestion) console.log(`    Action: ${d.suggestion}`);
-          if (d.raisedBy?.length > 0) console.log(`    Raised by: ${d.raisedBy.join(', ')}`);
-        }
-      }
-      if (result.decision.additionalFindings?.length > 0) {
-        console.log('\nAdditional Findings (by Decision Maker):');
-        for (const f of result.decision.additionalFindings) {
-          console.log(`  [${f.severity}] ${f.category}: ${f.description}`);
-          if (f.suggestion) console.log(`    Action: ${f.suggestion}`);
-        }
-      }
-    }
-  }
 }
