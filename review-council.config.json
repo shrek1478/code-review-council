@@ -2,7 +2,7 @@
   "reviewers": [
     { "name": "Codex", "cliPath": "codex-acp", "cliArgs": [] },
     { "name": "Gemini", "cliPath": "gemini", "cliArgs": ["--experimental-acp"] },
-    { "name": "Copilot", "cliPath": "copilot", "cliArgs": ["--acp"] }
+    { "name": "Copilot", "cliPath": "copilot", "cliArgs": ["--acp", "--model", "gpt-5.3-codex"] }
   ],
   "decisionMaker": {
     "name": "Claude",

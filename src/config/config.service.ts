@@ -12,9 +12,30 @@ export class ConfigService {
   private config: CouncilConfig | null = null;
 
   async loadConfig(configPath?: string): Promise<CouncilConfig> {
-    const filePath = configPath
-      ? resolve(configPath)
-      : resolve(PROJECT_ROOT, 'review-council.config.json');
+    const { parsed, source } = await this.resolveBaseConfig(configPath);
+    this.validateConfig(parsed, source);
+    const config = parsed as CouncilConfig;
+    this.applyEnvOverrides(config);
+    this.config = config;
+    return this.config;
+  }
+
+  private async resolveBaseConfig(
+    configPath?: string,
+  ): Promise<{ parsed: unknown; source: string }> {
+    if (configPath) {
+      return this.loadFromFile(resolve(configPath));
+    }
+    const configJson = process.env.CONFIG_JSON;
+    if (configJson && configJson.trim() !== '') {
+      return this.parseConfigJson(configJson);
+    }
+    return this.loadFromFile(resolve(PROJECT_ROOT, 'review-council.config.json'));
+  }
+
+  private async loadFromFile(
+    filePath: string,
+  ): Promise<{ parsed: unknown; source: string }> {
     const content = await readFile(filePath, 'utf-8');
     let parsed: unknown;
     try {
@@ -23,9 +44,33 @@ export class ConfigService {
       const msg = error instanceof SyntaxError ? error.message : String(error);
       throw new Error(`Failed to parse config file "${filePath}": ${msg}`);
     }
-    this.validateConfig(parsed, filePath);
-    this.config = parsed as CouncilConfig;
-    return this.config;
+    return { parsed, source: filePath };
+  }
+
+  private parseConfigJson(
+    configJson: string,
+  ): { parsed: unknown; source: string } {
+    let parsed: unknown;
+    try {
+      parsed = JSON.parse(configJson);
+    } catch (error) {
+      const msg = error instanceof SyntaxError ? error.message : String(error);
+      throw new Error(
+        `Failed to parse CONFIG_JSON environment variable: ${msg}`,
+      );
+    }
+    return { parsed, source: 'CONFIG_JSON env' };
+  }
+
+  private applyEnvOverrides(config: CouncilConfig): void {
+    const model = process.env.DECISION_MAKER_MODEL;
+    if (model && model.trim() !== '') {
+      config.decisionMaker.model = model.trim();
+    }
+    const language = process.env.REVIEW_LANGUAGE;
+    if (language && language.trim() !== '') {
+      config.review.language = language.trim();
+    }
   }
 
   getConfig(): CouncilConfig {
