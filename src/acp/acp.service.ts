@@ -13,10 +13,6 @@ export interface AcpEvent {
     content?: string;
     deltaContent?: string;
     message?: string;
-    model?: string;
-    inputTokens?: number;
-    outputTokens?: number;
-    selectedModel?: string;
   };
 }
 
@@ -45,7 +41,9 @@ export class AcpService {
   }
 
   async createClient(config: ReviewerConfig): Promise<AcpClientHandle> {
-    this.logger.log(`Creating ACP client: ${config.name} (${config.cliPath})`);
+    const modelInfo = config.model ? ` [model: ${config.model}]` : '';
+    const argsInfo = config.cliArgs.length > 0 ? ` ${config.cliArgs.join(' ')}` : '';
+    this.logger.log(`Creating ACP client: ${config.name} (${config.cliPath}${argsInfo})${modelInfo}`);
     const client = new CopilotClient({
       cliPath: config.cliPath,
       cliArgs: config.cliArgs,
@@ -84,21 +82,21 @@ export class AcpService {
         }, timeoutMs);
 
         session.on((event: AcpEvent) => {
+          // Log model info from usage events (may arrive after session.idle)
+          if (event.type === 'assistant.usage') {
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            const raw = event as any;
+            const model = raw.data?.model ?? raw.model;
+            const input = raw.data?.inputTokens ?? raw.inputTokens;
+            const output = raw.data?.outputTokens ?? raw.outputTokens;
+            if (model) {
+              this.logger.log(`🤖 ${handle.name} model: ${model} (in: ${input ?? '?'}, out: ${output ?? '?'})`);
+            }
+          }
+
           if (settled) return;
 
-          if (event.type === 'assistant.usage') {
-            const model = event.data?.model;
-            const input = event.data?.inputTokens;
-            const output = event.data?.outputTokens;
-            if (model) {
-              this.logger.log(`🤖 ${handle.name} model: ${model}${input != null ? ` (in: ${input}, out: ${output})` : ''}`);
-            }
-          } else if (event.type === 'session.start') {
-            const model = event.data?.selectedModel;
-            if (model) {
-              this.logger.log(`🤖 ${handle.name} session model: ${model}`);
-            }
-          } else if (event.type === 'assistant.message_delta') {
+          if (event.type === 'assistant.message_delta') {
             const delta = event.data?.deltaContent || '';
             if (delta) {
               responseContent += delta;
