@@ -68,6 +68,71 @@ describe('CouncilService', () => {
     expect(reviews[1].review).toContain('error');
   });
 
+  it('should retry on timeout error and succeed on second attempt', async () => {
+    mockConfigService.getConfig.mockReturnValue({
+      reviewers: [
+        { name: 'Codex', cliPath: 'codex-acp', cliArgs: [], maxRetries: 1 },
+      ],
+      review: { defaultChecks: ['code-quality'], language: 'zh-tw' },
+    });
+    mockAcpService.sendPrompt
+      .mockRejectedValueOnce(new Error('Codex timed out after 180000ms'))
+      .mockResolvedValueOnce('Review OK after retry');
+    mockAcpService.createClient
+      .mockResolvedValueOnce({ name: 'Codex', client: {} })
+      .mockResolvedValueOnce({ name: 'Codex', client: {} });
+
+    const reviews = await service.dispatchReviews({
+      code: 'const x = 1;',
+      checks: ['code-quality'],
+    });
+
+    expect(reviews.length).toBe(1);
+    expect(reviews[0].review).toBe('Review OK after retry');
+    expect(mockAcpService.createClient).toHaveBeenCalledTimes(2);
+    expect(mockAcpService.stopClient).toHaveBeenCalledTimes(2);
+  });
+
+  it('should not retry on non-retryable errors', async () => {
+    mockConfigService.getConfig.mockReturnValue({
+      reviewers: [
+        { name: 'Codex', cliPath: 'codex-acp', cliArgs: [], maxRetries: 2 },
+      ],
+      review: { defaultChecks: ['code-quality'], language: 'zh-tw' },
+    });
+    mockAcpService.sendPrompt
+      .mockRejectedValueOnce(new Error('Invalid token'));
+
+    const reviews = await service.dispatchReviews({
+      code: 'const x = 1;',
+      checks: ['code-quality'],
+    });
+
+    expect(reviews.length).toBe(1);
+    expect(reviews[0].review).toContain('error');
+    expect(mockAcpService.sendPrompt).toHaveBeenCalledTimes(1);
+  });
+
+  it('should pass configured timeoutMs to sendPrompt', async () => {
+    mockConfigService.getConfig.mockReturnValue({
+      reviewers: [
+        { name: 'Codex', cliPath: 'codex-acp', cliArgs: [], timeoutMs: 300000 },
+      ],
+      review: { defaultChecks: ['code-quality'], language: 'zh-tw' },
+    });
+
+    await service.dispatchReviews({
+      code: 'const x = 1;',
+      checks: ['code-quality'],
+    });
+
+    expect(mockAcpService.sendPrompt).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.any(String),
+      300000,
+    );
+  });
+
   it('should stop clients for failed reviewers', async () => {
     mockAcpService.createClient
       .mockResolvedValueOnce({ name: 'Gemini', client: {} })

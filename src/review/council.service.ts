@@ -24,10 +24,28 @@ export class CouncilService {
 
     const results = await Promise.allSettled(
       reviewers.map(async (reviewerConfig) => {
-        const handle = await this.acpService.createClient(reviewerConfig);
+        const timeoutMs = reviewerConfig.timeoutMs ?? 180_000;
+        const maxRetries = reviewerConfig.maxRetries ?? 0;
+        let handle = await this.acpService.createClient(reviewerConfig);
         try {
-          const review = await this.acpService.sendPrompt(handle, prompt);
-          return { reviewer: reviewerConfig.name, review };
+          for (let attempt = 0; attempt <= maxRetries; attempt++) {
+            try {
+              const review = await this.acpService.sendPrompt(handle, prompt, timeoutMs);
+              return { reviewer: reviewerConfig.name, review };
+            } catch (error) {
+              if (attempt < maxRetries && this.isRetryable(error)) {
+                const delay = 2000 * Math.pow(2, attempt);
+                this.logger.warn(`${reviewerConfig.name} attempt ${attempt + 1} failed, retrying in ${delay}ms...`);
+                await new Promise(r => setTimeout(r, delay));
+                await this.acpService.stopClient(handle);
+                handle = await this.acpService.createClient(reviewerConfig);
+                continue;
+              }
+              throw error;
+            }
+          }
+          // unreachable, but satisfies TypeScript
+          throw new Error(`${reviewerConfig.name} exhausted all retries`);
         } finally {
           await this.acpService.stopClient(handle);
         }
@@ -42,6 +60,17 @@ export class CouncilService {
       this.logger.error(`Reviewer ${reviewers[i].name} failed: ${msg}`);
       return { reviewer: reviewers[i].name, review: `[error] ${msg}` };
     });
+  }
+
+  private isRetryable(error: unknown): boolean {
+    if (!(error instanceof Error)) return false;
+    const msg = error.message.toLowerCase();
+    if (msg.includes('invalid token') || msg.includes('unauthorized') || msg.includes('authentication')) {
+      return false;
+    }
+    return msg.includes('timed out') || msg.includes('timeout') ||
+      msg.includes('failed to list models') || msg.includes('econnreset') ||
+      msg.includes('econnrefused') || msg.includes('socket hang up');
   }
 
   private buildReviewPrompt(request: ReviewRequest): string {

@@ -18,6 +18,8 @@ describe('ConfigService', () => {
     delete process.env.CONFIG_JSON;
     delete process.env.DECISION_MAKER_MODEL;
     delete process.env.REVIEW_LANGUAGE;
+    delete process.env.DECISION_MAKER_TIMEOUT_MS;
+    delete process.env.REVIEWER_TIMEOUT_MS;
   });
 
   it('should load config from file', async () => {
@@ -143,6 +145,77 @@ describe('ConfigService', () => {
       const config = await service.loadConfig();
       expect(config.decisionMaker.model).toBe('custom-model');
       expect(config.review.language).toBe('ko');
+    });
+
+    it('should override decisionMaker.timeoutMs with DECISION_MAKER_TIMEOUT_MS', async () => {
+      process.env.DECISION_MAKER_TIMEOUT_MS = '600000';
+      const config = await service.loadConfig();
+      expect(config.decisionMaker.timeoutMs).toBe(600000);
+    });
+
+    it('should override all reviewers timeoutMs with REVIEWER_TIMEOUT_MS', async () => {
+      process.env.REVIEWER_TIMEOUT_MS = '400000';
+      const config = await service.loadConfig();
+      for (const r of config.reviewers) {
+        expect(r.timeoutMs).toBe(400000);
+      }
+    });
+
+    it('should ignore non-numeric DECISION_MAKER_TIMEOUT_MS', async () => {
+      process.env.CONFIG_JSON = VALID_JSON_CONFIG;
+      process.env.DECISION_MAKER_TIMEOUT_MS = 'abc';
+      const config = await service.loadConfig();
+      expect(config.decisionMaker.timeoutMs).toBeUndefined();
+    });
+  });
+
+  describe('new field validation', () => {
+    it('should reject negative timeoutMs', async () => {
+      const tmpPath = join(process.cwd(), '__test_bad_timeout__.json');
+      await writeFile(tmpPath, JSON.stringify({
+        reviewers: [{ name: 'Test', cliPath: 'echo', cliArgs: [], timeoutMs: -1 }],
+        decisionMaker: { name: 'DM', cliPath: 'echo', cliArgs: [] },
+        review: { defaultChecks: ['code-quality'], language: 'en' },
+      }));
+      try {
+        await expect(service.loadConfig(tmpPath)).rejects.toThrow('timeoutMs');
+      } finally {
+        await unlink(tmpPath);
+      }
+    });
+
+    it('should reject maxRetries > 5', async () => {
+      const tmpPath = join(process.cwd(), '__test_bad_retries__.json');
+      await writeFile(tmpPath, JSON.stringify({
+        reviewers: [{ name: 'Test', cliPath: 'echo', cliArgs: [], maxRetries: 6 }],
+        decisionMaker: { name: 'DM', cliPath: 'echo', cliArgs: [] },
+        review: { defaultChecks: ['code-quality'], language: 'en' },
+      }));
+      try {
+        await expect(service.loadConfig(tmpPath)).rejects.toThrow('maxRetries');
+      } finally {
+        await unlink(tmpPath);
+      }
+    });
+
+    it('should accept valid timeoutMs and maxRetries', async () => {
+      const tmpPath = join(process.cwd(), '__test_valid_new_fields__.json');
+      await writeFile(tmpPath, JSON.stringify({
+        reviewers: [{ name: 'Test', cliPath: 'echo', cliArgs: [], timeoutMs: 300000, maxRetries: 2 }],
+        decisionMaker: { name: 'DM', cliPath: 'echo', cliArgs: [], timeoutMs: 600000, maxRetries: 1 },
+        review: { defaultChecks: ['code-quality'], language: 'en', maxReviewsLength: 60000, maxCodeLength: 100000, maxSummaryLength: 60000 },
+      }));
+      try {
+        const config = await service.loadConfig(tmpPath);
+        expect(config.reviewers[0].timeoutMs).toBe(300000);
+        expect(config.reviewers[0].maxRetries).toBe(2);
+        expect(config.decisionMaker.timeoutMs).toBe(600000);
+        expect(config.review.maxReviewsLength).toBe(60000);
+        expect(config.review.maxCodeLength).toBe(100000);
+        expect(config.review.maxSummaryLength).toBe(60000);
+      } finally {
+        await unlink(tmpPath);
+      }
     });
   });
 });

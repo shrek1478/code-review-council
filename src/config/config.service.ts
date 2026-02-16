@@ -71,6 +71,22 @@ export class ConfigService {
     if (language && language.trim() !== '') {
       config.review.language = language.trim();
     }
+    const dmTimeout = process.env.DECISION_MAKER_TIMEOUT_MS;
+    if (dmTimeout && dmTimeout.trim() !== '') {
+      const parsed = Number(dmTimeout.trim());
+      if (Number.isInteger(parsed) && parsed > 0) {
+        config.decisionMaker.timeoutMs = parsed;
+      }
+    }
+    const reviewerTimeout = process.env.REVIEWER_TIMEOUT_MS;
+    if (reviewerTimeout && reviewerTimeout.trim() !== '') {
+      const parsed = Number(reviewerTimeout.trim());
+      if (Number.isInteger(parsed) && parsed > 0) {
+        for (const r of config.reviewers) {
+          r.timeoutMs = parsed;
+        }
+      }
+    }
   }
 
   getConfig(): CouncilConfig {
@@ -113,6 +129,16 @@ export class ConfigService {
     }
     if (r.model !== undefined && typeof r.model !== 'string') {
       throw new Error(`Invalid config (${filePath}): "${path}.model" must be a string if provided`);
+    }
+    if (r.timeoutMs !== undefined) {
+      if (!Number.isInteger(r.timeoutMs) || r.timeoutMs <= 0) {
+        throw new Error(`Invalid config (${filePath}): "${path}.timeoutMs" must be a positive integer`);
+      }
+    }
+    if (r.maxRetries !== undefined) {
+      if (!Number.isInteger(r.maxRetries) || r.maxRetries < 0 || r.maxRetries > 5) {
+        throw new Error(`Invalid config (${filePath}): "${path}.maxRetries" must be an integer between 0 and 5`);
+      }
     }
   }
 }

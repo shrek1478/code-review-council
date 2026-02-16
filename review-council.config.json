@@ -1,16 +1,51 @@
 {
   "reviewers": [
-    { "name": "Codex", "cliPath": "codex-acp", "cliArgs": [] },
-    { "name": "Gemini", "cliPath": "gemini", "cliArgs": ["--experimental-acp"] },
-    { "name": "Copilot", "cliPath": "copilot", "cliArgs": ["--acp", "--model", "gpt-5.3-codex"] }
+    {
+      "name": "Codex",
+      "cliPath": "codex-acp",
+      "cliArgs": [],
+      "timeoutMs": 300000,
+      "maxRetries": 1
+    },
+    {
+      "name": "Gemini",
+      "cliPath": "gemini",
+      "cliArgs": [
+        "--experimental-acp"
+      ],
+      "timeoutMs": 300000,
+      "maxRetries": 1
+    },
+    {
+      "name": "Copilot",
+      "cliPath": "copilot",
+      "cliArgs": [
+        "--acp",
+        "--model",
+        "gpt-5.3-codex"
+      ],
+      "timeoutMs": 300000,
+      "maxRetries": 1
+    }
   ],
   "decisionMaker": {
     "name": "Claude",
     "cliPath": "claude-code-acp",
-    "cliArgs": ["--model", "claude-sonnet-4-5-20250929"]
+    "cliArgs": [],
+    "timeoutMs": 600000,
+    "maxRetries": 1
   },
   "review": {
-    "defaultChecks": ["code-quality", "security", "performance", "readability", "best-practices"],
-    "language": "zh-tw"
+    "defaultChecks": [
+      "code-quality",
+      "security",
+      "performance",
+      "readability",
+      "best-practices"
+    ],
+    "language": "zh-tw",
+    "maxReviewsLength": 60000,
+    "maxCodeLength": 100000,
+    "maxSummaryLength": 60000
   }
 }

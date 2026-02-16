@@ -126,4 +126,58 @@ describe('DecisionMakerService', () => {
     expect(sentPrompt).toContain('file summary');
     expect(sentPrompt).not.toContain('Review the code yourself');
   });
+
+  it('should use config maxReviewsLength for truncation', async () => {
+    mockConfigService.getConfig.mockReturnValue({
+      decisionMaker: { name: 'Claude', cliPath: 'claude-code-acp', cliArgs: [] },
+      review: { language: 'zh-tw', maxReviewsLength: 100 },
+    });
+    const longReview = 'x'.repeat(500);
+    await service.decide(
+      'const x = 1;',
+      [{ reviewer: 'Test', review: longReview }],
+    );
+    const sentPrompt = mockAcpService.sendPrompt.mock.calls[0][1];
+    expect(sentPrompt).toContain('truncated');
+  });
+
+  it('should use config timeoutMs for decision maker', async () => {
+    mockConfigService.getConfig.mockReturnValue({
+      decisionMaker: { name: 'Claude', cliPath: 'claude-code-acp', cliArgs: [], timeoutMs: 600000 },
+      review: { language: 'zh-tw' },
+    });
+    await service.decide(
+      'const x = 1;',
+      [{ reviewer: 'Test', review: 'OK' }],
+    );
+    expect(mockAcpService.sendPrompt).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.any(String),
+      600000,
+    );
+  });
+
+  it('should retry on timeout and succeed on second attempt', async () => {
+    mockConfigService.getConfig.mockReturnValue({
+      decisionMaker: { name: 'Claude', cliPath: 'claude-code-acp', cliArgs: [], maxRetries: 1 },
+      review: { language: 'zh-tw' },
+    });
+    mockAcpService.sendPrompt
+      .mockRejectedValueOnce(new Error('Claude timed out after 300000ms'))
+      .mockResolvedValueOnce(JSON.stringify({
+        overallAssessment: 'OK after retry',
+        decisions: [],
+        additionalFindings: [],
+      }));
+    mockAcpService.createClient
+      .mockResolvedValueOnce({ name: 'Claude', client: {} })
+      .mockResolvedValueOnce({ name: 'Claude', client: {} });
+
+    const decision = await service.decide(
+      'const x = 1;',
+      [{ reviewer: 'Test', review: 'OK' }],
+    );
+    expect(decision.overallAssessment).toBe('OK after retry');
+    expect(mockAcpService.createClient).toHaveBeenCalledTimes(2);
+  });
 });
