@@ -82,15 +82,18 @@ export class ReviewService {
         .filter(Boolean)
         .join(' ');
 
+      this.logger.log(`[Batch ${i + 1}/${batches.length}] Dispatching to reviewers (${batch.length} files, ${code.length} chars)...`);
       const reviews = await this.council.dispatchReviews({
         code,
         checks,
         extraInstructions: batchExtra,
       });
       allReviews.push(...reviews);
+      this.logger.log(`[Batch ${i + 1}/${batches.length}] Complete.`);
     }
 
     // Pass file summary instead of full code to decision maker
+    this.logger.log(`All ${batches.length} batches complete. Sending ${allReviews.length} reviews to decision maker...`);
     const fileSummary = allFileNames.join('\n');
     const decision = await this.decisionMaker.decide(fileSummary, allReviews, true);
     return { id, status: 'completed', individualReviews: allReviews, decision };
