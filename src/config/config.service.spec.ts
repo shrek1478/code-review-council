@@ -20,6 +20,7 @@ describe('ConfigService', () => {
     delete process.env.REVIEW_LANGUAGE;
     delete process.env.DECISION_MAKER_TIMEOUT_MS;
     delete process.env.REVIEWER_TIMEOUT_MS;
+    delete process.env.REVIEWER_EXPLORE_LOCAL;
   });
 
   it('should load config from file', async () => {
@@ -166,6 +167,30 @@ describe('ConfigService', () => {
       process.env.DECISION_MAKER_TIMEOUT_MS = 'abc';
       const config = await service.loadConfig();
       expect(config.decisionMaker.timeoutMs).toBeUndefined();
+    });
+
+    it('should set allowLocalExploration=true with REVIEWER_EXPLORE_LOCAL=true', async () => {
+      process.env.REVIEWER_EXPLORE_LOCAL = 'true';
+      const config = await service.loadConfig();
+      expect(config.review.allowLocalExploration).toBe(true);
+    });
+
+    it('should set allowLocalExploration=false with REVIEWER_EXPLORE_LOCAL=false', async () => {
+      process.env.REVIEWER_EXPLORE_LOCAL = 'false';
+      const config = await service.loadConfig();
+      expect(config.review.allowLocalExploration).toBe(false);
+    });
+
+    it('should accept REVIEWER_EXPLORE_LOCAL=1 as true', async () => {
+      process.env.REVIEWER_EXPLORE_LOCAL = '1';
+      const config = await service.loadConfig();
+      expect(config.review.allowLocalExploration).toBe(true);
+    });
+
+    it('should not override allowLocalExploration when REVIEWER_EXPLORE_LOCAL is empty', async () => {
+      process.env.REVIEWER_EXPLORE_LOCAL = '';
+      const config = await service.loadConfig();
+      expect(config.review.allowLocalExploration).toBe(false);
     });
   });
 

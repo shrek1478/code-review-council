@@ -13,6 +13,10 @@ export interface AcpEvent {
     content?: string;
     deltaContent?: string;
     message?: string;
+    model?: string;
+    inputTokens?: number;
+    outputTokens?: number;
+    selectedModel?: string;
   };
 }
 
@@ -82,7 +86,19 @@ export class AcpService {
         session.on((event: AcpEvent) => {
           if (settled) return;
 
-          if (event.type === 'assistant.message_delta') {
+          if (event.type === 'assistant.usage') {
+            const model = event.data?.model;
+            const input = event.data?.inputTokens;
+            const output = event.data?.outputTokens;
+            if (model) {
+              this.logger.log(`🤖 ${handle.name} model: ${model}${input != null ? ` (in: ${input}, out: ${output})` : ''}`);
+            }
+          } else if (event.type === 'session.start') {
+            const model = event.data?.selectedModel;
+            if (model) {
+              this.logger.log(`🤖 ${handle.name} session model: ${model}`);
+            }
+          } else if (event.type === 'assistant.message_delta') {
             const delta = event.data?.deltaContent || '';
             if (delta) {
               responseContent += delta;

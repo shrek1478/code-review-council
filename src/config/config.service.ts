@@ -87,6 +87,15 @@ export class ConfigService {
         }
       }
     }
+    const exploreLocal = process.env.REVIEWER_EXPLORE_LOCAL;
+    if (exploreLocal && exploreLocal.trim() !== '') {
+      const val = exploreLocal.trim().toLowerCase();
+      if (val === 'true' || val === '1') {
+        config.review.allowLocalExploration = true;
+      } else if (val === 'false' || val === '0') {
+        config.review.allowLocalExploration = false;
+      }
+    }
   }
 
   getConfig(): CouncilConfig {

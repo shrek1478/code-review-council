@@ -13,6 +13,7 @@ export interface ReviewConfig {
   maxReviewsLength?: number;
   maxCodeLength?: number;
   maxSummaryLength?: number;
+  allowLocalExploration?: boolean;
 }
 
 export interface CouncilConfig {

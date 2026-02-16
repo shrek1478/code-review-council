@@ -133,6 +133,52 @@ describe('CouncilService', () => {
     );
   });
 
+  it('should include no-tools instruction when allowLocalExploration is false', async () => {
+    mockConfigService.getConfig.mockReturnValue({
+      reviewers: [
+        { name: 'Codex', cliPath: 'codex-acp', cliArgs: [] },
+      ],
+      review: { defaultChecks: ['code-quality'], language: 'zh-tw', allowLocalExploration: false },
+    });
+
+    await service.dispatchReviews({
+      code: 'const x = 1;',
+      checks: ['code-quality'],
+    });
+
+    const promptArg = mockAcpService.sendPrompt.mock.calls[0][1] as string;
+    expect(promptArg).toContain('Do NOT use any tools');
+    expect(promptArg).not.toContain('You MAY use available tools');
+  });
+
+  it('should include explore instruction when allowLocalExploration is true', async () => {
+    mockConfigService.getConfig.mockReturnValue({
+      reviewers: [
+        { name: 'Gemini', cliPath: 'gemini', cliArgs: [] },
+      ],
+      review: { defaultChecks: ['code-quality'], language: 'zh-tw', allowLocalExploration: true },
+    });
+
+    await service.dispatchReviews({
+      code: 'const x = 1;',
+      checks: ['code-quality'],
+    });
+
+    const promptArg = mockAcpService.sendPrompt.mock.calls[0][1] as string;
+    expect(promptArg).toContain('You MAY use available tools');
+    expect(promptArg).not.toContain('Do NOT use any tools');
+  });
+
+  it('should default to no-tools when allowLocalExploration is undefined', async () => {
+    await service.dispatchReviews({
+      code: 'const x = 1;',
+      checks: ['code-quality'],
+    });
+
+    const promptArg = mockAcpService.sendPrompt.mock.calls[0][1] as string;
+    expect(promptArg).toContain('Do NOT use any tools');
+  });
+
   it('should stop clients for failed reviewers', async () => {
     mockAcpService.createClient
       .mockResolvedValueOnce({ name: 'Gemini', client: {} })

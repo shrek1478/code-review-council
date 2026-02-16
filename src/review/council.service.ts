@@ -80,8 +80,14 @@ export class CouncilService {
 
     const delimiter = `CODE-${randomUUID().slice(0, 8)}`;
 
+    const allowExplore = config.review.allowLocalExploration === true;
+    const toolInstruction = allowExplore
+      ? 'You MAY use available tools (read files, list directories, search code) to explore the local codebase for additional context.'
+      : 'Do NOT use any tools. Do NOT read files from the filesystem. Do NOT execute any commands. ONLY analyze the code provided below in this prompt.';
+
     let prompt = `You are a senior code reviewer. Please review the following code.
 You MUST reply entirely in ${lang}. All descriptions, suggestions, and explanations must be written in ${lang}.
+${toolInstruction}
 
 Check for: ${checks.join(', ')}
 

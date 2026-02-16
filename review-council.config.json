@@ -4,8 +4,8 @@
       "name": "Codex",
       "cliPath": "codex-acp",
       "cliArgs": [],
-      "timeoutMs": 300000,
-      "maxRetries": 1
+      "timeoutMs": 60000,
+      "maxRetries": 3
     },
     {
       "name": "Gemini",
@@ -13,8 +13,8 @@
       "cliArgs": [
         "--experimental-acp"
       ],
-      "timeoutMs": 300000,
-      "maxRetries": 1
+      "timeoutMs": 60000,
+      "maxRetries": 3
     },
     {
       "name": "Copilot",
@@ -24,8 +24,8 @@
         "--model",
         "gpt-5.3-codex"
       ],
-      "timeoutMs": 300000,
-      "maxRetries": 1
+      "timeoutMs": 60000,
+      "maxRetries": 3
     }
   ],
   "decisionMaker": {
@@ -33,7 +33,7 @@
     "cliPath": "claude-code-acp",
     "cliArgs": [],
     "timeoutMs": 600000,
-    "maxRetries": 1
+    "maxRetries": 2
   },
   "review": {
     "defaultChecks": [
@@ -46,6 +46,7 @@
     "language": "zh-tw",
     "maxReviewsLength": 60000,
     "maxCodeLength": 100000,
-    "maxSummaryLength": 60000
+    "maxSummaryLength": 60000,
+    "allowLocalExploration": false
   }
 }
