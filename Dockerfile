@@ -3,22 +3,23 @@
 # ============================================
 FROM node:24-alpine AS build
 
-# Preserve the same relative path structure as host
-# so package.json's "file:../copilot-sdk-acp/copilot-sdk/nodejs" resolves correctly
-WORKDIR /app/code-review-council
+WORKDIR /app
 
-# Copy copilot-sdk to the expected relative path
-COPY copilot-sdk-acp/copilot-sdk/nodejs /app/copilot-sdk-acp/copilot-sdk/nodejs
+# GitHub Packages auth token (required for @shrek1478 scoped packages)
+ARG NPM_GITHUB_TOKEN
 
-# Copy package files
-COPY code-review-council/package.json code-review-council/package-lock.json ./
+# Copy package files and .npmrc
+COPY package.json package-lock.json .npmrc ./
+
+# Set auth token for GitHub Packages
+RUN echo "//npm.pkg.github.com/:_authToken=${NPM_GITHUB_TOKEN}" >> .npmrc
 
 # Install all dependencies (including devDependencies for build)
 RUN npm ci
 
 # Copy source code and build config
-COPY code-review-council/src ./src
-COPY code-review-council/tsconfig.json code-review-council/tsconfig.build.json code-review-council/nest-cli.json ./
+COPY src ./src
+COPY tsconfig.json tsconfig.build.json nest-cli.json ./
 
 # Build TypeScript
 RUN npx nest build
@@ -31,30 +32,30 @@ FROM node:24-alpine AS production
 # Install git (required by simple-git at runtime)
 RUN apk add --no-cache git
 
-# Install AI CLI tools globally
-# NOTE: Verify actual npm package names and uncomment before building.
-# RUN npm install -g @anthropic-ai/claude-code \
-#     && npm install -g @google/gemini-cli \
-#     && npm install -g @github/copilot-cli
+WORKDIR /app
 
-WORKDIR /app/code-review-council
+# GitHub Packages auth token
+ARG NPM_GITHUB_TOKEN
 
-# Copy copilot-sdk to the expected relative path
-COPY copilot-sdk-acp/copilot-sdk/nodejs /app/copilot-sdk-acp/copilot-sdk/nodejs
+# Copy package files and .npmrc
+COPY package.json package-lock.json .npmrc ./
 
-# Copy package files
-COPY code-review-council/package.json code-review-council/package-lock.json ./
+# Set auth token for GitHub Packages
+RUN echo "//npm.pkg.github.com/:_authToken=${NPM_GITHUB_TOKEN}" >> .npmrc
 
 # Install production dependencies only
 RUN npm ci --omit=dev
 
+# Remove auth token from .npmrc after install
+RUN sed -i '/_authToken/d' .npmrc
+
 # Copy built output from build stage
-COPY --from=build /app/code-review-council/dist ./dist
+COPY --from=build /app/dist ./dist
 
 # Copy default config (can be overridden by volume mount or CONFIG_JSON env var)
-COPY code-review-council/review-council.config.json ./review-council.config.json
+COPY review-council.config.json ./review-council.config.json
 
 # Use non-root user for security
 USER node
 
-ENTRYPOINT ["node", "/app/code-review-council/dist/cli.js"]
+ENTRYPOINT ["node", "/app/dist/cli.js"]
