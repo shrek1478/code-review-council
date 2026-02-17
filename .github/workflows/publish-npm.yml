@@ -6,12 +6,12 @@ on:
   workflow_dispatch:
     inputs:
       version:
-        description: 'Version to publish (e.g. 0.0.1)'
+        description: 'Version to publish (e.g. 0.0.2)'
         required: false
-        default: '0.0.1'
+        default: '0.0.2'
 
 env:
-  VERSION: ${{ github.event.inputs.version || '0.0.1' }}
+  VERSION: ${{ github.event.inputs.version || '0.0.2' }}
 
 jobs:
   publish:
