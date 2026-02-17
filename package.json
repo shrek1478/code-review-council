@@ -1,10 +1,16 @@
 {
-  "name": "code-review-council",
+  "name": "@shrek1478/code-review-council",
   "version": "0.0.1",
-  "description": "",
-  "author": "",
-  "private": true,
-  "license": "UNLICENSED",
+  "description": "AI-powered code review council using multiple LLM reviewers",
+  "author": "shrek1478",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/shrek1478/code-review-council.git"
+  },
+  "publishConfig": {
+    "registry": "https://npm.pkg.github.com"
+  },
   "type": "module",
   "bin": {
     "code-review-council": "./dist/cli.js"
