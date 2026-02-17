@@ -133,6 +133,26 @@ describe('CouncilService', () => {
     );
   });
 
+  it('should double timeoutMs when allowLocalExploration is true', async () => {
+    mockConfigService.getConfig.mockReturnValue({
+      reviewers: [
+        { name: 'Codex', cliPath: 'codex-acp', cliArgs: [], timeoutMs: 300000 },
+      ],
+      review: { defaultChecks: ['code-quality'], language: 'zh-tw', allowLocalExploration: true },
+    });
+
+    await service.dispatchReviews({
+      code: 'const x = 1;',
+      checks: ['code-quality'],
+    });
+
+    expect(mockAcpService.sendPrompt).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.any(String),
+      600000,
+    );
+  });
+
   it('should include no-tools instruction when allowLocalExploration is false', async () => {
     mockConfigService.getConfig.mockReturnValue({
       reviewers: [

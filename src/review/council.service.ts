@@ -25,7 +25,9 @@ export class CouncilService {
     const prompt = this.buildReviewPrompt(request);
 
     const reviewOneReviewer = async (reviewerConfig: (typeof reviewers)[number]) => {
-      const timeoutMs = reviewerConfig.timeoutMs ?? 180_000;
+      const allowExplore = config.review.allowLocalExploration === true;
+      const baseTimeout = reviewerConfig.timeoutMs ?? 180_000;
+      const timeoutMs = allowExplore ? baseTimeout * 2 : baseTimeout;
       const maxRetries = reviewerConfig.maxRetries ?? 0;
       let handle = await this.acpService.createClient(reviewerConfig);
       try {

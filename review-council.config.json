@@ -40,6 +40,6 @@
     "maxReviewsLength": 60000,
     "maxCodeLength": 100000,
     "maxSummaryLength": 60000,
-    "allowLocalExploration": false
+    "allowLocalExploration": true
   }
 }

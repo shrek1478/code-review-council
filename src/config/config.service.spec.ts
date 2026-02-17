@@ -187,10 +187,25 @@ describe('ConfigService', () => {
       expect(config.review.allowLocalExploration).toBe(true);
     });
 
-    it('should not override allowLocalExploration when REVIEWER_EXPLORE_LOCAL is empty', async () => {
+    it('should not override allowLocalExploration=true when REVIEWER_EXPLORE_LOCAL is empty', async () => {
+      process.env.CONFIG_JSON = JSON.stringify({
+        reviewers: [{ name: 'Test', cliPath: 'echo', cliArgs: [] }],
+        decisionMaker: { name: 'DM', cliPath: 'echo', cliArgs: [] },
+        review: { defaultChecks: ['code-quality'], language: 'en', allowLocalExploration: true },
+      });
       process.env.REVIEWER_EXPLORE_LOCAL = '';
       const config = await service.loadConfig();
-      // Empty string should not override — value stays as defined in config file
+      expect(config.review.allowLocalExploration).toBe(true);
+    });
+
+    it('should not override allowLocalExploration=false when REVIEWER_EXPLORE_LOCAL is empty', async () => {
+      process.env.CONFIG_JSON = JSON.stringify({
+        reviewers: [{ name: 'Test', cliPath: 'echo', cliArgs: [] }],
+        decisionMaker: { name: 'DM', cliPath: 'echo', cliArgs: [] },
+        review: { defaultChecks: ['code-quality'], language: 'en', allowLocalExploration: false },
+      });
+      process.env.REVIEWER_EXPLORE_LOCAL = '';
+      const config = await service.loadConfig();
       expect(config.review.allowLocalExploration).toBe(false);
     });
   });
