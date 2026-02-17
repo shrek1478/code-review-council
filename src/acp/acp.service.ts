@@ -34,15 +34,32 @@ export interface AcpClientHandle {
 
 @Injectable()
 export class AcpService {
-  private clients: AcpClientHandle[] = [];
+  private clients = new Set<AcpClientHandle>();
 
   constructor(@Inject(ConsoleLogger) private readonly logger: ConsoleLogger) {
     this.logger.setContext(AcpService.name);
   }
 
+  private maskSensitiveArgs(args: string[]): string[] {
+    const sensitiveFlags = new Set([
+      '--api-key', '--token', '--secret', '--password',
+      '--auth', '--bearer-token', '--client-secret',
+      '--access-token', '--refresh-token', '--credentials',
+      '-k', '-p',
+    ]);
+    return args.map((arg, i) => {
+      if (i > 0 && sensitiveFlags.has(args[i - 1])) return '[REDACTED]';
+      for (const flag of sensitiveFlags) {
+        if (arg.startsWith(`${flag}=`)) return `${flag}=[REDACTED]`;
+      }
+      return arg;
+    });
+  }
+
   async createClient(config: ReviewerConfig): Promise<AcpClientHandle> {
     const modelInfo = config.model ? ` [model: ${config.model}]` : '';
-    const argsInfo = config.cliArgs.length > 0 ? ` ${config.cliArgs.join(' ')}` : '';
+    const maskedArgs = this.maskSensitiveArgs(config.cliArgs);
+    const argsInfo = maskedArgs.length > 0 ? ` ${maskedArgs.join(' ')}` : '';
     this.logger.log(`Creating ACP client: ${config.name} (${config.cliPath}${argsInfo})${modelInfo}`);
     const client = new CopilotClient({
       cliPath: config.cliPath,
@@ -51,8 +68,16 @@ export class AcpService {
     } as ConstructorParameters<typeof CopilotClient>[0]);
     await client.start();
     const handle: AcpClientHandle = { name: config.name, client, model: config.model };
-    this.clients.push(handle);
+    this.clients.add(handle);
     return handle;
+  }
+
+  private asSessionClient(client: CopilotClient, name: string): CopilotClientWithSession {
+    const c = client as unknown as CopilotClientWithSession;
+    if (typeof c.createSession !== 'function') {
+      throw new Error(`SDK incompatible: ${name} client has no createSession method`);
+    }
+    return c;
   }
 
   async sendPrompt(handle: AcpClientHandle, prompt: string, timeoutMs = 180_000): Promise<string> {
@@ -60,14 +85,8 @@ export class AcpService {
 
     const sessionOpts: AcpSessionOptions = { streaming: true };
     if (handle.model) sessionOpts.model = handle.model;
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const clientAny = handle.client as any;
-    if (typeof clientAny.createSession !== 'function') {
-      throw new Error(`SDK incompatible: ${handle.name} client has no createSession method`);
-    }
-    const session: AcpSession = await (
-      clientAny as CopilotClientWithSession
-    ).createSession(sessionOpts);
+    const sessionClient = this.asSessionClient(handle.client, handle.name);
+    const session: AcpSession = await sessionClient.createSession(sessionOpts);
 
     try {
       const result = await new Promise<string>((resolve, reject) => {
@@ -140,12 +159,12 @@ export class AcpService {
     } catch (error) {
       this.logger.warn(`Failed to stop client ${handle.name}: ${error}`);
     }
-    this.clients = this.clients.filter((h) => h !== handle);
+    this.clients.delete(handle);
   }
 
   async stopAll(): Promise<void> {
     const handles = [...this.clients];
-    this.clients = [];
+    this.clients.clear();
     await Promise.allSettled(
       handles.map(async (handle) => {
         try {

@@ -144,6 +144,12 @@ export class ConfigService {
     if (!config.review || !Array.isArray(config.review.defaultChecks)) {
       throw new Error(`Invalid config (${filePath}): "review.defaultChecks" must be an array`);
     }
+    if (!config.review.defaultChecks.every((c: unknown) => typeof c === 'string' && (c as string).trim() !== '')) {
+      throw new Error(`Invalid config (${filePath}): "review.defaultChecks" elements must be non-empty strings`);
+    }
+    if (typeof config.review.language !== 'string' || config.review.language.trim() === '') {
+      throw new Error(`Invalid config (${filePath}): "review.language" must be a non-empty string`);
+    }
   }
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any -- runtime validation on untrusted JSON

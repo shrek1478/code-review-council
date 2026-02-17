@@ -8,6 +8,7 @@ import {
   ReviewDecisionItem,
   AdditionalFinding,
 } from './review.types.js';
+import { retryWithBackoff } from './retry-utils.js';
 
 const DEFAULT_MAX_CODE_LENGTH = 60_000;
 const DEFAULT_MAX_REVIEWS_LENGTH = 30_000;
@@ -114,25 +115,20 @@ Rules:
 
     this.logger.log(`Sending prompt to decision maker (${prompt.length} chars)`);
 
-    let response: string;
-    for (let attempt = 0; attempt <= maxRetries; attempt++) {
-      try {
-        response = await this.acpService.sendPrompt(handle, prompt, timeoutMs);
-        break;
-      } catch (error) {
-        if (attempt < maxRetries && this.isRetryable(error)) {
-          const delay = 2000 * Math.pow(2, attempt);
-          this.logger.warn(`${dmConfig.name} attempt ${attempt + 1} failed, retrying in ${delay}ms...`);
-          await new Promise(r => setTimeout(r, delay));
+    const response = await retryWithBackoff(
+      () => this.acpService.sendPrompt(handle, prompt, timeoutMs),
+      {
+        maxRetries,
+        label: dmConfig.name,
+        logger: this.logger,
+        onRetry: async () => {
           await this.acpService.stopClient(handle);
           handle = await this.acpService.createClient(dmConfig);
-          continue;
-        }
-        throw error;
-      }
-    }
+        },
+      },
+    );
 
-    return this.parseResponse(response!, dmConfig.name);
+    return this.parseResponse(response, dmConfig.name);
     } finally {
       await this.acpService.stopClient(handle);
     }
@@ -227,17 +223,6 @@ Rules:
       decisions,
       additionalFindings,
     };
-  }
-
-  private isRetryable(error: unknown): boolean {
-    if (!(error instanceof Error)) return false;
-    const msg = error.message.toLowerCase();
-    if (msg.includes('invalid token') || msg.includes('unauthorized') || msg.includes('authentication')) {
-      return false;
-    }
-    return msg.includes('timed out') || msg.includes('timeout') ||
-      msg.includes('failed to list models') || msg.includes('econnreset') ||
-      msg.includes('econnrefused') || msg.includes('socket hang up');
   }
 
   private buildReviewsSection(reviews: IndividualReview[], delimiter: string, maxReviewsLength = DEFAULT_MAX_REVIEWS_LENGTH): string {
