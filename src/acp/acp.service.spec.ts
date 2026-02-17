@@ -3,7 +3,7 @@ import { ConsoleLogger } from '@nestjs/common';
 import { AcpService } from './acp.service.js';
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 
-vi.mock('@shrek1478/copilot-sdk', () => {
+vi.mock('@shrek1478/copilot-sdk-with-acp', () => {
   const MockCopilotClient = vi.fn().mockImplementation(function (this: any) {
     this.start = vi.fn().mockResolvedValue(undefined);
     this.stop = vi.fn().mockResolvedValue(undefined);
