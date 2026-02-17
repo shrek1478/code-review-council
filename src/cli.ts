@@ -1,3 +1,4 @@
+#!/usr/bin/env node
 import { ConsoleLogger } from '@nestjs/common';
 import { CommandFactory } from 'nest-commander';
 import { CliModule } from './cli/cli.module.js';

@@ -8,10 +8,10 @@ on:
       version:
         description: 'Version to publish (e.g. 0.0.2)'
         required: false
-        default: '0.0.2'
+        default: '0.0.3'
 
 env:
-  VERSION: ${{ github.event.inputs.version || '0.0.2' }}
+  VERSION: ${{ github.event.inputs.version || '0.0.3' }}
 
 jobs:
   publish:
