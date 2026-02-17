@@ -1,5 +1,5 @@
 import { Inject, Injectable, ConsoleLogger } from '@nestjs/common';
-import { CopilotClient } from '@github/copilot-sdk';
+import { CopilotClient } from '@shrek1478/copilot-sdk';
 import { ReviewerConfig } from '../config/config.types.js';
 
 export interface AcpSessionOptions {
