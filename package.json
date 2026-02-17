@@ -19,7 +19,7 @@
     "test:cov": "vitest run --coverage"
   },
   "dependencies": {
-    "@github/copilot-sdk": "file:../copilot-sdk-acp/copilot-sdk/nodejs",
+    "@github/copilot-sdk": "file:../copilot-sdk-v0.1.24/nodejs",
     "@nestjs/common": "^11.0.1",
     "@nestjs/core": "^11.0.1",
     "nest-commander": "^3.20.1",
