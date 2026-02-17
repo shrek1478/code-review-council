@@ -14,7 +14,7 @@ export class DiffCommand extends CommandRunner {
     super();
   }
 
-  async run(params: string[], options: Record<string, string>): Promise<void> {
+  async run(_params: string[], options: Record<string, string>): Promise<void> {
     await this.configService.loadConfig(options.config);
 
     const repoPath = options.repo ?? process.cwd();
