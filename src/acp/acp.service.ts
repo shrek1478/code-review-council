@@ -46,6 +46,7 @@ export interface AcpClientHandle {
 @Injectable()
 export class AcpService {
   private clients = new Set<AcpClientHandle>();
+  private stopping = false;
 
   constructor(@Inject(ConsoleLogger) private readonly logger: ConsoleLogger) {
     this.logger.setContext(AcpService.name);
@@ -85,6 +86,9 @@ export class AcpService {
   }
 
   async createClient(config: ReviewerConfig): Promise<AcpClientHandle> {
+    if (this.stopping) {
+      throw new Error('Cannot create client: AcpService is shutting down');
+    }
     const modelInfo = config.model ? ` [model: ${config.model}]` : '';
     const maskedArgs = this.maskSensitiveArgs(config.cliArgs);
     const argsInfo = maskedArgs.length > 0 ? ` ${maskedArgs.join(' ')}` : '';
@@ -151,7 +155,11 @@ export class AcpService {
           } else if (event.type === 'session.idle') {
             settled = true;
             clearTimeout(timer);
-            resolve(responseContent);
+            if (!responseContent.trim()) {
+              reject(new Error(`Empty response from ${handle.name}`));
+            } else {
+              resolve(responseContent);
+            }
           } else if (event.type === 'session.error' || event.type === 'error') {
             settled = true;
             clearTimeout(timer);
@@ -189,16 +197,21 @@ export class AcpService {
   }
 
   async stopAll(): Promise<void> {
+    this.stopping = true;
     const handles = [...this.clients];
     this.clients.clear();
-    await Promise.allSettled(
-      handles.map(async (handle) => {
-        try {
-          await handle.client.stop();
-        } catch (error) {
-          this.logger.warn(`Failed to stop client ${handle.name}: ${error}`);
-        }
-      }),
-    );
+    try {
+      await Promise.allSettled(
+        handles.map(async (handle) => {
+          try {
+            await handle.client.stop();
+          } catch (error) {
+            this.logger.warn(`Failed to stop client ${handle.name}: ${error}`);
+          }
+        }),
+      );
+    } finally {
+      this.stopping = false;
+    }
   }
 }

@@ -4,13 +4,22 @@ import {
   ReviewDecisionItem,
 } from '../review/review.types.js';
 
+// CSI sequences: ESC [ ... final_byte
 // eslint-disable-next-line no-control-regex
-const ANSI_REGEX = /[\u001b\u009b][[()#;?]*(?:\d{1,4}(?:;\d{0,4})*)?[\d<=>A-ORZcf-nqry]/g;
+const CSI_REGEX = /[\u001b\u009b][[()#;?]*(?:\d{1,4}(?:;\d{0,4})*)?[\d<=>A-ORZcf-nqry]/g;
+// OSC sequences: ESC ] ... (BEL | ESC \)
+const OSC_REGEX = /\u001b\][\s\S]*?(?:\u0007|\u001b\\)/g;
+// DCS, PM, APC sequences: ESC (P|^|_) ... ESC \
+const DCS_PM_APC_REGEX = /\u001b[P^_][\s\S]*?\u001b\\/g;
 // eslint-disable-next-line no-control-regex
 const C0_CONTROL_REGEX = /[\x00-\x08\x0B\x0C\x0E-\x1F]/g;
 
 function sanitize(text: string): string {
-  return text.replace(ANSI_REGEX, '').replace(C0_CONTROL_REGEX, '');
+  return text
+    .replace(OSC_REGEX, '')
+    .replace(DCS_PM_APC_REGEX, '')
+    .replace(CSI_REGEX, '')
+    .replace(C0_CONTROL_REGEX, '');
 }
 
 function sanitizeLine(text: string): string {

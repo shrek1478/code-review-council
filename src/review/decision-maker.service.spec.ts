@@ -95,7 +95,7 @@ describe('DecisionMakerService', () => {
       'const x = 1;',
       [{ reviewer: 'Gemini', review: 'Looks good.' }],
     );
-    expect(decision.overallAssessment).toBe('This is just plain text, not JSON.');
+    expect(decision.overallAssessment).toBe('[解析失敗] This is just plain text, not JSON.');
     expect(decision.decisions).toEqual([]);
     expect(decision.additionalFindings).toEqual([]);
   });
