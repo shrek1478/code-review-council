@@ -30,15 +30,21 @@ export class ReviewService {
     extraInstructions?: string,
   ): Promise<ReviewResult> {
     const id = `review-${randomUUID().slice(0, 8)}`;
+    const startMs = Date.now();
     this.logger.log(`Starting diff review ${id}`);
 
     // Always send diff — agent cannot reproduce git diff on its own
     const code = await this.codeReader.readGitDiff(repoPath, baseBranch);
 
+    let result: ReviewResult;
     if (this.allowExplore) {
-      return await this.runReview(id, code, checks, extraInstructions, resolve(repoPath));
+      result = await this.runReview(id, code, checks, extraInstructions, resolve(repoPath));
+    } else {
+      result = await this.runReview(id, code, checks, extraInstructions);
     }
-    return await this.runReview(id, code, checks, extraInstructions);
+    result.durationMs = Date.now() - startMs;
+    this.logger.log(`Diff review ${id} completed in ${result.durationMs}ms`);
+    return result;
   }
 
   async reviewFiles(
@@ -47,18 +53,23 @@ export class ReviewService {
     extraInstructions?: string,
   ): Promise<ReviewResult> {
     const id = `review-${randomUUID().slice(0, 8)}`;
+    const startMs = Date.now();
     this.logger.log(`Starting file review ${id}`);
 
+    let result: ReviewResult;
     if (this.allowExplore) {
       // Exploration mode: only send file paths, agent reads content itself
       const absolutePaths = filePaths.map((p) => resolve(p));
       this.logger.log(`Exploration mode: sending ${absolutePaths.length} file paths (no content)`);
-      return await this.runExplorationReview(id, absolutePaths, checks, extraInstructions, resolve('.'));
+      result = await this.runExplorationReview(id, absolutePaths, checks, extraInstructions, resolve('.'));
+    } else {
+      const files = await this.codeReader.readFiles(filePaths);
+      const code = files.map((f) => `=== ${f.path} ===\n${f.content}`).join('\n\n');
+      result = await this.runReview(id, code, checks, extraInstructions);
     }
-
-    const files = await this.codeReader.readFiles(filePaths);
-    const code = files.map((f) => `=== ${f.path} ===\n${f.content}`).join('\n\n');
-    return await this.runReview(id, code, checks, extraInstructions);
+    result.durationMs = Date.now() - startMs;
+    this.logger.log(`File review ${id} completed in ${result.durationMs}ms`);
+    return result;
   }
 
   async reviewCodebase(
@@ -68,62 +79,69 @@ export class ReviewService {
     extraInstructions?: string,
   ): Promise<ReviewResult> {
     const id = `review-${randomUUID().slice(0, 8)}`;
+    const startMs = Date.now();
     this.logger.log(`Starting codebase review ${id}`);
+
+    let result: ReviewResult;
 
     if (this.allowExplore) {
       // Exploration mode: only list files, no content reading, no batching
       const absoluteDir = resolve(directory);
       const filePaths = await this.codeReader.listCodebaseFiles(directory, options);
       this.logger.log(`Exploration mode: found ${filePaths.length} files (no content)`);
-      return await this.runExplorationReview(id, filePaths, checks, extraInstructions, absoluteDir);
-    }
+      result = await this.runExplorationReview(id, filePaths, checks, extraInstructions, absoluteDir);
+    } else {
+      const batches = await this.codeReader.readCodebase(directory, options);
+      this.logger.log(`Codebase split into ${batches.length} batch(es)`);
 
-    const batches = await this.codeReader.readCodebase(directory, options);
-    this.logger.log(`Codebase split into ${batches.length} batch(es)`);
+      if (batches.length === 1) {
+        const code = batches[0]
+          .map((f) => `=== ${f.path} ===\n${f.content}`)
+          .join('\n\n');
+        result = await this.runReview(id, code, checks, extraInstructions);
+      } else {
+        // Multi-batch: review each batch, then pass file summary (not full code) to decision maker
+        const allReviews: IndividualReview[] = [];
+        const allFileNames: string[] = [];
+        for (let i = 0; i < batches.length; i++) {
+          const batch = batches[i];
+          const code = batch
+            .map((f) => `=== ${f.path} ===\n${f.content}`)
+            .join('\n\n');
 
-    if (batches.length === 1) {
-      const code = batches[0]
-        .map((f) => `=== ${f.path} ===\n${f.content}`)
-        .join('\n\n');
-      return await this.runReview(id, code, checks, extraInstructions);
-    }
+          for (const f of batch) {
+            const lineCount = f.content.split('\n').length;
+            allFileNames.push(`${f.path} (${lineCount} lines)`);
+          }
 
-    // Multi-batch: review each batch, then pass file summary (not full code) to decision maker
-    const allReviews: IndividualReview[] = [];
-    const allFileNames: string[] = [];
-    for (let i = 0; i < batches.length; i++) {
-      const batch = batches[i];
-      const code = batch
-        .map((f) => `=== ${f.path} ===\n${f.content}`)
-        .join('\n\n');
+          const batchExtra = [
+            `[Batch ${i + 1}/${batches.length}]`,
+            extraInstructions,
+          ]
+            .filter(Boolean)
+            .join(' ');
 
-      for (const f of batch) {
-        const lineCount = f.content.split('\n').length;
-        allFileNames.push(`${f.path} (${lineCount} lines)`);
+          this.logger.log(`[Batch ${i + 1}/${batches.length}] Dispatching to reviewers (${batch.length} files, ${code.length} chars)...`);
+          const reviews = await this.council.dispatchReviews({
+            code,
+            checks,
+            extraInstructions: batchExtra,
+          });
+          allReviews.push(...reviews);
+          this.logger.log(`[Batch ${i + 1}/${batches.length}] Complete.`);
+        }
+
+        // Pass file summary instead of full code to decision maker
+        this.logger.log(`All ${batches.length} batches complete. Sending ${allReviews.length} reviews to decision maker...`);
+        const fileSummary = allFileNames.join('\n');
+        const decision = await this.decisionMaker.decide(fileSummary, allReviews, true);
+        result = { id, status: 'completed', individualReviews: allReviews, decision };
       }
-
-      const batchExtra = [
-        `[Batch ${i + 1}/${batches.length}]`,
-        extraInstructions,
-      ]
-        .filter(Boolean)
-        .join(' ');
-
-      this.logger.log(`[Batch ${i + 1}/${batches.length}] Dispatching to reviewers (${batch.length} files, ${code.length} chars)...`);
-      const reviews = await this.council.dispatchReviews({
-        code,
-        checks,
-        extraInstructions: batchExtra,
-      });
-      allReviews.push(...reviews);
-      this.logger.log(`[Batch ${i + 1}/${batches.length}] Complete.`);
     }
 
-    // Pass file summary instead of full code to decision maker
-    this.logger.log(`All ${batches.length} batches complete. Sending ${allReviews.length} reviews to decision maker...`);
-    const fileSummary = allFileNames.join('\n');
-    const decision = await this.decisionMaker.decide(fileSummary, allReviews, true);
-    return { id, status: 'completed', individualReviews: allReviews, decision };
+    result.durationMs = Date.now() - startMs;
+    this.logger.log(`Codebase review ${id} completed in ${result.durationMs}ms`);
+    return result;
   }
 
   private async runExplorationReview(

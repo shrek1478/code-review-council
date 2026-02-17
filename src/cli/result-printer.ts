@@ -60,6 +60,16 @@ function printDecision(decision: ReviewDecision): void {
   }
 }
 
+function formatDuration(ms: number): string {
+  const seconds = Math.floor(ms / 1000);
+  const minutes = Math.floor(seconds / 60);
+  const remainingSeconds = seconds % 60;
+  if (minutes > 0) {
+    return `${minutes}m ${remainingSeconds}s`;
+  }
+  return `${remainingSeconds}s`;
+}
+
 export function printResult(result: ReviewResult): void {
   console.log('\n=== Individual Reviews ===\n');
   for (const r of result.individualReviews) {
@@ -70,5 +80,9 @@ export function printResult(result: ReviewResult): void {
 
   if (result.decision) {
     printDecision(result.decision);
+  }
+
+  if (result.durationMs != null) {
+    console.log(`\n--- Total review time: ${formatDuration(result.durationMs)} (${result.durationMs}ms) ---`);
   }
 }

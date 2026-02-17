@@ -35,6 +35,7 @@ export interface ReviewResult {
   status: 'pending' | 'reviewing' | 'completed' | 'failed';
   individualReviews: IndividualReview[];
   decision?: ReviewDecision;
+  durationMs?: number;
 }
 
 export interface ReviewRequest {
