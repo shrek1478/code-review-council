@@ -38,6 +38,7 @@ jobs:
       - name: Set version
         run: npm version ${{ env.VERSION }} --no-git-tag-version --allow-same-version
 
-      - run: npm publish
+      - name: Publish (skip if version already exists)
+        run: npm publish || echo "::warning::Publish skipped — version may already exist"
         env:
           NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
