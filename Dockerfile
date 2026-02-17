@@ -57,4 +57,4 @@ COPY code-review-council/review-council.config.json ./review-council.config.json
 # Use non-root user for security
 USER node
 
-ENTRYPOINT ["node", "dist/cli.js"]
+ENTRYPOINT ["node", "/app/code-review-council/dist/cli.js"]
