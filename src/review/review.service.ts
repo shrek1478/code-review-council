@@ -1,8 +1,10 @@
 import { Injectable, ConsoleLogger, Inject } from '@nestjs/common';
 import { randomUUID } from 'node:crypto';
+import { resolve } from 'node:path';
 import { CodeReaderService, CodebaseOptions } from './code-reader.service.js';
 import { CouncilService } from './council.service.js';
 import { DecisionMakerService } from './decision-maker.service.js';
+import { ConfigService } from '../config/config.service.js';
 import { IndividualReview, ReviewResult } from './review.types.js';
 
 @Injectable()
@@ -12,8 +14,13 @@ export class ReviewService {
     @Inject(CodeReaderService) private readonly codeReader: CodeReaderService,
     @Inject(CouncilService) private readonly council: CouncilService,
     @Inject(DecisionMakerService) private readonly decisionMaker: DecisionMakerService,
+    @Inject(ConfigService) private readonly configService: ConfigService,
   ) {
     this.logger.setContext(ReviewService.name);
+  }
+
+  private get allowExplore(): boolean {
+    return this.configService.getConfig().review.allowLocalExploration === true;
   }
 
   async reviewDiff(
@@ -25,7 +32,12 @@ export class ReviewService {
     const id = `review-${randomUUID().slice(0, 8)}`;
     this.logger.log(`Starting diff review ${id}`);
 
+    // Always send diff — agent cannot reproduce git diff on its own
     const code = await this.codeReader.readGitDiff(repoPath, baseBranch);
+
+    if (this.allowExplore) {
+      return await this.runReview(id, code, checks, extraInstructions, resolve(repoPath));
+    }
     return await this.runReview(id, code, checks, extraInstructions);
   }
 
@@ -36,6 +48,13 @@ export class ReviewService {
   ): Promise<ReviewResult> {
     const id = `review-${randomUUID().slice(0, 8)}`;
     this.logger.log(`Starting file review ${id}`);
+
+    if (this.allowExplore) {
+      // Exploration mode: only send file paths, agent reads content itself
+      const absolutePaths = filePaths.map((p) => resolve(p));
+      this.logger.log(`Exploration mode: sending ${absolutePaths.length} file paths (no content)`);
+      return await this.runExplorationReview(id, absolutePaths, checks, extraInstructions, resolve('.'));
+    }
 
     const files = await this.codeReader.readFiles(filePaths);
     const code = files.map((f) => `=== ${f.path} ===\n${f.content}`).join('\n\n');
@@ -50,6 +69,14 @@ export class ReviewService {
   ): Promise<ReviewResult> {
     const id = `review-${randomUUID().slice(0, 8)}`;
     this.logger.log(`Starting codebase review ${id}`);
+
+    if (this.allowExplore) {
+      // Exploration mode: only list files, no content reading, no batching
+      const absoluteDir = resolve(directory);
+      const filePaths = await this.codeReader.listCodebaseFiles(directory, options);
+      this.logger.log(`Exploration mode: found ${filePaths.length} files (no content)`);
+      return await this.runExplorationReview(id, filePaths, checks, extraInstructions, absoluteDir);
+    }
 
     const batches = await this.codeReader.readCodebase(directory, options);
     this.logger.log(`Codebase split into ${batches.length} batch(es)`);
@@ -99,16 +126,37 @@ export class ReviewService {
     return { id, status: 'completed', individualReviews: allReviews, decision };
   }
 
+  private async runExplorationReview(
+    id: string,
+    filePaths: string[],
+    checks: string[],
+    extraInstructions?: string,
+    repoPath?: string,
+  ): Promise<ReviewResult> {
+    const individualReviews = await this.council.dispatchReviews({
+      checks,
+      extraInstructions,
+      repoPath,
+      filePaths,
+    });
+
+    const fileSummary = filePaths.join('\n');
+    const decision = await this.decisionMaker.decide(fileSummary, individualReviews, true);
+    return { id, status: 'completed', individualReviews, decision };
+  }
+
   private async runReview(
     id: string,
     code: string,
     checks: string[],
     extraInstructions?: string,
+    repoPath?: string,
   ): Promise<ReviewResult> {
     const individualReviews = await this.council.dispatchReviews({
       code,
       checks,
       extraInstructions,
+      repoPath,
     });
 
     const decision = await this.decisionMaker.decide(code, individualReviews);

@@ -4,6 +4,8 @@ import { ReviewService } from './review.service.js';
 import { CodeReaderService } from './code-reader.service.js';
 import { CouncilService } from './council.service.js';
 import { DecisionMakerService } from './decision-maker.service.js';
+import { ConfigService } from '../config/config.service.js';
+import { resolve } from 'node:path';
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 
 describe('ReviewService', () => {
@@ -16,6 +18,7 @@ describe('ReviewService', () => {
       { path: 'src/app.ts', content: 'const app = 1;' },
       { path: 'src/main.ts', content: 'const main = 2;' },
     ]]),
+    listCodebaseFiles: vi.fn().mockResolvedValue(['src/app.ts', 'src/main.ts']),
   };
   const mockCouncil = {
     dispatchReviews: vi.fn().mockResolvedValue([
@@ -31,6 +34,12 @@ describe('ReviewService', () => {
       additionalFindings: [],
     }),
   };
+  const mockConfigService = {
+    getConfig: vi.fn().mockReturnValue({
+      review: { allowLocalExploration: false },
+    }),
+  };
+
   beforeEach(async () => {
     vi.clearAllMocks();
     mockCodeReader.readGitDiff.mockResolvedValue('diff --git a/test.ts');
@@ -39,6 +48,7 @@ describe('ReviewService', () => {
       { path: 'src/app.ts', content: 'const app = 1;' },
       { path: 'src/main.ts', content: 'const main = 2;' },
     ]]);
+    mockCodeReader.listCodebaseFiles.mockResolvedValue(['src/app.ts', 'src/main.ts']);
     mockCouncil.dispatchReviews.mockResolvedValue([
       { reviewer: 'Gemini', review: 'Looks good' },
       { reviewer: 'Codex', review: 'LGTM' },
@@ -49,6 +59,9 @@ describe('ReviewService', () => {
       decisions: [],
       additionalFindings: [],
     });
+    mockConfigService.getConfig.mockReturnValue({
+      review: { allowLocalExploration: false },
+    });
     const module = await Test.createTestingModule({
       providers: [
         ReviewService,
@@ -56,6 +69,7 @@ describe('ReviewService', () => {
         { provide: CodeReaderService, useValue: mockCodeReader },
         { provide: CouncilService, useValue: mockCouncil },
         { provide: DecisionMakerService, useValue: mockDecisionMaker },
+        { provide: ConfigService, useValue: mockConfigService },
       ],
     }).compile();
     service = module.get(ReviewService);
@@ -116,6 +130,69 @@ describe('ReviewService', () => {
     it('should throw when no files found', async () => {
       mockCodeReader.readCodebase.mockRejectedValue(new Error('No files found in codebase'));
       await expect(service.reviewCodebase('/tmp/empty')).rejects.toThrow('No files found in codebase');
+    });
+  });
+
+  describe('exploration mode (allowLocalExploration=true)', () => {
+    beforeEach(() => {
+      mockConfigService.getConfig.mockReturnValue({
+        review: { allowLocalExploration: true },
+      });
+    });
+
+    it('reviewDiff should still send diff but include repoPath', async () => {
+      const result = await service.reviewDiff('/tmp/repo', 'main');
+      expect(result.status).toBe('completed');
+      expect(mockCodeReader.readGitDiff).toHaveBeenCalledWith('/tmp/repo', 'main');
+
+      // Should pass repoPath to council
+      const dispatchCall = mockCouncil.dispatchReviews.mock.calls[0][0];
+      expect(dispatchCall.code).toBe('diff --git a/test.ts');
+      expect(dispatchCall.repoPath).toBe('/tmp/repo');
+    });
+
+    it('reviewFiles should not read file content and resolve to absolute paths', async () => {
+      const result = await service.reviewFiles(['src/a.ts', 'src/b.ts']);
+      expect(result.status).toBe('completed');
+      // Should NOT call readFiles
+      expect(mockCodeReader.readFiles).not.toHaveBeenCalled();
+
+      const expectedA = resolve('src/a.ts');
+      const expectedB = resolve('src/b.ts');
+
+      // Should send absolute filePaths with repoPath
+      const dispatchCall = mockCouncil.dispatchReviews.mock.calls[0][0];
+      expect(dispatchCall.code).toBeUndefined();
+      expect(dispatchCall.filePaths).toEqual([expectedA, expectedB]);
+      expect(dispatchCall.repoPath).toBe(resolve('.'));
+
+      // Decision maker should use summary mode with absolute paths
+      expect(mockDecisionMaker.decide).toHaveBeenCalledWith(
+        `${expectedA}\n${expectedB}`,
+        expect.any(Array),
+        true,
+      );
+    });
+
+    it('reviewCodebase should list files without reading content', async () => {
+      const result = await service.reviewCodebase('/tmp/project');
+      expect(result.status).toBe('completed');
+      // Should call listCodebaseFiles, NOT readCodebase
+      expect(mockCodeReader.listCodebaseFiles).toHaveBeenCalledWith('/tmp/project', {});
+      expect(mockCodeReader.readCodebase).not.toHaveBeenCalled();
+
+      // Should send filePaths and repoPath
+      const dispatchCall = mockCouncil.dispatchReviews.mock.calls[0][0];
+      expect(dispatchCall.code).toBeUndefined();
+      expect(dispatchCall.repoPath).toBe('/tmp/project');
+      expect(dispatchCall.filePaths).toEqual(['src/app.ts', 'src/main.ts']);
+
+      // Decision maker should use summary mode
+      expect(mockDecisionMaker.decide).toHaveBeenCalledWith(
+        'src/app.ts\nsrc/main.ts',
+        expect.any(Array),
+        true,
+      );
     });
   });
 });

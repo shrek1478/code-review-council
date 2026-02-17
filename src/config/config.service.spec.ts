@@ -190,6 +190,7 @@ describe('ConfigService', () => {
     it('should not override allowLocalExploration when REVIEWER_EXPLORE_LOCAL is empty', async () => {
       process.env.REVIEWER_EXPLORE_LOCAL = '';
       const config = await service.loadConfig();
+      // Empty string should not override — value stays as defined in config file
       expect(config.review.allowLocalExploration).toBe(false);
     });
   });

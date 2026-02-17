@@ -38,8 +38,10 @@ export interface ReviewResult {
 }
 
 export interface ReviewRequest {
-  code: string;
+  code?: string;
   checks: string[];
   extraInstructions?: string;
   language?: string;
+  repoPath?: string;
+  filePaths?: string[];
 }

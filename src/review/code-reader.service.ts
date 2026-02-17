@@ -223,6 +223,39 @@ export class CodeReaderService {
     return batches;
   }
 
+  async listCodebaseFiles(
+    directory: string,
+    options: CodebaseOptions = {},
+  ): Promise<string[]> {
+    const extensions = (options.extensions ?? DEFAULT_EXTENSIONS).map((e) =>
+      e.startsWith('.') ? e : `.${e}`,
+    );
+
+    this.logger.log(`Listing codebase files: ${directory}`);
+    const git = simpleGit(directory);
+
+    const result = await git.raw([
+      'ls-files',
+      '--cached',
+      '--exclude-standard',
+    ]);
+
+    const files = result
+      .split('\n')
+      .map((f) => f.trim())
+      .filter((f) => f.length > 0)
+      .filter((f) => extensions.includes(extname(f)))
+      .filter((f) => !this.isSensitiveFile(f));
+
+    this.logger.log(`Found ${files.length} files matching extensions`);
+
+    if (files.length === 0) {
+      throw new Error('No files found in codebase');
+    }
+
+    return files;
+  }
+
   private isSensitiveFile(filePath: string): boolean {
     const segments = filePath.split('/');
     return segments.some((segment) =>

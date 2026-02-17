@@ -104,4 +104,33 @@ describe('CodeReaderService', () => {
       ).rejects.toThrow();
     });
   });
+
+  describe('listCodebaseFiles', () => {
+    it('should list git-tracked files without reading content', async () => {
+      const files = await service.listCodebaseFiles(process.cwd());
+      expect(files.length).toBeGreaterThan(0);
+      const hasTsFile = files.some((f) => f.endsWith('.ts'));
+      expect(hasTsFile).toBe(true);
+      // Should return strings (paths), not objects with content
+      for (const f of files) {
+        expect(typeof f).toBe('string');
+      }
+    });
+
+    it('should filter by extensions', async () => {
+      const files = await service.listCodebaseFiles(process.cwd(), {
+        extensions: ['.json'],
+      });
+      expect(files.length).toBeGreaterThan(0);
+      for (const file of files) {
+        expect(file).toMatch(/\.json$/);
+      }
+    });
+
+    it('should throw on invalid directory', async () => {
+      await expect(
+        service.listCodebaseFiles('/nonexistent/path'),
+      ).rejects.toThrow();
+    });
+  });
 });
