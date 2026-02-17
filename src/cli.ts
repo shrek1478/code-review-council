@@ -2,6 +2,7 @@
 import { ConsoleLogger } from '@nestjs/common';
 import { CommandFactory } from 'nest-commander';
 import { CliModule } from './cli/cli.module.js';
+import { MAX_REVIEWER_CONCURRENCY } from './constants.js';
 
 const FRAMEWORK_CONTEXTS = new Set([
   'NestFactory',
@@ -22,8 +23,7 @@ class CliLogger extends ConsoleLogger {
 // Formula: Node.js default (10) + max concurrent clients (reviewers + decision maker) * listeners per client.
 const BASE_LISTENERS = 10;
 const LISTENERS_PER_CLIENT = 4;
-const MAX_CONCURRENT_CLIENTS = 5;
-process.setMaxListeners(BASE_LISTENERS + MAX_CONCURRENT_CLIENTS * LISTENERS_PER_CLIENT);
+process.setMaxListeners(BASE_LISTENERS + (MAX_REVIEWER_CONCURRENCY + 1) * LISTENERS_PER_CLIENT);
 
 async function bootstrap() {
   await CommandFactory.run(CliModule, { logger: new CliLogger() });

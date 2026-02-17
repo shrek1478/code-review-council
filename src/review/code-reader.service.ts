@@ -150,7 +150,9 @@ export class CodeReaderService {
 
     this.logger.log(`Found ${allFiles.length} files matching extensions`);
 
-    const files: FileContent[] = [];
+    const batches: FileContent[][] = [];
+    let currentBatch: FileContent[] = [];
+    let currentBatchSize = 0;
     let totalSize = 0;
 
     const dirReal = await realpath(resolve(directory));
@@ -177,27 +179,48 @@ export class CodeReaderService {
       }
     };
 
-    for (let i = 0; i < allFiles.length; i += CONCURRENCY) {
+    let hitSizeLimit = false;
+    for (let i = 0; i < allFiles.length && !hitSizeLimit; i += CONCURRENCY) {
       const chunk = allFiles.slice(i, i + CONCURRENCY);
-      const batch = await Promise.all(chunk.map(readOne));
-      for (const item of batch) {
-        if (item) {
-          totalSize += item.content.length;
-          if (totalSize > MAX_TOTAL_SIZE) {
-            this.logger.warn(`Cumulative size exceeded ${MAX_TOTAL_SIZE / 1_048_576}MB, stopping file reads`);
-            break;
-          }
-          files.push(item);
+      const readResults = await Promise.all(chunk.map(readOne));
+      for (const item of readResults) {
+        if (!item) continue;
+        totalSize += item.content.length;
+        if (totalSize > MAX_TOTAL_SIZE) {
+          this.logger.warn(`Cumulative size exceeded ${MAX_TOTAL_SIZE / 1_048_576}MB, stopping file reads`);
+          hitSizeLimit = true;
+          break;
         }
+        const fileSize = item.path.length + item.content.length;
+        // File too large for a single batch — flush current and push as its own batch
+        if (fileSize > maxBatchSize) {
+          if (currentBatch.length > 0) {
+            batches.push(currentBatch);
+            currentBatch = [];
+            currentBatchSize = 0;
+          }
+          batches.push([item]);
+          continue;
+        }
+        // Current batch would overflow — flush and start new batch
+        if (currentBatchSize + fileSize > maxBatchSize && currentBatch.length > 0) {
+          batches.push(currentBatch);
+          currentBatch = [];
+          currentBatchSize = 0;
+        }
+        currentBatch.push(item);
+        currentBatchSize += fileSize;
       }
-      if (totalSize > MAX_TOTAL_SIZE) break;
+    }
+    if (currentBatch.length > 0) {
+      batches.push(currentBatch);
     }
 
-    if (files.length === 0) {
+    if (batches.length === 0) {
       throw new Error('No files found in codebase');
     }
 
-    return this.splitIntoBatches(files, maxBatchSize);
+    return batches;
   }
 
   private isSensitiveFile(filePath: string): boolean {
@@ -207,41 +230,4 @@ export class CodeReaderService {
     );
   }
 
-  private splitIntoBatches(
-    files: FileContent[],
-    maxChars: number,
-  ): FileContent[][] {
-    const batches: FileContent[][] = [];
-    let currentBatch: FileContent[] = [];
-    let currentSize = 0;
-
-    for (const file of files) {
-      const fileSize = file.path.length + file.content.length;
-
-      if (fileSize > maxChars) {
-        if (currentBatch.length > 0) {
-          batches.push(currentBatch);
-          currentBatch = [];
-          currentSize = 0;
-        }
-        batches.push([file]);
-        continue;
-      }
-
-      if (currentSize + fileSize > maxChars && currentBatch.length > 0) {
-        batches.push(currentBatch);
-        currentBatch = [];
-        currentSize = 0;
-      }
-
-      currentBatch.push(file);
-      currentSize += fileSize;
-    }
-
-    if (currentBatch.length > 0) {
-      batches.push(currentBatch);
-    }
-
-    return batches;
-  }
 }

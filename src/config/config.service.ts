@@ -150,6 +150,17 @@ export class ConfigService {
     if (typeof config.review.language !== 'string' || config.review.language.trim() === '') {
       throw new Error(`Invalid config (${filePath}): "review.language" must be a non-empty string`);
     }
+    const MAX_LENGTH_LIMIT = 500_000;
+    for (const field of ['maxReviewsLength', 'maxCodeLength', 'maxSummaryLength'] as const) {
+      if (config.review[field] !== undefined) {
+        if (!Number.isInteger(config.review[field]) || config.review[field] <= 0 || config.review[field] > MAX_LENGTH_LIMIT) {
+          throw new Error(`Invalid config (${filePath}): "review.${field}" must be a positive integer up to ${MAX_LENGTH_LIMIT}`);
+        }
+      }
+    }
+    if (config.review.allowLocalExploration !== undefined && typeof config.review.allowLocalExploration !== 'boolean') {
+      throw new Error(`Invalid config (${filePath}): "review.allowLocalExploration" must be a boolean`);
+    }
   }
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any -- runtime validation on untrusted JSON

@@ -26,6 +26,17 @@ interface CopilotClientWithSession {
   createSession(opts: AcpSessionOptions): Promise<AcpSession>;
 }
 
+interface AcpUsageEvent extends AcpEvent {
+  data?: AcpEvent['data'] & { model?: string; inputTokens?: number; outputTokens?: number };
+  model?: string;
+  inputTokens?: number;
+  outputTokens?: number;
+}
+
+function isUsageEvent(event: AcpEvent): event is AcpUsageEvent {
+  return event.type === 'assistant.usage';
+}
+
 export interface AcpClientHandle {
   name: string;
   client: CopilotClient;
@@ -52,8 +63,25 @@ export class AcpService {
       for (const flag of sensitiveFlags) {
         if (arg.startsWith(`${flag}=`)) return `${flag}=[REDACTED]`;
       }
+      // Generic pattern: mask key=value where value looks like a secret
+      if (arg.includes('=')) {
+        const eqIdx = arg.indexOf('=');
+        const value = arg.slice(eqIdx + 1);
+        if (this.looksLikeSecret(value)) {
+          return `${arg.slice(0, eqIdx + 1)}[REDACTED]`;
+        }
+      }
       return arg;
     });
+  }
+
+  private looksLikeSecret(value: string): boolean {
+    if (value.length < 16) return false;
+    // Common secret prefixes
+    if (/^(sk-|ghp_|gho_|ghu_|ghs_|ghr_|glpat-|xox[bsrap]-)/i.test(value)) return true;
+    // Base64-like long strings (32+ chars, alphanumeric with +/= padding)
+    if (value.length >= 32 && /^[A-Za-z0-9+/=_-]+$/.test(value)) return true;
+    return false;
   }
 
   async createClient(config: ReviewerConfig): Promise<AcpClientHandle> {
@@ -102,12 +130,10 @@ export class AcpService {
 
         session.on((event: AcpEvent) => {
           // Log model info from usage events (may arrive after session.idle)
-          if (event.type === 'assistant.usage') {
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            const raw = event as any;
-            const model = raw.data?.model ?? raw.model;
-            const input = raw.data?.inputTokens ?? raw.inputTokens;
-            const output = raw.data?.outputTokens ?? raw.outputTokens;
+          if (isUsageEvent(event)) {
+            const model = event.data?.model ?? event.model;
+            const input = event.data?.inputTokens ?? event.inputTokens;
+            const output = event.data?.outputTokens ?? event.outputTokens;
             if (model) {
               this.logger.log(`🤖 ${handle.name} model: ${model} (in: ${input ?? '?'}, out: ${output ?? '?'})`);
             }
@@ -134,9 +160,9 @@ export class AcpService {
         });
 
         session.send({ prompt }).catch((err: unknown) => {
+          clearTimeout(timer);
           if (!settled) {
             settled = true;
-            clearTimeout(timer);
             reject(err instanceof Error ? err : new Error(String(err)));
           }
         });
