@@ -20,13 +20,13 @@ npm install -g @shrek1478/code-review-council
 
 ### 前置需求
 
-需要安裝至少一個支援 ACP（Agent Client Protocol）的 AI CLI 工具：
+需要安裝至少一個支援 [ACP（Agent Client Protocol）](https://docs.github.com/en/copilot/reference/acp-server)的 AI CLI 工具：
 
-| 工具 | 安裝方式 |
-|------|---------|
-| Gemini CLI | `npm install -g @anthropic-ai/gemini-cli` |
-| Claude Code ACP | `npm install -g @anthropic-ai/claude-code-acp` |
-| GitHub Copilot | `npm install -g @github/copilot-cli` |
+| 工具 | 安裝方式 | ACP 啟動參數 |
+|------|---------|-------------|
+| [Gemini CLI](https://github.com/google-gemini/gemini-cli) | `npm install -g @google/gemini-cli` | `--experimental-acp` |
+| [Claude Code ACP](https://github.com/zed-industries/claude-code-acp) | `npm install -g @zed-industries/claude-code-acp` | （預設 ACP 模式） |
+| [GitHub Copilot CLI](https://github.com/github/copilot-cli) | `npm install -g @github/copilot` | `--acp` |
 
 ## 快速開始
 
@@ -62,6 +62,8 @@ mkdir -p ~/.code-review-council
   }
 }
 ```
+
+> **Note**: `cliPath` 填寫安裝後的 CLI 命令名稱（如 `gemini`、`claude-code-acp`、`copilot`），`cliArgs` 填寫啟動 ACP 模式所需的參數。
 
 ### 2. 執行審查
 
