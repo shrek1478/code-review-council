@@ -1,0 +1,18 @@
+services:
+  code-review-council:
+    build:
+      context: ..
+      dockerfile: code-review-council/Dockerfile
+    volumes:
+      # Config file (optional, can use CONFIG_JSON env var instead)
+      - ./review-council.config.json:/app/review-council.config.json:ro
+      # Mount host auth credentials for AI CLI tools
+      - ~/.config:/home/node/.config:ro
+    environment:
+      # Optional overrides:
+      # CONFIG_JSON: '{"reviewers": [...], ...}'
+      # DECISION_MAKER_MODEL: claude-sonnet-4-5-20250929
+      # REVIEW_LANGUAGE: zh-tw
+      # REVIEWER_TIMEOUT_MS: "120000"
+      # COPILOT_SDK_AUTH_TOKEN: ${COPILOT_SDK_AUTH_TOKEN:-}
+      NODE_ENV: production

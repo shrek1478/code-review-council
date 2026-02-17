@@ -1,0 +1,30 @@
+# Dependencies
+node_modules
+
+# Build output (rebuilt in Docker)
+dist
+
+# IDE
+.idea
+*.sw?
+.DS_Store
+
+# Env files
+.env
+.env.*
+
+# Debug logs
+npm-debug.log*
+
+# Test & coverage
+coverage
+**/*.spec.ts
+vitest.config.ts
+
+# Docs & config
+docs
+.git
+.gitignore
+.prettierrc
+eslint.config.mjs
+README.md
