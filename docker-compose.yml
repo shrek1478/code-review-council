@@ -3,9 +3,12 @@ services:
     build:
       context: ..
       dockerfile: code-review-council/Dockerfile
+    working_dir: /repo
     volumes:
+      # Target codebase to review (override REPO_PATH in .env or via command line)
+      - ${REPO_PATH:-.}:/repo:ro
       # Config file (optional, can use CONFIG_JSON env var instead)
-      - ./review-council.config.json:/app/review-council.config.json:ro
+      - ./review-council.config.json:/app/code-review-council/review-council.config.json:ro
       # Mount host auth credentials for AI CLI tools
       - ~/.config:/home/node/.config:ro
     environment:
