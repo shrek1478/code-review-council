@@ -1,132 +1,60 @@
 # Code Review Council
 
-多模型 AI Code Review 工具，同時派遣多個 AI 模型（Gemini、Claude、Codex）審查程式碼，再由摘要模型統整所有意見，產出完整的 review 報告。
+多模型 AI Code Review 工具，同時派遣多個 AI 模型（Gemini、Claude、Copilot）審查程式碼，再由決策模型統整所有意見，產出完整的 review 報告。
 
 ## 功能
 
-- **diff** — 審查 git 分支差異
+- **diff** — 審查 git 分支差異（適合 PR review）
 - **file** — 審查指定檔案
 - **codebase** — 掃描整個專案目錄，自動分批送審
-
-支援 CLI 與 REST API 兩種使用方式。
-
-## 技術架構
-
-- **框架**: NestJS 11 (ESM)
-- **CLI**: nest-commander
-- **Git 操作**: simple-git
-- **AI 整合**: GitHub Copilot SDK (ACP)
-- **測試**: Vitest
-
-```
-src/
-├── cli/                  # CLI 指令 (diff, file, codebase)
-├── config/               # 設定檔管理
-├── review/               # 核心 review 邏輯
-│   ├── code-reader       # 讀取 diff / 檔案 / codebase
-│   ├── council           # 派遣多模型審查
-│   ├── summarizer        # 統整多份 review
-│   ├── review.service    # 流程編排
-│   └── review.controller # REST API
-├── acp/                  # ACP 客戶端管理
-├── cli.ts                # CLI 進入點
-└── main.ts               # HTTP 伺服器進入點
-```
 
 ## 安裝
 
 ```bash
-npm install
-npm run build
+# 設定 GitHub Packages registry
+echo "@shrek1478:registry=https://npm.pkg.github.com" >> ~/.npmrc
+
+# 全域安裝
+npm install -g @shrek1478/code-review-council
 ```
 
-## CLI 使用方式
+### 前置需求
 
-### 審查 git diff
+需要安裝至少一個支援 ACP（Agent Client Protocol）的 AI CLI 工具：
+
+| 工具 | 安裝方式 |
+|------|---------|
+| Gemini CLI | `npm install -g @anthropic-ai/gemini-cli` |
+| Claude Code ACP | `npm install -g @anthropic-ai/claude-code-acp` |
+| GitHub Copilot | `npm install -g @github/copilot-cli` |
+
+## 快速開始
+
+### 1. 建立設定檔
+
+在家目錄建立 `~/.code-review-council/review-council.config.json`：
 
 ```bash
-node dist/cli.js diff --repo /path/to/repo --base main
+mkdir -p ~/.code-review-council
 ```
-
-### 審查指定檔案
-
-```bash
-node dist/cli.js file src/app.ts src/main.ts
-```
-
-### 審查整個 codebase
-
-```bash
-node dist/cli.js codebase --dir /path/to/project
-```
-
-可選參數：
-
-| 參數 | 說明 | 預設值 |
-|------|------|--------|
-| `--dir <path>` | 專案目錄路徑 | 當前目錄 |
-| `--extensions <list>` | 逗號分隔的副檔名 (如 `ts,js,py`) | 常見程式語言副檔名 |
-| `--batch-size <chars>` | 每批最大字元數 | 100,000 |
-| `--checks <list>` | 逗號分隔的檢查類別 | 設定檔中的 defaultChecks |
-| `--extra <text>` | 額外的 review 指示 | — |
-| `--config <path>` | 設定檔路徑 | `review-council.config.json` |
-
-## REST API
-
-啟動 HTTP 伺服器：
-
-```bash
-npm run start
-```
-
-伺服器預設監聽 `http://localhost:3000`。
-
-### `POST /review/diff`
-
-```json
-{
-  "repoPath": "/path/to/repo",
-  "baseBranch": "main",
-  "checks": ["security", "performance"],
-  "extraInstructions": "請特別注意 SQL injection"
-}
-```
-
-### `POST /review/file`
-
-```json
-{
-  "files": ["src/app.ts", "src/main.ts"],
-  "checks": ["code-quality"]
-}
-```
-
-### `POST /review/codebase`
-
-```json
-{
-  "directory": "/path/to/project",
-  "extensions": [".ts", ".js"],
-  "maxBatchSize": 100000,
-  "checks": ["security", "best-practices"]
-}
-```
-
-## 設定檔
-
-`review-council.config.json`：
 
 ```json
 {
   "reviewers": [
-    { "name": "Gemini", "cliPath": "gemini", "cliArgs": ["--experimental-acp"] },
-    { "name": "Claude", "cliPath": "claude-code-acp", "cliArgs": [] },
-    { "name": "Codex", "cliPath": "codex-acp", "cliArgs": [] }
+    {
+      "name": "Gemini",
+      "cliPath": "gemini",
+      "cliArgs": ["--experimental-acp"],
+      "timeoutMs": 120000,
+      "maxRetries": 2
+    }
   ],
-  "summarizer": {
+  "decisionMaker": {
     "name": "Claude",
     "cliPath": "claude-code-acp",
-    "cliArgs": []
+    "cliArgs": [],
+    "timeoutMs": 600000,
+    "maxRetries": 2
   },
   "review": {
     "defaultChecks": ["code-quality", "security", "performance", "readability", "best-practices"],
@@ -135,12 +63,255 @@ npm run start
 }
 ```
 
-## 測試
+### 2. 執行審查
 
 ```bash
-npx vitest run
+# 審查當前分支與 main 的差異（自動讀取 ~/.code-review-council/review-council.config.json）
+code-review-council diff --repo . --base main
+```
+
+## CLI 指令
+
+### `diff` — 審查 Git 差異
+
+```bash
+code-review-council diff --repo /path/to/repo --base main --config ./my-config.json
+```
+
+| 選項 | 說明 | 預設值 |
+|------|------|--------|
+| `--repo <path>` | Git 儲存庫路徑 | 當前目錄 |
+| `--base <branch>` | 基準分支 | `main` |
+| `--checks <list>` | 逗號分隔的檢查類別 | 設定檔的 defaultChecks |
+| `--extra <text>` | 額外審查指示 | — |
+| `--config <path>` | 設定檔路徑 | 自動搜尋（見載入優先順序） |
+
+### `file` — 審查指定檔案
+
+```bash
+code-review-council file src/app.ts src/main.ts --config ./my-config.json
+```
+
+| 選項 | 說明 |
+|------|------|
+| `<files...>` | 檔案路徑（至少一個） |
+| `--checks <list>` | 檢查類別 |
+| `--extra <text>` | 額外審查指示 |
+| `--config <path>` | 設定檔路徑 |
+
+### `codebase` — 審查整個專案
+
+```bash
+code-review-council codebase --dir ./src --config ./my-config.json
+```
+
+| 選項 | 說明 | 預設值 |
+|------|------|--------|
+| `--dir <path>` | 掃描目錄 | 當前目錄 |
+| `--extensions <list>` | 逗號分隔的副檔名（如 `ts,js,py`） | 常見程式語言副檔名 |
+| `--batch-size <chars>` | 每批最大字元數 | 100,000 |
+| `--checks <list>` | 檢查類別 |
+| `--extra <text>` | 額外審查指示 |
+| `--config <path>` | 設定檔路徑 |
+
+## 設定檔
+
+### 載入優先順序
+
+1. `--config <path>` — CLI 指定的路徑
+2. `CONFIG_JSON` 環境變數 — JSON 字串形式的完整設定
+3. `./review-council.config.json` — 當前工作目錄（專案層級）
+4. `~/.code-review-council/review-council.config.json` — 使用者家目錄（使用者層級）
+5. 內建預設設定 — package 附帶的設定
+
+### 設定檔放置位置
+
+**使用者層級**（推薦）— 全域安裝後，建立一次即可在所有專案使用：
+
+```bash
+mkdir -p ~/.code-review-council
+cp review-council.config.json ~/.code-review-council/
+# 或自行建立設定檔
+```
+
+**專案層級** — 放在專案根目錄，優先於使用者層級設定：
+
+```bash
+my-project/
+├── review-council.config.json   # 專案專屬設定（優先）
+├── src/
+├── package.json
+└── ...
+```
+
+### 完整設定範例
+
+```json
+{
+  "reviewers": [
+    {
+      "name": "Gemini",
+      "cliPath": "gemini",
+      "cliArgs": ["--experimental-acp"],
+      "timeoutMs": 120000,
+      "maxRetries": 2
+    },
+    {
+      "name": "Copilot",
+      "cliPath": "copilot",
+      "cliArgs": ["--acp", "--model", "gpt-5.3-codex"],
+      "timeoutMs": 120000,
+      "maxRetries": 2
+    }
+  ],
+  "decisionMaker": {
+    "name": "Claude",
+    "cliPath": "claude-code-acp",
+    "cliArgs": [],
+    "timeoutMs": 600000,
+    "maxRetries": 2
+  },
+  "review": {
+    "defaultChecks": ["code-quality", "security", "performance", "readability", "best-practices"],
+    "language": "zh-tw",
+    "maxReviewsLength": 60000,
+    "maxCodeLength": 100000,
+    "maxSummaryLength": 60000,
+    "allowLocalExploration": false
+  }
+}
+```
+
+### 設定欄位說明
+
+#### `reviewers[]` — 審查器
+
+| 欄位 | 類型 | 必填 | 說明 |
+|------|------|------|------|
+| `name` | string | ✓ | 審查器名稱 |
+| `cliPath` | string | ✓ | CLI 執行檔路徑 |
+| `cliArgs` | string[] | ✓ | CLI 啟動參數 |
+| `model` | string | — | 指定模型 |
+| `timeoutMs` | number | — | 超時時間（預設 180,000ms） |
+| `maxRetries` | number | — | 重試次數 0-5（預設 0） |
+
+#### `decisionMaker` — 決策模型
+
+統整所有審查意見的模型，欄位同 `reviewers`。
+
+#### `review` — 審查設定
+
+| 欄位 | 類型 | 預設值 | 說明 |
+|------|------|--------|------|
+| `defaultChecks` | string[] | — | 預設檢查類別 |
+| `language` | string | `zh-tw` | 輸出語言 |
+| `maxReviewsLength` | number | 60,000 | 審查結果最大字元數 |
+| `maxCodeLength` | number | 100,000 | 程式碼最大字元數 |
+| `maxSummaryLength` | number | 60,000 | 摘要最大字元數 |
+| `allowLocalExploration` | boolean | `false` | 允許審查器讀取本地檔案 |
+
+### 環境變數覆蓋
+
+| 環境變數 | 說明 |
+|---------|------|
+| `CONFIG_JSON` | JSON 字串形式的完整設定（覆蓋設定檔） |
+| `DECISION_MAKER_MODEL` | 覆蓋決策模型名稱 |
+| `REVIEW_LANGUAGE` | 覆蓋審查語言 |
+| `DECISION_MAKER_TIMEOUT_MS` | 覆蓋決策模型超時 |
+| `REVIEWER_TIMEOUT_MS` | 覆蓋所有審查器超時 |
+| `REVIEWER_EXPLORE_LOCAL` | 覆蓋本地探索設定（`true`/`false`） |
+
+## 檢查類別
+
+| 類別 | 說明 |
+|------|------|
+| `code-quality` | 命名、結構、可讀性 |
+| `security` | 漏洞、認證、驗證 |
+| `performance` | 算法複雜度、記憶體使用 |
+| `readability` | 註解、文檔、清晰度 |
+| `best-practices` | 框架慣例、設計模式 |
+
+## 使用範例
+
+### PR 審查
+
+```bash
+cd /path/to/my-repo
+code-review-council diff --base main --config ./my-config.json
+```
+
+### 安全性專項審查
+
+```bash
+code-review-council codebase \
+  --dir ./src \
+  --checks "security" \
+  --extra "Focus on SQL injection, XSS, authentication" \
+  --config ./my-config.json
+```
+
+### 使用環境變數（適合 CI/CD）
+
+```bash
+CONFIG_JSON='{"reviewers":[{"name":"Gemini","cliPath":"gemini","cliArgs":["--experimental-acp"]}],"decisionMaker":{"name":"Claude","cliPath":"claude-code-acp","cliArgs":[]},"review":{"defaultChecks":["security"],"language":"en"}}' \
+  code-review-council diff --repo .
+```
+
+## 審查流程
+
+```
+程式碼 ──→ 並行派遣給多個 Reviewers ──→ 決策模型統整 ──→ 最終報告
+              │                              │
+              ├─ Gemini ────┐                │
+              ├─ Copilot ───┼─→ 收集意見 ───→ Claude (Decision Maker)
+              └─ Claude ────┘                │
+                                             ↓
+                                     ┌─────────────┐
+                                     │  Final Report │
+                                     │  - Decisions  │
+                                     │  - Findings   │
+                                     └─────────────┘
+```
+
+## 技術架構
+
+- **框架**: NestJS 11 (ESM)
+- **CLI**: nest-commander
+- **Git 操作**: simple-git
+- **AI 整合**: @shrek1478/copilot-sdk-with-acp (ACP)
+- **測試**: Vitest
+
+```
+src/
+├── cli.ts                        # CLI 進入點
+├── cli/
+│   ├── diff.command.ts           # diff 指令
+│   ├── file.command.ts           # file 指令
+│   ├── codebase.command.ts       # codebase 指令
+│   └── result-printer.ts         # 結果格式化輸出
+├── config/
+│   ├── config.service.ts         # 設定載入與驗證
+│   └── config.types.ts           # 設定型別定義
+├── review/
+│   ├── code-reader.service.ts    # 讀取 diff / 檔案 / 目錄
+│   ├── council.service.ts        # 派遣多模型審查
+│   ├── decision-maker.service.ts # 統整決策
+│   ├── review.service.ts         # 流程編排
+│   └── review.types.ts           # 型別定義
+└── acp/
+    └── acp.service.ts            # ACP 客戶端管理
+```
+
+## 開發
+
+```bash
+git clone https://github.com/shrek1478/code-review-council.git
+cd code-review-council
+npm install
+npm run build
+npm test
 ```
 
 ## 授權
 
-UNLICENSED
+MIT

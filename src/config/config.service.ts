@@ -1,11 +1,15 @@
 import { Injectable } from '@nestjs/common';
-import { readFile } from 'node:fs/promises';
-import { dirname, resolve } from 'node:path';
+import { readFile, access } from 'node:fs/promises';
+import { dirname, resolve, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { homedir } from 'node:os';
 import { CouncilConfig } from './config.types.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const PROJECT_ROOT = resolve(__dirname, '..', '..');
+const USER_CONFIG_DIR = join(homedir(), '.code-review-council');
+const USER_CONFIG_PATH = join(USER_CONFIG_DIR, 'review-council.config.json');
+const CWD_CONFIG_PATH = resolve('review-council.config.json');
 
 @Injectable()
 export class ConfigService {
@@ -23,14 +27,34 @@ export class ConfigService {
   private async resolveBaseConfig(
     configPath?: string,
   ): Promise<{ parsed: unknown; source: string }> {
+    // 1. CLI --config 指定路徑
     if (configPath) {
       return this.loadFromFile(resolve(configPath));
     }
+    // 2. CONFIG_JSON 環境變數
     const configJson = process.env.CONFIG_JSON;
     if (configJson && configJson.trim() !== '') {
       return this.parseConfigJson(configJson);
     }
+    // 3. 專案層級：當前工作目錄下的設定檔
+    if (await this.fileExists(CWD_CONFIG_PATH)) {
+      return this.loadFromFile(CWD_CONFIG_PATH);
+    }
+    // 4. 使用者層級：~/.code-review-council/review-council.config.json
+    if (await this.fileExists(USER_CONFIG_PATH)) {
+      return this.loadFromFile(USER_CONFIG_PATH);
+    }
+    // 5. 內建預設
     return this.loadFromFile(resolve(PROJECT_ROOT, 'review-council.config.json'));
+  }
+
+  private async fileExists(filePath: string): Promise<boolean> {
+    try {
+      await access(filePath);
+      return true;
+    } catch {
+      return false;
+    }
   }
 
   private async loadFromFile(
