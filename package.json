@@ -25,9 +25,9 @@
     "test:cov": "vitest run --coverage"
   },
   "dependencies": {
-    "@shrek1478/copilot-sdk-with-acp": "^0.1.24",
     "@nestjs/common": "^11.0.1",
     "@nestjs/core": "^11.0.1",
+    "@shrek1478/copilot-sdk-with-acp": "^0.1.24",
     "nest-commander": "^3.20.1",
     "reflect-metadata": "^0.2.2",
     "rxjs": "^7.8.1",
@@ -42,6 +42,7 @@
     "@nestjs/testing": "^11.0.1",
     "@types/node": "^22.10.7",
     "@types/uuid": "^10.0.0",
+    "@vitest/coverage-v8": "^4.0.18",
     "eslint": "^9.18.0",
     "eslint-config-prettier": "^10.0.1",
     "eslint-plugin-prettier": "^5.2.2",

@@ -45,7 +45,8 @@ export async function retryWithBackoff<T>(
       return await fn();
     } catch (error) {
       if (attempt < maxRetries && isRetryable(error)) {
-        const delay = 2000 * Math.pow(2, attempt);
+        // Add jitter (0.75x–1.25x) to avoid synchronized retry storms across reviewers
+        const delay = Math.round(2000 * Math.pow(2, attempt) * (0.75 + Math.random() * 0.5));
         logger.warn(`${label} attempt ${attempt + 1} failed, retrying in ${delay}ms...`);
         await new Promise((r) => setTimeout(r, delay));
         if (onRetry) await onRetry();

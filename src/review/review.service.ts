@@ -1,6 +1,6 @@
 import { Injectable, ConsoleLogger, Inject } from '@nestjs/common';
 import { randomUUID } from 'node:crypto';
-import { resolve } from 'node:path';
+import { resolve, relative } from 'node:path';
 import { realpath } from 'node:fs/promises';
 import { CodeReaderService, CodebaseOptions } from './code-reader.service.js';
 import { CouncilService } from './council.service.js';
@@ -78,7 +78,8 @@ export class ReviewService {
           this.logger.warn(`Skipping sensitive file: ${p}`);
           continue;
         }
-        safePaths.push(abs);
+        // Use relative paths to avoid leaking host directory structure to external LLMs
+        safePaths.push(relative(repoRoot, abs));
       }
       if (safePaths.length === 0) {
         throw new Error('No valid files to review after path validation');

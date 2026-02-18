@@ -152,7 +152,7 @@ describe('ReviewService', () => {
       expect(dispatchCall.repoPath).toBe('/tmp/repo');
     });
 
-    it('reviewFiles should not read file content and resolve to absolute paths', async () => {
+    it('reviewFiles should not read file content and use relative paths', async () => {
       // Use real existing files so realpath validation succeeds
       const fileA = 'src/review/review.service.ts';
       const fileB = 'src/review/review.types.ts';
@@ -161,18 +161,15 @@ describe('ReviewService', () => {
       // Should NOT call readFiles
       expect(mockCodeReader.readFiles).not.toHaveBeenCalled();
 
-      const expectedA = resolve(fileA);
-      const expectedB = resolve(fileB);
-
-      // Should send absolute filePaths with repoPath
+      // Should send relative filePaths (not absolute) to avoid leaking host paths
       const dispatchCall = mockCouncil.dispatchReviews.mock.calls[0][0];
       expect(dispatchCall.code).toBeUndefined();
-      expect(dispatchCall.filePaths).toEqual([expectedA, expectedB]);
+      expect(dispatchCall.filePaths).toEqual([fileA, fileB]);
       expect(dispatchCall.repoPath).toBe(resolve('.'));
 
-      // Decision maker should use summary mode with absolute paths
+      // Decision maker should use summary mode with relative paths
       expect(mockDecisionMaker.decide).toHaveBeenCalledWith(
-        `${expectedA}\n${expectedB}`,
+        `${fileA}\n${fileB}`,
         expect.any(Array),
         true,
       );

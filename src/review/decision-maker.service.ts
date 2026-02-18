@@ -28,7 +28,7 @@ export class DecisionMakerService {
   }
 
   async decide(
-    code: string,
+    codeOrSummary: string,
     reviews: IndividualReview[],
     isSummaryMode = false,
   ): Promise<ReviewDecision> {
@@ -50,8 +50,8 @@ export class DecisionMakerService {
       const delimiter = `DELIM-${randomUUID().slice(0, 8)}`;
       const reviewsText = this.buildReviewsSection(reviews, delimiter, maxReviewsLength);
       const codeSection = isSummaryMode
-        ? this.buildSummarySection(code, delimiter, maxSummaryLength)
-        : this.buildCodeSection(code, delimiter, maxCodeLength);
+        ? this.buildSummarySection(codeOrSummary, delimiter, maxSummaryLength)
+        : this.buildCodeSection(codeOrSummary, delimiter, maxCodeLength);
 
       const responsibilities = isSummaryMode
         ? `## Your responsibilities:

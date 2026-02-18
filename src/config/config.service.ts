@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, ConsoleLogger, Inject } from '@nestjs/common';
 import { readFile, access } from 'node:fs/promises';
 import { dirname, resolve, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -14,6 +14,10 @@ const CWD_CONFIG_PATH = resolve('review-council.config.json');
 @Injectable()
 export class ConfigService {
   private config: CouncilConfig | null = null;
+
+  constructor(@Inject(ConsoleLogger) private readonly logger: ConsoleLogger) {
+    this.logger.setContext(ConfigService.name);
+  }
 
   async loadConfig(configPath?: string): Promise<CouncilConfig> {
     const { parsed, source } = await this.resolveBaseConfig(configPath);
@@ -194,8 +198,8 @@ export class ConfigService {
     }
     // Warn about cliPath containing path separators or traversal — may indicate misconfiguration
     if (r.cliPath.includes('..') || r.cliPath.includes('/') || r.cliPath.includes('\\')) {
-      console.warn(
-        `⚠️  Warning (${filePath}): "${path}.cliPath" value "${r.cliPath}" contains path separators or '..'. ` +
+      this.logger.warn(
+        `Config (${filePath}): "${path}.cliPath" value "${r.cliPath}" contains path separators or '..'. ` +
         `Consider using a simple command name resolvable via PATH.`,
       );
     }
