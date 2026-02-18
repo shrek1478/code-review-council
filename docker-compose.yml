@@ -9,8 +9,10 @@ services:
       - ${REPO_PATH:-.}:/repo:ro
       # Config file (optional, can use CONFIG_JSON env var instead)
       - ./review-council.config.json:/app/code-review-council/review-council.config.json:ro
-      # Mount host auth credentials for AI CLI tools
-      - ~/.config:/home/node/.config:ro
+      # Mount only necessary auth credentials for AI CLI tools
+      - ~/.config/github-copilot:/home/node/.config/github-copilot:ro
+      - ~/.config/gemini:/home/node/.config/gemini:ro
+      - ~/.claude:/home/node/.claude:ro
     environment:
       # Optional overrides:
       # CONFIG_JSON: '{"reviewers": [...], ...}'
