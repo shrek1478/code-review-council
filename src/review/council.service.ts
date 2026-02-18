@@ -124,8 +124,9 @@ export class CouncilService {
       const truncateNote = truncated
         ? `\n\n(Showing ${MAX_EXPLORATION_FILE_PATHS} of ${allPaths.length} files. Focus on the listed files.)`
         : '';
-      const repoName = request.repoPath ? basename(request.repoPath) : '';
-      const repoInfo = repoName ? `Repository: ${repoName}` : '';
+      const repoInfo = request.repoPath
+        ? `Repository Root: ${request.repoPath}`
+        : '';
 
       prompt = `You are a senior code reviewer.
 You MUST reply entirely in ${lang}. All descriptions, suggestions, and explanations must be written in ${lang}.
@@ -146,10 +147,14 @@ ${issueFormat}`;
     } else {
       // Inline mode: code is embedded in prompt
       const delimiter = `CODE-${randomUUID().slice(0, 8)}`;
+      const inlineRepoInfo =
+        allowExplore && request.repoPath
+          ? `\nRepository Root: ${request.repoPath}\n`
+          : '';
       prompt = `You are a senior code reviewer. Please review the following code.
 You MUST reply entirely in ${lang}. All descriptions, suggestions, and explanations must be written in ${lang}.
 ${toolInstruction}
-
+${inlineRepoInfo}
 ${checkList}
 
 ${issueFormat}

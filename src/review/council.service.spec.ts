@@ -229,7 +229,7 @@ describe('CouncilService', () => {
 
     const promptArg = mockAcpService.sendPrompt.mock.calls[0][1] as string;
     expect(promptArg).toContain('You MAY use available tools');
-    expect(promptArg).toContain('Repository: repo');
+    expect(promptArg).toContain('Repository Root: /tmp/repo');
     expect(promptArg).toContain('src/app.ts');
     expect(promptArg).toContain('src/main.ts');
     expect(promptArg).toContain('Use your tools to read each file');
@@ -259,6 +259,46 @@ describe('CouncilService', () => {
     // Should still embed code when code is provided (e.g. diff mode)
     expect(promptArg).toContain('const x = 1;');
     expect(promptArg).toContain('You MAY use available tools');
+  });
+
+  it('should include repoPath in inline mode when allowLocalExploration is true', async () => {
+    mockConfigService.getConfig.mockReturnValue({
+      reviewers: [{ name: 'Gemini', cliPath: 'gemini', cliArgs: [] }],
+      review: {
+        defaultChecks: ['code-quality'],
+        language: 'zh-tw',
+        allowLocalExploration: true,
+      },
+    });
+
+    await service.dispatchReviews({
+      code: 'const x = 1;',
+      checks: ['code-quality'],
+      repoPath: '/home/user/project',
+    });
+
+    const promptArg = mockAcpService.sendPrompt.mock.calls[0][1] as string;
+    expect(promptArg).toContain('Repository Root: /home/user/project');
+  });
+
+  it('should not include repoPath in inline mode when allowLocalExploration is false', async () => {
+    mockConfigService.getConfig.mockReturnValue({
+      reviewers: [{ name: 'Gemini', cliPath: 'gemini', cliArgs: [] }],
+      review: {
+        defaultChecks: ['code-quality'],
+        language: 'zh-tw',
+        allowLocalExploration: false,
+      },
+    });
+
+    await service.dispatchReviews({
+      code: 'const x = 1;',
+      checks: ['code-quality'],
+      repoPath: '/home/user/project',
+    });
+
+    const promptArg = mockAcpService.sendPrompt.mock.calls[0][1] as string;
+    expect(promptArg).not.toContain('Repository Root:');
   });
 
   it('should stop clients for failed reviewers', async () => {

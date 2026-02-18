@@ -15,6 +15,13 @@ const DEFAULT_MAX_REVIEWS_LENGTH = 30_000;
 const DEFAULT_MAX_SUMMARY_LENGTH = 30_000;
 
 const VALID_SEVERITIES = new Set(['high', 'medium', 'low']);
+const VALID_CATEGORIES = new Set([
+  'security',
+  'performance',
+  'readability',
+  'code-quality',
+  'best-practices',
+]);
 const VALID_VERDICTS = new Set(['accepted', 'rejected', 'modified']);
 
 @Injectable()
@@ -297,10 +304,17 @@ Rules:
         severity: VALID_SEVERITIES.has(String(d.severity))
           ? (d.severity as ReviewDecisionItem['severity'])
           : 'medium',
-        category: String(d.category ?? ''),
+        category: VALID_CATEGORIES.has(String(d.category ?? ''))
+          ? String(d.category)
+          : 'other',
         description: String(d.description),
         file: d.file ? String(d.file) : undefined,
-        line: typeof d.line === 'number' ? d.line : undefined,
+        line:
+          typeof d.line === 'number' &&
+          Number.isInteger(d.line) &&
+          d.line > 0
+            ? d.line
+            : undefined,
         raisedBy: Array.isArray(d.raisedBy) ? d.raisedBy.map(String) : [],
         verdict: VALID_VERDICTS.has(String(d.verdict))
           ? (d.verdict as ReviewDecisionItem['verdict'])
@@ -320,7 +334,9 @@ Rules:
         severity: VALID_SEVERITIES.has(String(f.severity))
           ? (f.severity as AdditionalFinding['severity'])
           : 'medium',
-        category: String(f.category ?? ''),
+        category: VALID_CATEGORIES.has(String(f.category ?? ''))
+          ? String(f.category)
+          : 'other',
         description: String(f.description),
         file: f.file ? String(f.file) : undefined,
         suggestion: String(f.suggestion ?? ''),

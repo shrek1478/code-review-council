@@ -356,28 +356,38 @@ export class CodeReaderService {
       .filter((f) => extensions.includes(extname(f)))
       .filter((f) => !this.isSensitiveFile(f));
 
-    // Verify symlinks stay within repo boundary
+    // Verify symlinks stay within repo boundary (parallel batches)
     const dirReal = await realpath(resolve(directory));
     const files: string[] = [];
     let skippedCount = 0;
-    for (const f of candidates) {
+
+    const validateOne = async (f: string): Promise<string | null> => {
       try {
         const real = await realpath(join(directory, f));
         if (!this.isWithinRoot(real, dirReal)) {
           this.logger.warn(`Skipping symlink pointing outside repo: ${f}`);
-          skippedCount++;
-          continue;
+          return null;
         }
         if (this.isSensitiveFile(real)) {
           this.logger.warn(`Skipping sensitive file (symlink target): ${f}`);
-          skippedCount++;
-          continue;
+          return null;
         }
+        return f;
       } catch {
-        skippedCount++;
-        continue;
+        return null;
       }
-      files.push(f);
+    };
+
+    for (let i = 0; i < candidates.length; i += CONCURRENCY) {
+      const chunk = candidates.slice(i, i + CONCURRENCY);
+      const results = await Promise.all(chunk.map(validateOne));
+      for (const f of results) {
+        if (f) {
+          files.push(f);
+        } else {
+          skippedCount++;
+        }
+      }
     }
     if (skippedCount > 0) {
       this.logger.warn(

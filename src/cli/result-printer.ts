@@ -23,6 +23,12 @@ function sanitize(text: string): string {
     .replace(C0_CONTROL_REGEX, '');
 }
 
+/** Sanitize multiline text and indent continuation lines for aligned CLI output. */
+function sanitizeIndented(text: string, indent: string): string {
+  const clean = sanitize(text);
+  return clean.replace(/\n/g, `\n${indent}`);
+}
+
 function sanitizeLine(text: string): string {
   return sanitize(text).replace(/[\r\n]+/g, ' ');
 }
@@ -36,10 +42,12 @@ export function getVerdictIcon(verdict: ReviewDecisionItem['verdict']): string {
 function printDecisionItem(d: ReviewDecisionItem): void {
   const icon = getVerdictIcon(d.verdict);
   console.log(
-    `  ${icon} [${sanitizeLine(d.severity)}] ${sanitizeLine(d.category)}: ${sanitize(d.description)}`,
+    `  ${icon} [${sanitizeLine(d.severity)}] ${sanitizeLine(d.category)}: ${sanitizeIndented(d.description, '    ')}`,
   );
-  if (d.reasoning) console.log(`    Reasoning: ${sanitize(d.reasoning)}`);
-  if (d.suggestion) console.log(`    Action: ${sanitize(d.suggestion)}`);
+  if (d.reasoning)
+    console.log(`    Reasoning: ${sanitizeIndented(d.reasoning, '    ')}`);
+  if (d.suggestion)
+    console.log(`    Action: ${sanitizeIndented(d.suggestion, '    ')}`);
   if (d.raisedBy?.length > 0) {
     console.log(`    Raised by: ${d.raisedBy.map(sanitizeLine).join(', ')}`);
   }
@@ -60,9 +68,10 @@ function printDecision(decision: ReviewDecision): void {
     console.log('\nAdditional Findings (by Decision Maker):');
     for (const f of decision.additionalFindings) {
       console.log(
-        `  [${sanitizeLine(f.severity)}] ${sanitizeLine(f.category)}: ${sanitize(f.description)}`,
+        `  [${sanitizeLine(f.severity)}] ${sanitizeLine(f.category)}: ${sanitizeIndented(f.description, '    ')}`,
       );
-      if (f.suggestion) console.log(`    Action: ${sanitize(f.suggestion)}`);
+      if (f.suggestion)
+        console.log(`    Action: ${sanitizeIndented(f.suggestion, '    ')}`);
     }
   }
 }

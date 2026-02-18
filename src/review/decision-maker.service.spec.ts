@@ -178,6 +178,63 @@ describe('DecisionMakerService', () => {
     );
   });
 
+  it('should fallback invalid category to other and reject invalid line', async () => {
+    mockAcpService.sendPrompt.mockResolvedValue(
+      JSON.stringify({
+        overallAssessment: 'OK',
+        decisions: [
+          {
+            severity: 'medium',
+            category: 'unknown-cat',
+            description: 'Test',
+            line: -5,
+            raisedBy: [],
+            verdict: 'accepted',
+            reasoning: 'test',
+            suggestion: 'test',
+          },
+          {
+            severity: 'low',
+            category: 'security',
+            description: 'Valid category',
+            line: 42,
+            raisedBy: [],
+            verdict: 'accepted',
+            reasoning: 'ok',
+            suggestion: 'ok',
+          },
+          {
+            severity: 'low',
+            category: 'performance',
+            description: 'Float line',
+            line: 3.5,
+            raisedBy: [],
+            verdict: 'accepted',
+            reasoning: 'ok',
+            suggestion: 'ok',
+          },
+        ],
+        additionalFindings: [
+          {
+            severity: 'low',
+            category: 'invented',
+            description: 'Bad cat finding',
+            suggestion: 'fix',
+          },
+        ],
+      }),
+    );
+    const decision = await service.decide('const x = 1;', [
+      { reviewer: 'Test', review: 'OK' },
+    ]);
+    expect(decision.decisions[0].category).toBe('other');
+    expect(decision.decisions[0].line).toBeUndefined();
+    expect(decision.decisions[1].category).toBe('security');
+    expect(decision.decisions[1].line).toBe(42);
+    expect(decision.decisions[2].line).toBeUndefined();
+    expect(decision.additionalFindings[0].category).toBe('other');
+  });
+
   it('should retry on timeout and succeed on second attempt', async () => {
     mockConfigService.getConfig.mockReturnValue({
       decisionMaker: {

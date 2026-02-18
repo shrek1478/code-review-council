@@ -137,6 +137,12 @@ export class AcpService implements OnModuleDestroy {
     return handle;
   }
 
+  /**
+   * Resolve a CLI command name to its absolute path.
+   * - Absolute paths are returned as-is (used internally by SDK; config validator restricts
+   *   user-facing cliPath to bare command names for security).
+   * - Bare command names are resolved via `which` (Unix-only; falls back to original on failure).
+   */
   private resolveCliPath(cliPath: string): string {
     if (isAbsolute(cliPath)) return cliPath;
     try {
@@ -250,9 +256,10 @@ export class AcpService implements OnModuleDestroy {
     name: string,
     timeoutMs = 5_000,
   ): Promise<void> {
-    const timeout = new Promise<never>((_, reject) =>
-      setTimeout(() => reject(new Error('stop timeout')), timeoutMs),
-    );
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const timeout = new Promise<never>((_, reject) => {
+      timer = setTimeout(() => reject(new Error('stop timeout')), timeoutMs);
+    });
     try {
       await Promise.race([client.stop(), timeout]);
     } catch {
@@ -266,6 +273,8 @@ export class AcpService implements OnModuleDestroy {
           `Force stop failed for ${name}: ${this.sanitizeErrorMessage(error)}`,
         );
       }
+    } finally {
+      clearTimeout(timer);
     }
   }
 
