@@ -69,7 +69,11 @@ export class CodeReaderService {
     this.logger.setContext(CodeReaderService.name);
   }
 
+  private cachedExtensions: string[] | undefined;
+  private cachedSensitivePatterns: RegExp[] | undefined;
+
   private get extensions(): string[] {
+    if (this.cachedExtensions) return this.cachedExtensions;
     let configured: string[] | undefined;
     try {
       configured = this.configService?.getConfig()?.review?.extensions;
@@ -82,12 +86,14 @@ export class CodeReaderService {
         );
       }
     }
-    return (configured ?? DEFAULT_EXTENSIONS).map((e) =>
+    this.cachedExtensions = (configured ?? DEFAULT_EXTENSIONS).map((e) =>
       e.startsWith('.') ? e : `.${e}`,
     );
+    return this.cachedExtensions;
   }
 
   private get sensitivePatterns(): RegExp[] {
+    if (this.cachedSensitivePatterns) return this.cachedSensitivePatterns;
     let configured: string[] | undefined;
     try {
       configured = this.configService?.getConfig()?.review?.sensitivePatterns;
@@ -100,10 +106,10 @@ export class CodeReaderService {
         );
       }
     }
-    if (configured) {
-      return [...SENSITIVE_PATTERNS, ...configured.map((p) => new RegExp(p))];
-    }
-    return SENSITIVE_PATTERNS;
+    this.cachedSensitivePatterns = configured
+      ? [...SENSITIVE_PATTERNS, ...configured.map((p) => new RegExp(p))]
+      : SENSITIVE_PATTERNS;
+    return this.cachedSensitivePatterns;
   }
 
   async readGitDiff(
@@ -170,7 +176,9 @@ export class CodeReaderService {
     let totalSize = 0;
 
     const readOne = async (filePath: string): Promise<FileContent | null> => {
-      const resolved = resolve(filePath);
+      const resolved = isAbsolute(filePath)
+        ? filePath
+        : resolve(rootReal, filePath);
       if (this.isSensitiveFile(resolved)) {
         this.logger.warn(`Skipping sensitive file: ${filePath}`);
         return null;

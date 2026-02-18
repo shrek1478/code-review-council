@@ -276,4 +276,14 @@ describe('DecisionMakerService', () => {
     expect(decision.overallAssessment).toBe('OK after retry');
     expect(mockAcpService.createClient).toHaveBeenCalledTimes(2);
   });
+
+  it('should handle extractBalancedJson with escaped backslashes before quotes', async () => {
+    // Test case: \\" should end the string (backslash is escaped, quote closes string)
+    const jsonWithEscapes = `{"key": "value with \\\\\\"end", "overallAssessment": "OK", "decisions": [], "additionalFindings": []}`;
+    mockAcpService.sendPrompt.mockResolvedValueOnce(jsonWithEscapes);
+    const decision = await service.decide('const x = 1;', [
+      { reviewer: 'Test', review: 'OK' },
+    ]);
+    expect(decision.overallAssessment).toBe('OK');
+  });
 });

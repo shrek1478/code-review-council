@@ -112,7 +112,7 @@ export class AcpService implements OnModuleDestroy {
     return false;
   }
 
-  private static readonly SAFE_CLI_NAME = /^[A-Za-z0-9._-]+$/;
+  private static readonly SAFE_CLI_NAME = /^(?!-)[A-Za-z0-9._-]+$/;
 
   async createClient(config: ReviewerConfig): Promise<AcpClientHandle> {
     if (this.stopping) {

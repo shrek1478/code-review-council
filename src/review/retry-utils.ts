@@ -65,7 +65,15 @@ export async function retryWithBackoff<T>(
           `${label} attempt ${attempt + 1} failed, retrying in ${delay}ms...`,
         );
         await new Promise((r) => setTimeout(r, delay));
-        if (onRetry) await onRetry();
+        if (onRetry) {
+          try {
+            await onRetry();
+          } catch (retryError) {
+            logger.warn(
+              `${label} onRetry callback failed: ${retryError instanceof Error ? retryError.message : retryError}`,
+            );
+          }
+        }
         continue;
       }
       throw error;

@@ -230,18 +230,26 @@ Rules:
     for (let i = start; i < text.length; i++) {
       const ch = text[i];
       if (escape) {
+        // Previous char was an unescaped backslash; skip this char unconditionally
         escape = false;
         continue;
       }
-      if (ch === '\\' && inString) {
-        escape = true;
+      if (inString) {
+        if (ch === '\\') {
+          // Toggle escape: handles \\, \", \n etc. correctly
+          escape = true;
+          continue;
+        }
+        if (ch === '"') {
+          inString = false;
+        }
         continue;
       }
+      // Outside string
       if (ch === '"') {
-        inString = !inString;
+        inString = true;
         continue;
       }
-      if (inString) continue;
       if (ch === '{') depth++;
       else if (ch === '}') {
         depth--;

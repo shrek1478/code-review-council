@@ -70,7 +70,7 @@ describe('CouncilService', () => {
       checks: ['code-quality'],
     });
     expect(reviews.length).toBe(2);
-    expect(reviews[1].review).toContain('error');
+    expect(reviews[1].review).toContain('Review generation failed');
   });
 
   it('should retry on timeout error and succeed on second attempt', async () => {
@@ -113,7 +113,8 @@ describe('CouncilService', () => {
     });
 
     expect(reviews.length).toBe(1);
-    expect(reviews[0].review).toContain('error');
+    expect(reviews[0].review).toContain('Review generation failed');
+    expect(reviews[0].review).not.toContain('Invalid token');
     expect(mockAcpService.sendPrompt).toHaveBeenCalledTimes(1);
   });
 
@@ -312,7 +313,7 @@ describe('CouncilService', () => {
     });
 
     expect(reviews.length).toBe(2);
-    expect(reviews[1].review).toContain('error');
+    expect(reviews[1].review).toContain('Review generation failed');
     expect(mockAcpService.createClient).toHaveBeenCalledTimes(2);
   });
 });

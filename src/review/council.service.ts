@@ -1,6 +1,5 @@
 import { Inject, Injectable, ConsoleLogger } from '@nestjs/common';
 import { randomUUID } from 'node:crypto';
-import { basename } from 'node:path';
 import { AcpService } from '../acp/acp.service.js';
 import { ConfigService } from '../config/config.service.js';
 import { IndividualReview, ReviewRequest } from './review.types.js';
@@ -64,7 +63,7 @@ export class CouncilService {
         this.logger.error(`Reviewer ${reviewerConfig.name} failed: ${msg}`);
         return {
           reviewer: reviewerConfig.name,
-          review: `[error] ${msg}`,
+          review: `[error] Review generation failed for ${reviewerConfig.name}`,
           durationMs: Date.now() - startMs,
         };
       } finally {

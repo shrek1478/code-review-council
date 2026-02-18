@@ -312,6 +312,16 @@ describe('AcpService', () => {
     ).rejects.toThrow('Unsafe cliPath rejected');
   });
 
+  it('should reject cliPath starting with a dash', async () => {
+    await expect(
+      service.createClient({
+        name: 'Test',
+        cliPath: '-malicious',
+        cliArgs: [],
+      }),
+    ).rejects.toThrow('Unsafe cliPath rejected');
+  });
+
   it('should fall back to original cliPath when which fails', async () => {
     const { CopilotClient } = await import(
       '@shrek1478/copilot-sdk-with-acp'
