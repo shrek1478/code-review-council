@@ -20,13 +20,15 @@ npm install -g @shrek1478/code-review-council
 
 ### 前置需求
 
-需要安裝至少一個支援 [ACP（Agent Client Protocol）](https://docs.github.com/en/copilot/reference/acp-server)的 AI CLI 工具：
+需要安裝至少一個 AI CLI 工具。支援 ACP（Agent Client Protocol）和 Copilot 原生 protocol 兩種通訊方式：
 
-| 工具 | 安裝方式 | ACP 啟動參數 |
-|------|---------|-------------|
-| [Gemini CLI](https://github.com/google-gemini/gemini-cli) | `npm install -g @google/gemini-cli` | `--experimental-acp` |
-| [Claude Code ACP](https://github.com/zed-industries/claude-code-acp) | `npm install -g @zed-industries/claude-code-acp` | （預設 ACP 模式） |
-| [GitHub Copilot CLI](https://github.com/github/copilot-cli) | `npm install -g @github/copilot` | `--acp` |
+| 工具 | 安裝方式 | Protocol | 設定方式 |
+|------|---------|----------|---------|
+| [Gemini CLI](https://github.com/google-gemini/gemini-cli) | `npm install -g @google/gemini-cli` | ACP | `"cliArgs": ["--experimental-acp"]` |
+| [Claude Code ACP](https://github.com/zed-industries/claude-code-acp) | `npm install -g @zed-industries/claude-code-acp` | ACP | （預設 ACP 模式） |
+| [GitHub Copilot CLI](https://github.com/github/copilot-cli) | `npm install -g @github/copilot` | Copilot | `"protocol": "copilot"` |
+
+> Copilot CLI 支援原生 Copilot SDK protocol，透過設定 `"protocol": "copilot"` 啟用，不需要 `--acp` 參數。其他 CLI 預設使用 ACP protocol。
 
 ## 快速開始
 
@@ -161,7 +163,9 @@ my-project/
     {
       "name": "Copilot",
       "cliPath": "copilot",
-      "cliArgs": ["--acp", "--model", "gpt-5.3-codex"],
+      "cliArgs": [],
+      "protocol": "copilot",
+      "model": "gpt-5-mini",
       "timeoutMs": 120000,
       "maxRetries": 2
     }
@@ -179,7 +183,7 @@ my-project/
     "maxReviewsLength": 60000,
     "maxCodeLength": 100000,
     "maxSummaryLength": 60000,
-    "allowLocalExploration": false
+    "mode": "inline"
   }
 }
 ```
@@ -193,8 +197,9 @@ my-project/
 | `name` | string | ✓ | 審查器名稱 |
 | `cliPath` | string | ✓ | CLI 執行檔路徑 |
 | `cliArgs` | string[] | ✓ | CLI 啟動參數 |
+| `protocol` | string | — | 通訊協定：`"acp"`（預設）或 `"copilot"` |
 | `model` | string | — | 指定模型 |
-| `timeoutMs` | number | — | 超時時間（預設 180,000ms） |
+| `timeoutMs` | number | — | 超時時間（預設 180,000ms；explore 模式自動加倍） |
 | `maxRetries` | number | — | 重試次數 0-5（預設 0） |
 
 #### `decisionMaker` — 決策模型
@@ -210,7 +215,9 @@ my-project/
 | `maxReviewsLength` | number | 60,000 | 審查結果最大字元數 |
 | `maxCodeLength` | number | 100,000 | 程式碼最大字元數 |
 | `maxSummaryLength` | number | 60,000 | 摘要最大字元數 |
-| `allowLocalExploration` | boolean | `false` | 允許審查器讀取本地檔案 |
+| `mode` | string | `"inline"` | 審查模式：`"inline"`（程式碼嵌入 prompt）或 `"explore"`（審查器自行讀取檔案） |
+| `extensions` | string[] | — | 掃描的副檔名（如 `[".ts", ".js"]`），預設涵蓋常見程式語言 |
+| `sensitivePatterns` | string[] | — | 敏感檔案的 regex 模式（如 `["^\\.env", "\\.key$"]`），匹配的檔案會被排除 |
 
 ### 環境變數覆蓋
 
@@ -221,7 +228,7 @@ my-project/
 | `REVIEW_LANGUAGE` | 覆蓋審查語言 |
 | `DECISION_MAKER_TIMEOUT_MS` | 覆蓋決策模型超時 |
 | `REVIEWER_TIMEOUT_MS` | 覆蓋所有審查器超時 |
-| `REVIEWER_EXPLORE_LOCAL` | 覆蓋本地探索設定（`true`/`false`） |
+| `REVIEWER_EXPLORE_LOCAL` | 覆蓋審查模式（`true` → explore，`false` → inline） |
 
 ## 檢查類別
 
@@ -280,28 +287,34 @@ CONFIG_JSON='{"reviewers":[{"name":"Gemini","cliPath":"gemini","cliArgs":["--exp
 - **框架**: NestJS 11 (ESM)
 - **CLI**: nest-commander
 - **Git 操作**: simple-git
-- **AI 整合**: @shrek1478/copilot-sdk-with-acp (ACP)
+- **AI 整合**: @shrek1478/copilot-sdk-with-acp (ACP / Copilot protocol)
 - **測試**: Vitest
 
 ```
 src/
 ├── cli.ts                        # CLI 進入點
+├── constants.ts                  # 全域常數
 ├── cli/
+│   ├── cli.module.ts             # CLI 模組
 │   ├── diff.command.ts           # diff 指令
 │   ├── file.command.ts           # file 指令
 │   ├── codebase.command.ts       # codebase 指令
 │   └── result-printer.ts         # 結果格式化輸出
 ├── config/
+│   ├── config.module.ts          # 設定模組
 │   ├── config.service.ts         # 設定載入與驗證
 │   └── config.types.ts           # 設定型別定義
 ├── review/
+│   ├── review.module.ts          # 審查模組
 │   ├── code-reader.service.ts    # 讀取 diff / 檔案 / 目錄
 │   ├── council.service.ts        # 派遣多模型審查
 │   ├── decision-maker.service.ts # 統整決策
 │   ├── review.service.ts         # 流程編排
-│   └── review.types.ts           # 型別定義
+│   ├── review.types.ts           # 型別定義
+│   └── retry-utils.ts            # 重試邏輯（指數退避）
 └── acp/
-    └── acp.service.ts            # ACP 客戶端管理
+    ├── acp.module.ts             # ACP 模組
+    └── acp.service.ts            # ACP / Copilot 客戶端管理
 ```
 
 ## 開發
