@@ -312,6 +312,15 @@ describe('AcpService', () => {
     ).rejects.toThrow('Unsafe cliPath rejected');
   });
 
+  it('should reject cliPath "." and ".."', async () => {
+    await expect(
+      service.createClient({ name: 'Dot', cliPath: '.', cliArgs: [] }),
+    ).rejects.toThrow('Unsafe cliPath rejected');
+    await expect(
+      service.createClient({ name: 'DotDot', cliPath: '..', cliArgs: [] }),
+    ).rejects.toThrow('Unsafe cliPath rejected');
+  });
+
   it('should reject cliPath starting with a dash', async () => {
     await expect(
       service.createClient({

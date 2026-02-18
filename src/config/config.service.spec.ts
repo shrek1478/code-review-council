@@ -405,6 +405,35 @@ describe('ConfigService', () => {
       expect(config.review.sensitivePatterns).toHaveLength(2);
     });
 
+    it('should reject sensitivePatterns exceeding max count', async () => {
+      const patterns = Array.from({ length: 21 }, (_, i) => `pattern${i}`);
+      process.env.CONFIG_JSON = JSON.stringify({
+        reviewers: [{ name: 'Test', cliPath: 'echo', cliArgs: [] }],
+        decisionMaker: { name: 'DM', cliPath: 'echo', cliArgs: [] },
+        review: {
+          defaultChecks: ['code-quality'],
+          language: 'en',
+          sensitivePatterns: patterns,
+        },
+      });
+      await expect(service.loadConfig()).rejects.toThrow(
+        'exceeds maximum of 20',
+      );
+    });
+
+    it('should reject ReDoS-vulnerable alternation patterns', async () => {
+      process.env.CONFIG_JSON = JSON.stringify({
+        reviewers: [{ name: 'Test', cliPath: 'echo', cliArgs: [] }],
+        decisionMaker: { name: 'DM', cliPath: 'echo', cliArgs: [] },
+        review: {
+          defaultChecks: ['code-quality'],
+          language: 'en',
+          sensitivePatterns: ['(a|ab)+'],
+        },
+      });
+      await expect(service.loadConfig()).rejects.toThrow('ReDoS risk');
+    });
+
     it('should accept valid timeoutMs and maxRetries', async () => {
       const tmpPath = join(process.cwd(), '__test_valid_new_fields__.json');
       await writeFile(

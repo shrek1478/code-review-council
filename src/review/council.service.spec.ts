@@ -302,6 +302,26 @@ describe('CouncilService', () => {
     expect(promptArg).not.toContain('Repository Root:');
   });
 
+  it('should truncate extraInstructions exceeding 4096 chars', async () => {
+    mockConfigService.getConfig.mockReturnValue({
+      reviewers: [{ name: 'Gemini', cliPath: 'gemini', cliArgs: [] }],
+      review: { defaultChecks: ['code-quality'], language: 'zh-tw' },
+    });
+
+    const longExtra = 'x'.repeat(5000);
+    await service.dispatchReviews({
+      code: 'const x = 1;',
+      checks: ['code-quality'],
+      extraInstructions: longExtra,
+    });
+
+    const promptArg = mockAcpService.sendPrompt.mock.calls[0][1] as string;
+    // Should contain exactly 4096 x's, not all 5000
+    const match = promptArg.match(/x+/g);
+    const longestRun = Math.max(...(match ?? []).map((m: string) => m.length));
+    expect(longestRun).toBe(4096);
+  });
+
   it('should stop clients for failed reviewers', async () => {
     mockAcpService.createClient
       .mockResolvedValueOnce({ name: 'Gemini', client: {} })

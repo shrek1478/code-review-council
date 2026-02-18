@@ -253,6 +253,12 @@ export class ConfigService {
           `Invalid config (${filePath}): "review.sensitivePatterns" must be an array of strings`,
         );
       }
+      const MAX_SENSITIVE_PATTERNS = 20;
+      if (config.review.sensitivePatterns.length > MAX_SENSITIVE_PATTERNS) {
+        throw new Error(
+          `Invalid config (${filePath}): "review.sensitivePatterns" exceeds maximum of ${MAX_SENSITIVE_PATTERNS} entries`,
+        );
+      }
       for (const p of config.review.sensitivePatterns) {
         let regex: RegExp;
         try {
@@ -273,12 +279,20 @@ export class ConfigService {
     }
   }
 
-  /** Detect nested quantifiers that can cause catastrophic backtracking (ReDoS). */
+  /**
+   * Detect patterns that can cause catastrophic backtracking (ReDoS).
+   * Note: This is a heuristic check and cannot catch all possible ReDoS patterns.
+   * It covers nested quantifiers and quantified alternations with overlapping branches.
+   */
   private isReDoSRisk(regex: RegExp): boolean {
     const src = regex.source;
-    // Detect nested quantifiers: (...)+ followed by +, *, or {n,}
+    // Nested quantifiers: (...)+ followed by +, *, or {n,}
     // e.g. (a+)+, (a*)+, (a+)*, ([^x]+)+
-    return /\([^)]*[+*][^)]*\)[+*{]/.test(src);
+    if (/\([^)]*[+*][^)]*\)[+*{]/.test(src)) return true;
+    // Quantified alternation with overlapping branches: (a|ab)+ or (a|a)* etc.
+    // Matches a group with alternation that is itself quantified
+    if (/\([^)]*\|[^)]*\)[+*{]/.test(src)) return true;
+    return false;
   }
 
   private validateReviewerConfig(r: any, path: string, filePath: string): void {

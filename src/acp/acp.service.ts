@@ -120,7 +120,9 @@ export class AcpService implements OnModuleDestroy {
     }
     if (
       !config.cliPath ||
-      !AcpService.SAFE_CLI_NAME.test(config.cliPath)
+      !AcpService.SAFE_CLI_NAME.test(config.cliPath) ||
+      config.cliPath === '.' ||
+      config.cliPath === '..'
     ) {
       throw new Error(
         `Unsafe cliPath rejected: "${config.cliPath}". Only simple command names are allowed.`,
@@ -294,8 +296,10 @@ export class AcpService implements OnModuleDestroy {
       this.logger.warn(
         `Graceful stop failed for ${name}, force stopping...`,
       );
+      const fc = client as unknown as { forceStop?(): Promise<void> };
+      if (typeof fc.forceStop !== 'function') return;
       try {
-        await (client as unknown as { forceStop(): Promise<void> }).forceStop();
+        await fc.forceStop();
       } catch (error) {
         this.logger.warn(
           `Force stop failed for ${name}: ${this.sanitizeErrorMessage(error)}`,

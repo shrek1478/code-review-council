@@ -52,8 +52,11 @@ const SENSITIVE_PATTERNS = [
   /\.keystore$/i,
 ];
 
+/** Maximum single file size in bytes (measured via fs.stat). */
 const MAX_FILE_SIZE = 1_048_576; // 1MB
+/** Maximum cumulative size in bytes (measured via Buffer.byteLength for UTF-8 accuracy). */
 const MAX_TOTAL_SIZE = 200 * 1_048_576; // 200MB cumulative limit
+/** Maximum diff output size in characters (git diff returns text). */
 const MAX_DIFF_SIZE = 5 * 1_048_576; // 5MB diff size limit
 const BRANCH_PATTERN = /^[A-Za-z0-9._\-/]+$/;
 const CONCURRENCY = 16;
@@ -217,7 +220,7 @@ export class CodeReaderService {
       const batch = await Promise.all(chunk.map(readOne));
       for (const item of batch) {
         if (item) {
-          totalSize += item.content.length;
+          totalSize += Buffer.byteLength(item.content, 'utf-8');
           if (totalSize > MAX_TOTAL_SIZE) {
             this.logger.warn(
               `Cumulative size exceeded ${MAX_TOTAL_SIZE / 1_048_576}MB, stopping file reads`,
@@ -313,7 +316,7 @@ export class CodeReaderService {
       const readResults = await Promise.all(chunk.map(readOne));
       for (const item of readResults) {
         if (!item) continue;
-        totalSize += item.content.length;
+        totalSize += Buffer.byteLength(item.content, 'utf-8');
         if (totalSize > MAX_TOTAL_SIZE) {
           this.logger.warn(
             `Cumulative size exceeded ${MAX_TOTAL_SIZE / 1_048_576}MB, stopping file reads`,
