@@ -1,7 +1,7 @@
 import { Injectable, ConsoleLogger, Inject, Optional } from '@nestjs/common';
 import { simpleGit } from 'simple-git';
 import { readFile, stat, realpath } from 'node:fs/promises';
-import { join, extname, resolve } from 'node:path';
+import { join, extname, resolve, relative, isAbsolute } from 'node:path';
 import { ConfigService } from '../config/config.service.js';
 
 export interface FileContent {
@@ -102,7 +102,7 @@ export class CodeReaderService {
       }
       try {
         const real = await realpath(resolved);
-        if (!real.startsWith(rootReal + '/') && real !== rootReal) {
+        if (!this.isWithinRoot(real, rootReal)) {
           this.logger.warn(`Skipping file outside allowed root: ${filePath}`);
           return null;
         }
@@ -184,7 +184,7 @@ export class CodeReaderService {
       const fullPath = join(directory, relativePath);
       try {
         const real = await realpath(fullPath);
-        if (!real.startsWith(dirReal + '/') && real !== dirReal) {
+        if (!this.isWithinRoot(real, dirReal)) {
           this.logger.warn(`Skipping symlink pointing outside repo: ${relativePath}`);
           return null;
         }
@@ -243,11 +243,28 @@ export class CodeReaderService {
       '--exclude-standard',
     ]);
 
-    const files = [...new Set(result
+    const candidates = [...new Set(result
       .split('\0')
       .filter((f) => f.length > 0))]
       .filter((f) => extensions.includes(extname(f)))
       .filter((f) => !this.isSensitiveFile(f));
+
+    // Verify symlinks stay within repo boundary
+    const dirReal = await realpath(resolve(directory));
+    const files: string[] = [];
+    for (const f of candidates) {
+      try {
+        const real = await realpath(join(directory, f));
+        if (!this.isWithinRoot(real, dirReal)) {
+          this.logger.warn(`Skipping symlink pointing outside repo: ${f}`);
+          continue;
+        }
+      } catch {
+        // Unresolvable path (broken symlink, etc.) — skip silently
+        continue;
+      }
+      files.push(f);
+    }
 
     this.logger.log(`Found ${files.length} files matching extensions`);
 
@@ -289,6 +306,12 @@ export class CodeReaderService {
     }
 
     return batches;
+  }
+
+  /** Cross-platform check: is `target` inside `root`? Uses path.relative to avoid separator issues. */
+  private isWithinRoot(target: string, root: string): boolean {
+    const rel = relative(root, target);
+    return !rel.startsWith('..') && !isAbsolute(rel);
   }
 
   // Note: Path handling assumes POSIX separators. Windows backslashes are normalized to forward slashes.

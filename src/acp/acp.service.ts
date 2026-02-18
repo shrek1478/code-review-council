@@ -76,8 +76,14 @@ export class AcpService implements OnModuleDestroy {
     });
   }
 
+  private sanitizeErrorMessage(error: unknown): string {
+    const msg = error instanceof Error ? error.message : String(error);
+    // Remove potential tokens/secrets from error messages
+    return msg.replace(/[A-Za-z0-9+/=_-]{16,}/g, '[REDACTED]');
+  }
+
   private looksLikeSecret(value: string): boolean {
-    if (value.length < 16) return false;
+    if (value.length < 8) return false;
     // Common secret prefixes
     if (/^(sk-|ghp_|gho_|ghu_|ghs_|ghr_|glpat-|xox[bsrap]-)/i.test(value)) return true;
     // Base64-like long strings (32+ chars, alphanumeric with +/= padding)
@@ -185,7 +191,7 @@ export class AcpService implements OnModuleDestroy {
       try {
         await session.destroy();
       } catch (error) {
-        this.logger.warn(`Failed to destroy session for ${handle.name}: ${error}`);
+        this.logger.warn(`Failed to destroy session for ${handle.name}: ${this.sanitizeErrorMessage(error)}`);
       }
     }
   }
@@ -194,7 +200,7 @@ export class AcpService implements OnModuleDestroy {
     try {
       await handle.client.stop();
     } catch (error) {
-      this.logger.warn(`Failed to stop client ${handle.name}: ${error}`);
+      this.logger.warn(`Failed to stop client ${handle.name}: ${this.sanitizeErrorMessage(error)}`);
     }
     this.clients.delete(handle);
   }
@@ -212,7 +218,7 @@ export class AcpService implements OnModuleDestroy {
         try {
           await handle.client.stop();
         } catch (error) {
-          this.logger.warn(`Failed to stop client ${handle.name}: ${error}`);
+          this.logger.warn(`Failed to stop client ${handle.name}: ${this.sanitizeErrorMessage(error)}`);
         }
       }),
     );

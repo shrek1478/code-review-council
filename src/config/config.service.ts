@@ -92,22 +92,22 @@ export class ConfigService {
 
   private applyEnvOverrides(config: CouncilConfig): void {
     const model = process.env.DECISION_MAKER_MODEL;
-    if (model && model.trim() !== '') {
+    if (model && model.trim() !== '' && config.decisionMaker) {
       config.decisionMaker.model = model.trim();
     }
     const language = process.env.REVIEW_LANGUAGE;
-    if (language && language.trim() !== '') {
+    if (language && language.trim() !== '' && config.review) {
       config.review.language = language.trim();
     }
     const dmTimeout = process.env.DECISION_MAKER_TIMEOUT_MS;
-    if (dmTimeout && dmTimeout.trim() !== '') {
+    if (dmTimeout && dmTimeout.trim() !== '' && config.decisionMaker) {
       const parsed = Number(dmTimeout.trim());
       if (Number.isInteger(parsed) && parsed > 0) {
         config.decisionMaker.timeoutMs = parsed;
       }
     }
     const reviewerTimeout = process.env.REVIEWER_TIMEOUT_MS;
-    if (reviewerTimeout && reviewerTimeout.trim() !== '') {
+    if (reviewerTimeout && reviewerTimeout.trim() !== '' && Array.isArray(config.reviewers)) {
       const parsed = Number(reviewerTimeout.trim());
       if (Number.isInteger(parsed) && parsed > 0) {
         for (const r of config.reviewers) {
@@ -116,7 +116,7 @@ export class ConfigService {
       }
     }
     const exploreLocal = process.env.REVIEWER_EXPLORE_LOCAL;
-    if (exploreLocal && exploreLocal.trim() !== '') {
+    if (exploreLocal && exploreLocal.trim() !== '' && config.review) {
       const val = exploreLocal.trim().toLowerCase();
       if (val === 'true' || val === '1') {
         config.review.allowLocalExploration = true;

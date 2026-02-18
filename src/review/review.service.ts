@@ -1,7 +1,8 @@
 import { Injectable, ConsoleLogger, Inject } from '@nestjs/common';
 import { randomUUID } from 'node:crypto';
-import { resolve, relative } from 'node:path';
+import { resolve, relative, isAbsolute } from 'node:path';
 import { realpath } from 'node:fs/promises';
+import { simpleGit } from 'simple-git';
 import { CodeReaderService, CodebaseOptions } from './code-reader.service.js';
 import { CouncilService } from './council.service.js';
 import { DecisionMakerService } from './decision-maker.service.js';
@@ -60,13 +61,14 @@ export class ReviewService {
     let result: ReviewResult;
     if (this.allowExplore) {
       // Exploration mode: only send file paths, agent reads content itself
-      const repoRoot = await realpath(resolve('.'));
+      const repoRoot = await this.resolveGitRoot();
       const safePaths: string[] = [];
       for (const p of filePaths) {
         const abs = resolve(p);
         try {
           const real = await realpath(abs);
-          if (!real.startsWith(repoRoot + '/') && real !== repoRoot) {
+          const rel = relative(repoRoot, real);
+          if (rel.startsWith('..') || isAbsolute(rel)) {
             this.logger.warn(`Skipping file outside repo root: ${p}`);
             continue;
           }
@@ -185,6 +187,16 @@ export class ReviewService {
     const fileSummary = filePaths.join('\n');
     const decision = await this.decisionMaker.decide(fileSummary, individualReviews, true);
     return { id, status: 'completed', individualReviews, decision };
+  }
+
+  private async resolveGitRoot(): Promise<string> {
+    try {
+      const toplevel = await simpleGit().revparse(['--show-toplevel']);
+      return await realpath(toplevel.trim());
+    } catch {
+      // Fallback to CWD if not in a git repo
+      return await realpath(resolve('.'));
+    }
   }
 
   private async runReview(
