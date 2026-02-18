@@ -14,7 +14,7 @@ export interface ReviewConfig {
   maxReviewsLength?: number;
   maxCodeLength?: number;
   maxSummaryLength?: number;
-  allowLocalExploration?: boolean;
+  mode?: 'inline' | 'explore';
   extensions?: string[];
   sensitivePatterns?: string[];
 }

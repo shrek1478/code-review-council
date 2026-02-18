@@ -138,7 +138,7 @@ describe('CouncilService', () => {
     );
   });
 
-  it('should double timeoutMs when allowLocalExploration is true', async () => {
+  it('should double timeoutMs when mode is explore', async () => {
     mockConfigService.getConfig.mockReturnValue({
       reviewers: [
         { name: 'Codex', cliPath: 'codex-acp', cliArgs: [], timeoutMs: 300000 },
@@ -146,7 +146,7 @@ describe('CouncilService', () => {
       review: {
         defaultChecks: ['code-quality'],
         language: 'zh-tw',
-        allowLocalExploration: true,
+        mode: 'explore',
       },
     });
 
@@ -162,13 +162,13 @@ describe('CouncilService', () => {
     );
   });
 
-  it('should include no-tools instruction when allowLocalExploration is false', async () => {
+  it('should include no-tools instruction when mode is inline', async () => {
     mockConfigService.getConfig.mockReturnValue({
       reviewers: [{ name: 'Codex', cliPath: 'codex-acp', cliArgs: [] }],
       review: {
         defaultChecks: ['code-quality'],
         language: 'zh-tw',
-        allowLocalExploration: false,
+        mode: 'inline',
       },
     });
 
@@ -182,13 +182,13 @@ describe('CouncilService', () => {
     expect(promptArg).not.toContain('You MAY use available tools');
   });
 
-  it('should include explore instruction when allowLocalExploration is true', async () => {
+  it('should include explore instruction when mode is explore', async () => {
     mockConfigService.getConfig.mockReturnValue({
       reviewers: [{ name: 'Gemini', cliPath: 'gemini', cliArgs: [] }],
       review: {
         defaultChecks: ['code-quality'],
         language: 'zh-tw',
-        allowLocalExploration: true,
+        mode: 'explore',
       },
     });
 
@@ -202,7 +202,7 @@ describe('CouncilService', () => {
     expect(promptArg).not.toContain('Do NOT use any tools');
   });
 
-  it('should default to no-tools when allowLocalExploration is undefined', async () => {
+  it('should default to no-tools when mode is undefined', async () => {
     await service.dispatchReviews({
       code: 'const x = 1;',
       checks: ['code-quality'],
@@ -218,7 +218,7 @@ describe('CouncilService', () => {
       review: {
         defaultChecks: ['code-quality'],
         language: 'zh-tw',
-        allowLocalExploration: true,
+        mode: 'explore',
       },
     });
 
@@ -247,7 +247,7 @@ describe('CouncilService', () => {
       review: {
         defaultChecks: ['code-quality'],
         language: 'zh-tw',
-        allowLocalExploration: true,
+        mode: 'explore',
       },
     });
 
@@ -262,13 +262,13 @@ describe('CouncilService', () => {
     expect(promptArg).toContain('You MAY use available tools');
   });
 
-  it('should include repoPath in inline mode when allowLocalExploration is true', async () => {
+  it('should include repoPath in inline mode when mode is explore', async () => {
     mockConfigService.getConfig.mockReturnValue({
       reviewers: [{ name: 'Gemini', cliPath: 'gemini', cliArgs: [] }],
       review: {
         defaultChecks: ['code-quality'],
         language: 'zh-tw',
-        allowLocalExploration: true,
+        mode: 'explore',
       },
     });
 
@@ -282,13 +282,13 @@ describe('CouncilService', () => {
     expect(promptArg).toContain('Repository Root: /home/user/project');
   });
 
-  it('should not include repoPath in inline mode when allowLocalExploration is false', async () => {
+  it('should not include repoPath in inline mode when mode is inline', async () => {
     mockConfigService.getConfig.mockReturnValue({
       reviewers: [{ name: 'Gemini', cliPath: 'gemini', cliArgs: [] }],
       review: {
         defaultChecks: ['code-quality'],
         language: 'zh-tw',
-        allowLocalExploration: false,
+        mode: 'inline',
       },
     });
 

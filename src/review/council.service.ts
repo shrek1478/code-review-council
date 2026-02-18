@@ -31,7 +31,7 @@ export class CouncilService {
       reviewerConfig: (typeof reviewers)[number],
     ): Promise<IndividualReview> => {
       const startMs = Date.now();
-      const allowExplore = config.review.allowLocalExploration === true;
+      const allowExplore = config.review.mode === 'explore';
       const baseTimeout = reviewerConfig.timeoutMs ?? 180_000;
       const timeoutMs = allowExplore ? baseTimeout * 2 : baseTimeout;
       const maxRetries = reviewerConfig.maxRetries ?? 0;
@@ -90,7 +90,7 @@ export class CouncilService {
     const checks =
       request.checks.length > 0 ? request.checks : config.review.defaultChecks;
 
-    const allowExplore = config.review.allowLocalExploration === true;
+    const allowExplore = config.review.mode === 'explore';
     const toolInstruction = allowExplore
       ? 'You MAY use available tools (read files, list directories, search code) to explore the local codebase for additional context.'
       : 'Do NOT use any tools. Do NOT read files from the filesystem. Do NOT execute any commands. ONLY analyze the code provided below in this prompt.';

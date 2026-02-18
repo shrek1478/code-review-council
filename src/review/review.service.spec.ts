@@ -41,7 +41,7 @@ describe('ReviewService', () => {
   };
   const mockConfigService = {
     getConfig: vi.fn().mockReturnValue({
-      review: { allowLocalExploration: false },
+      review: { mode: 'inline' },
     }),
   };
 
@@ -72,7 +72,7 @@ describe('ReviewService', () => {
       additionalFindings: [],
     });
     mockConfigService.getConfig.mockReturnValue({
-      review: { allowLocalExploration: false },
+      review: { mode: 'inline' },
     });
     const module = await Test.createTestingModule({
       providers: [
@@ -153,10 +153,10 @@ describe('ReviewService', () => {
     });
   });
 
-  describe('exploration mode (allowLocalExploration=true)', () => {
+  describe('exploration mode (mode=explore)', () => {
     beforeEach(() => {
       mockConfigService.getConfig.mockReturnValue({
-        review: { allowLocalExploration: true },
+        review: { mode: 'explore' },
       });
     });
 

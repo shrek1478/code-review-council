@@ -178,25 +178,25 @@ describe('ConfigService', () => {
       expect(config.decisionMaker.timeoutMs).toBeUndefined();
     });
 
-    it('should set allowLocalExploration=true with REVIEWER_EXPLORE_LOCAL=true', async () => {
+    it('should set mode=explore with REVIEWER_EXPLORE_LOCAL=true', async () => {
       process.env.REVIEWER_EXPLORE_LOCAL = 'true';
       const config = await service.loadConfig();
-      expect(config.review.allowLocalExploration).toBe(true);
+      expect(config.review.mode).toBe('explore');
     });
 
-    it('should set allowLocalExploration=false with REVIEWER_EXPLORE_LOCAL=false', async () => {
+    it('should set mode=inline with REVIEWER_EXPLORE_LOCAL=false', async () => {
       process.env.REVIEWER_EXPLORE_LOCAL = 'false';
       const config = await service.loadConfig();
-      expect(config.review.allowLocalExploration).toBe(false);
+      expect(config.review.mode).toBe('inline');
     });
 
-    it('should accept REVIEWER_EXPLORE_LOCAL=1 as true', async () => {
+    it('should accept REVIEWER_EXPLORE_LOCAL=1 as explore', async () => {
       process.env.REVIEWER_EXPLORE_LOCAL = '1';
       const config = await service.loadConfig();
-      expect(config.review.allowLocalExploration).toBe(true);
+      expect(config.review.mode).toBe('explore');
     });
 
-    it('should not override allowLocalExploration=true when REVIEWER_EXPLORE_LOCAL is empty', async () => {
+    it('should convert deprecated allowLocalExploration=true to mode=explore', async () => {
       process.env.CONFIG_JSON = JSON.stringify({
         reviewers: [{ name: 'Test', cliPath: 'echo', cliArgs: [] }],
         decisionMaker: { name: 'DM', cliPath: 'echo', cliArgs: [] },
@@ -208,10 +208,10 @@ describe('ConfigService', () => {
       });
       process.env.REVIEWER_EXPLORE_LOCAL = '';
       const config = await service.loadConfig();
-      expect(config.review.allowLocalExploration).toBe(true);
+      expect(config.review.mode).toBe('explore');
     });
 
-    it('should not override allowLocalExploration=false when REVIEWER_EXPLORE_LOCAL is empty', async () => {
+    it('should convert deprecated allowLocalExploration=false to mode=inline', async () => {
       process.env.CONFIG_JSON = JSON.stringify({
         reviewers: [{ name: 'Test', cliPath: 'echo', cliArgs: [] }],
         decisionMaker: { name: 'DM', cliPath: 'echo', cliArgs: [] },
@@ -223,7 +223,7 @@ describe('ConfigService', () => {
       });
       process.env.REVIEWER_EXPLORE_LOCAL = '';
       const config = await service.loadConfig();
-      expect(config.review.allowLocalExploration).toBe(false);
+      expect(config.review.mode).toBe('inline');
     });
   });
 

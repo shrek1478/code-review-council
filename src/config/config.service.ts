@@ -126,9 +126,9 @@ export class ConfigService {
     if (exploreLocal && exploreLocal.trim() !== '' && config.review) {
       const val = exploreLocal.trim().toLowerCase();
       if (val === 'true' || val === '1') {
-        config.review.allowLocalExploration = true;
+        config.review.mode = 'explore';
       } else if (val === 'false' || val === '0') {
-        config.review.allowLocalExploration = false;
+        config.review.mode = 'inline';
       }
     }
   }
@@ -206,12 +206,30 @@ export class ConfigService {
         }
       }
     }
+    // Backward compatibility: convert deprecated allowLocalExploration to mode
+    if (config.review.allowLocalExploration !== undefined) {
+      if (typeof config.review.allowLocalExploration !== 'boolean') {
+        throw new Error(
+          `Invalid config (${filePath}): "review.allowLocalExploration" must be a boolean`,
+        );
+      }
+      if (config.review.mode === undefined) {
+        config.review.mode = config.review.allowLocalExploration
+          ? 'explore'
+          : 'inline';
+        this.logger.warn(
+          `"review.allowLocalExploration" is deprecated — use "review.mode": "${config.review.mode}" instead`,
+        );
+      }
+      delete config.review.allowLocalExploration;
+    }
     if (
-      config.review.allowLocalExploration !== undefined &&
-      typeof config.review.allowLocalExploration !== 'boolean'
+      config.review.mode !== undefined &&
+      config.review.mode !== 'inline' &&
+      config.review.mode !== 'explore'
     ) {
       throw new Error(
-        `Invalid config (${filePath}): "review.allowLocalExploration" must be a boolean`,
+        `Invalid config (${filePath}): "review.mode" must be "inline" or "explore"`,
       );
     }
     if (config.review.extensions !== undefined) {

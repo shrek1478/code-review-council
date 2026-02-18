@@ -6,7 +6,7 @@
       "cliArgs": [
         "--experimental-acp"
       ],
-      "timeoutMs": 120000,
+      "timeoutMs": 600000,
       "maxRetries": 0
     },
     {
@@ -15,7 +15,7 @@
       "cliArgs": [],
       "protocol": "copilot",
       "model": "gpt-5.3-codex",
-      "timeoutMs": 120000,
+      "timeoutMs": 600000,
       "maxRetries": 0
     }
   ],
@@ -38,6 +38,6 @@
     "maxReviewsLength": 60000,
     "maxCodeLength": 100000,
     "maxSummaryLength": 60000,
-    "allowLocalExploration": true
+    "mode": "explore"
   }
 }

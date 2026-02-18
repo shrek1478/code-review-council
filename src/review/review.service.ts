@@ -23,7 +23,7 @@ export class ReviewService {
   }
 
   private get allowExplore(): boolean {
-    return this.configService.getConfig().review.allowLocalExploration === true;
+    return this.configService.getConfig().review.mode === 'explore';
   }
 
   async reviewDiff(
