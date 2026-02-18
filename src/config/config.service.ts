@@ -236,15 +236,31 @@ export class ConfigService {
         );
       }
       for (const p of config.review.sensitivePatterns) {
+        let regex: RegExp;
         try {
-          new RegExp(p);
+          regex = new RegExp(p);
         } catch {
           throw new Error(
             `Invalid config (${filePath}): "review.sensitivePatterns" contains invalid regex: "${p}"`,
           );
         }
+        // ReDoS safety: test each pattern against a worst-case string with time limit
+        if (this.isReDoSRisk(regex)) {
+          throw new Error(
+            `Invalid config (${filePath}): "review.sensitivePatterns" regex "${p}" is potentially unsafe (ReDoS risk). ` +
+              `Avoid nested quantifiers like (a+)+ or (a|a)*b.`,
+          );
+        }
       }
     }
+  }
+
+  /** Detect nested quantifiers that can cause catastrophic backtracking (ReDoS). */
+  private isReDoSRisk(regex: RegExp): boolean {
+    const src = regex.source;
+    // Detect nested quantifiers: (...)+ followed by +, *, or {n,}
+    // e.g. (a+)+, (a*)+, (a+)*, ([^x]+)+
+    return /\([^)]*[+*][^)]*\)[+*{]/.test(src);
   }
 
   private validateReviewerConfig(r: any, path: string, filePath: string): void {

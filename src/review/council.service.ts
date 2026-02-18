@@ -30,22 +30,25 @@ export class CouncilService {
 
     const reviewOneReviewer = async (
       reviewerConfig: (typeof reviewers)[number],
-    ) => {
+    ): Promise<IndividualReview> => {
       const startMs = Date.now();
       const allowExplore = config.review.allowLocalExploration === true;
       const baseTimeout = reviewerConfig.timeoutMs ?? 180_000;
       const timeoutMs = allowExplore ? baseTimeout * 2 : baseTimeout;
       const maxRetries = reviewerConfig.maxRetries ?? 0;
-      let handle = await this.acpService.createClient(reviewerConfig);
+      let handle: Awaited<
+        ReturnType<typeof this.acpService.createClient>
+      > | null = null;
       try {
+        handle = await this.acpService.createClient(reviewerConfig);
         const review = await retryWithBackoff(
-          () => this.acpService.sendPrompt(handle, prompt, timeoutMs),
+          () => this.acpService.sendPrompt(handle!, prompt, timeoutMs),
           {
             maxRetries,
             label: reviewerConfig.name,
             logger: this.logger,
             onRetry: async () => {
-              await this.acpService.stopClient(handle);
+              await this.acpService.stopClient(handle!);
               handle = await this.acpService.createClient(reviewerConfig);
             },
           },
@@ -55,40 +58,31 @@ export class CouncilService {
           review,
           durationMs: Date.now() - startMs,
         };
+      } catch (error) {
+        const msg =
+          error instanceof Error ? error.message : String(error);
+        this.logger.error(`Reviewer ${reviewerConfig.name} failed: ${msg}`);
+        return {
+          reviewer: reviewerConfig.name,
+          review: `[error] ${msg}`,
+          durationMs: Date.now() - startMs,
+        };
       } finally {
-        await this.acpService.stopClient(handle);
+        if (handle) {
+          await this.acpService.stopClient(handle);
+        }
       }
     };
 
     // Run reviewers in chunks to limit concurrent ACP clients
-    const startTimes = new Map<string, number>();
-    const results: PromiseSettledResult<IndividualReview>[] = [];
+    const results: IndividualReview[] = [];
     for (let i = 0; i < reviewers.length; i += MAX_REVIEWER_CONCURRENCY) {
       const chunk = reviewers.slice(i, i + MAX_REVIEWER_CONCURRENCY);
-      for (const r of chunk) startTimes.set(r.name, Date.now());
-      const chunkResults = await Promise.allSettled(
-        chunk.map(reviewOneReviewer),
-      );
+      const chunkResults = await Promise.all(chunk.map(reviewOneReviewer));
       results.push(...chunkResults);
     }
 
-    return results.map((result, i) => {
-      if (result.status === 'fulfilled') {
-        return result.value;
-      }
-      const msg =
-        result.reason instanceof Error
-          ? result.reason.message
-          : String(result.reason);
-      this.logger.error(`Reviewer ${reviewers[i].name} failed: ${msg}`);
-      const elapsed =
-        Date.now() - (startTimes.get(reviewers[i].name) ?? Date.now());
-      return {
-        reviewer: reviewers[i].name,
-        review: `[error] ${msg}`,
-        durationMs: elapsed,
-      };
-    });
+    return results;
   }
 
   private buildReviewPrompt(request: ReviewRequest): string {

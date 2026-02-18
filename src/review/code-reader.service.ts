@@ -87,15 +87,10 @@ export class CodeReaderService {
     );
   }
 
-  private _cachedSensitivePatterns: RegExp[] | null = null;
-
   private get sensitivePatterns(): RegExp[] {
-    if (this._cachedSensitivePatterns) return this._cachedSensitivePatterns;
     let configured: string[] | undefined;
-    let configLoaded = false;
     try {
       configured = this.configService?.getConfig()?.review?.sensitivePatterns;
-      configLoaded = true;
     } catch (error) {
       if (
         !(error instanceof Error && error.message.includes('Config not loaded'))
@@ -106,13 +101,9 @@ export class CodeReaderService {
       }
     }
     if (configured) {
-      const userPatterns = configured.map((p) => new RegExp(p));
-      this._cachedSensitivePatterns = [...SENSITIVE_PATTERNS, ...userPatterns];
-    } else if (configLoaded) {
-      // Only cache when config is loaded — avoid locking in defaults before config is ready
-      this._cachedSensitivePatterns = SENSITIVE_PATTERNS;
+      return [...SENSITIVE_PATTERNS, ...configured.map((p) => new RegExp(p))];
     }
-    return this._cachedSensitivePatterns ?? SENSITIVE_PATTERNS;
+    return SENSITIVE_PATTERNS;
   }
 
   async readGitDiff(

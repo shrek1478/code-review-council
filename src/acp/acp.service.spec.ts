@@ -292,18 +292,24 @@ describe('AcpService', () => {
     );
   });
 
-  it('should keep absolute cliPath as-is without calling which', async () => {
-    const { CopilotClient } = await import(
-      '@shrek1478/copilot-sdk-with-acp'
-    );
-    await service.createClient({
-      name: 'Test',
-      cliPath: '/opt/bin/my-cli',
-      cliArgs: [],
-    });
-    expect(CopilotClient).toHaveBeenCalledWith(
-      expect.objectContaining({ cliPath: '/opt/bin/my-cli' }),
-    );
+  it('should reject absolute cliPath as unsafe', async () => {
+    await expect(
+      service.createClient({
+        name: 'Test',
+        cliPath: '/opt/bin/my-cli',
+        cliArgs: [],
+      }),
+    ).rejects.toThrow('Unsafe cliPath rejected');
+  });
+
+  it('should reject cliPath with path separators', async () => {
+    await expect(
+      service.createClient({
+        name: 'Test',
+        cliPath: '../bin/evil',
+        cliArgs: [],
+      }),
+    ).rejects.toThrow('Unsafe cliPath rejected');
   });
 
   it('should fall back to original cliPath when which fails', async () => {

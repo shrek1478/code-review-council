@@ -58,6 +58,7 @@ export interface AcpClientHandle {
 export class AcpService implements OnModuleDestroy {
   private clients = new Set<AcpClientHandle>();
   private stopping = false;
+  private resolvedPaths = new Map<string, string>();
 
   constructor(@Inject(ConsoleLogger) private readonly logger: ConsoleLogger) {
     this.logger.setContext(AcpService.name);
@@ -111,9 +112,19 @@ export class AcpService implements OnModuleDestroy {
     return false;
   }
 
+  private static readonly SAFE_CLI_NAME = /^[A-Za-z0-9._-]+$/;
+
   async createClient(config: ReviewerConfig): Promise<AcpClientHandle> {
     if (this.stopping) {
       throw new Error('Cannot create client: AcpService is shutting down');
+    }
+    if (
+      !config.cliPath ||
+      !AcpService.SAFE_CLI_NAME.test(config.cliPath)
+    ) {
+      throw new Error(
+        `Unsafe cliPath rejected: "${config.cliPath}". Only simple command names are allowed.`,
+      );
     }
     const cliPath = this.resolveCliPath(config.cliPath);
     const modelInfo = config.model ? ` [model: ${config.model}]` : '';
@@ -138,16 +149,26 @@ export class AcpService implements OnModuleDestroy {
   }
 
   /**
-   * Resolve a CLI command name to its absolute path.
+   * Resolve a CLI command name to its absolute path (cached).
    * - Absolute paths are returned as-is (used internally by SDK; config validator restricts
    *   user-facing cliPath to bare command names for security).
    * - Bare command names are resolved via `which` (Unix-only; falls back to original on failure).
    */
   private resolveCliPath(cliPath: string): string {
     if (isAbsolute(cliPath)) return cliPath;
+    const cached = this.resolvedPaths.get(cliPath);
+    if (cached) return cached;
     try {
-      return execFileSync('which', [cliPath], { encoding: 'utf-8' }).trim();
+      const resolved = execFileSync('which', [cliPath], {
+        encoding: 'utf-8',
+      }).trim();
+      this.resolvedPaths.set(cliPath, resolved);
+      return resolved;
     } catch {
+      this.logger.debug(
+        `Could not resolve "${cliPath}" via which, using as-is`,
+      );
+      this.resolvedPaths.set(cliPath, cliPath);
       return cliPath;
     }
   }
