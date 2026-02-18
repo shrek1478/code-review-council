@@ -68,8 +68,10 @@ export class CodeReaderService {
   private get sensitivePatterns(): RegExp[] {
     if (this._cachedSensitivePatterns) return this._cachedSensitivePatterns;
     let configured: string[] | undefined;
+    let configLoaded = false;
     try {
       configured = this.configService?.getConfig()?.review?.sensitivePatterns;
+      configLoaded = true;
     } catch (error) {
       if (!(error instanceof Error && error.message.includes('Config not loaded'))) {
         this.logger.warn(`Unexpected config error, using defaults: ${error instanceof Error ? error.message : error}`);
@@ -78,17 +80,18 @@ export class CodeReaderService {
     if (configured) {
       const userPatterns = configured.map((p) => new RegExp(p));
       this._cachedSensitivePatterns = [...SENSITIVE_PATTERNS, ...userPatterns];
-    } else {
+    } else if (configLoaded) {
+      // Only cache when config is loaded — avoid locking in defaults before config is ready
       this._cachedSensitivePatterns = SENSITIVE_PATTERNS;
     }
-    return this._cachedSensitivePatterns;
+    return this._cachedSensitivePatterns ?? SENSITIVE_PATTERNS;
   }
 
   async readGitDiff(
     repoPath: string,
     baseBranch: string = 'main',
   ): Promise<string> {
-    if (!BRANCH_PATTERN.test(baseBranch) || baseBranch.startsWith('-')) {
+    if (!BRANCH_PATTERN.test(baseBranch) || baseBranch.startsWith('-') || baseBranch.includes('..')) {
       throw new Error(`Invalid base branch name: "${baseBranch}"`);
     }
     this.logger.log(`Reading git diff: ${repoPath} (base: ${baseBranch})`);

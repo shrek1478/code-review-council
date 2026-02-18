@@ -138,8 +138,13 @@ export class ConfigService {
     if (!Array.isArray(config.reviewers) || config.reviewers.length === 0) {
       throw new Error(`Invalid config (${filePath}): "reviewers" must be a non-empty array`);
     }
+    const reviewerNames = new Set<string>();
     for (const [i, r] of config.reviewers.entries()) {
       this.validateReviewerConfig(r, `reviewers[${i}]`, filePath);
+      if (r.name && reviewerNames.has(r.name)) {
+        throw new Error(`Invalid config (${filePath}): duplicate reviewer name "${r.name}"`);
+      }
+      if (r.name) reviewerNames.add(r.name);
     }
     if (!config.decisionMaker) {
       throw new Error(`Invalid config (${filePath}): "decisionMaker" is required`);
