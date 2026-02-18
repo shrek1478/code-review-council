@@ -192,6 +192,13 @@ export class ConfigService {
     if (!r.cliArgs.every((a: unknown) => typeof a === 'string')) {
       throw new Error(`Invalid config (${filePath}): "${path}.cliArgs" elements must be strings`);
     }
+    // Warn about cliPath containing path separators or traversal — may indicate misconfiguration
+    if (r.cliPath.includes('..') || r.cliPath.includes('/') || r.cliPath.includes('\\')) {
+      console.warn(
+        `⚠️  Warning (${filePath}): "${path}.cliPath" value "${r.cliPath}" contains path separators or '..'. ` +
+        `Consider using a simple command name resolvable via PATH.`,
+      );
+    }
     if (r.model !== undefined && typeof r.model !== 'string') {
       throw new Error(`Invalid config (${filePath}): "${path}.model" must be a string if provided`);
     }

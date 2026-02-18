@@ -1,4 +1,4 @@
-import { Inject, Injectable, ConsoleLogger } from '@nestjs/common';
+import { Inject, Injectable, ConsoleLogger, OnModuleDestroy } from '@nestjs/common';
 import { CopilotClient } from '@shrek1478/copilot-sdk-with-acp';
 import { ReviewerConfig } from '../config/config.types.js';
 
@@ -44,7 +44,7 @@ export interface AcpClientHandle {
 }
 
 @Injectable()
-export class AcpService {
+export class AcpService implements OnModuleDestroy {
   private clients = new Set<AcpClientHandle>();
   private stopping = false;
 
@@ -151,7 +151,10 @@ export class AcpService {
               responseContent += delta;
             }
           } else if (event.type === 'assistant.message') {
-            responseContent = event.data?.content || responseContent;
+            // Only use full message content as fallback when no delta content was accumulated
+            if (!responseContent && event.data?.content) {
+              responseContent = event.data.content;
+            }
           } else if (event.type === 'session.idle') {
             settled = true;
             clearTimeout(timer);
@@ -196,22 +199,22 @@ export class AcpService {
     this.clients.delete(handle);
   }
 
+  async onModuleDestroy(): Promise<void> {
+    await this.stopAll();
+  }
+
   async stopAll(): Promise<void> {
     this.stopping = true;
     const handles = [...this.clients];
     this.clients.clear();
-    try {
-      await Promise.allSettled(
-        handles.map(async (handle) => {
-          try {
-            await handle.client.stop();
-          } catch (error) {
-            this.logger.warn(`Failed to stop client ${handle.name}: ${error}`);
-          }
-        }),
-      );
-    } finally {
-      this.stopping = false;
-    }
+    await Promise.allSettled(
+      handles.map(async (handle) => {
+        try {
+          await handle.client.stop();
+        } catch (error) {
+          this.logger.warn(`Failed to stop client ${handle.name}: ${error}`);
+        }
+      }),
+    );
   }
 }

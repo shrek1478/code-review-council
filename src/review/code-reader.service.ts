@@ -58,7 +58,9 @@ export class CodeReaderService {
   private get sensitivePatterns(): RegExp[] {
     const configured = this.configService?.getConfig()?.review?.sensitivePatterns;
     if (configured) {
-      return configured.map((p) => new RegExp(p));
+      // Merge user-defined patterns with defaults
+      const userPatterns = configured.map((p) => new RegExp(p));
+      return [...SENSITIVE_PATTERNS, ...userPatterns];
     }
     return SENSITIVE_PATTERNS;
   }
@@ -169,9 +171,6 @@ export class CodeReaderService {
 
     this.logger.log(`Found ${allFiles.length} files matching extensions`);
 
-    const batches: FileContent[][] = [];
-    let currentBatch: FileContent[] = [];
-    let currentBatchSize = 0;
     let totalSize = 0;
 
     const dirReal = await realpath(resolve(directory));
@@ -288,6 +287,7 @@ export class CodeReaderService {
     return batches;
   }
 
+  // Note: Path handling assumes POSIX separators. Windows backslashes are normalized to forward slashes.
   isSensitiveFile(filePath: string): boolean {
     const normalized = filePath.replace(/\\/g, '/');
     const segments = normalized.split('/');

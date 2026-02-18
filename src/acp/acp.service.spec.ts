@@ -100,6 +100,71 @@ describe('AcpService', () => {
     expect(mockSession.destroy).toHaveBeenCalled();
   });
 
+  it('should preserve delta-accumulated content over assistant.message', async () => {
+    const handle = await service.createClient({
+      name: 'DeltaReviewer',
+      cliPath: 'delta-cli',
+      cliArgs: [],
+    });
+
+    const mockSession = {
+      on: vi.fn((callback: (event: any) => void) => {
+        setTimeout(() => {
+          // Simulate streaming deltas
+          callback({ type: 'assistant.message_delta', data: { deltaContent: 'Hello ' } });
+          callback({ type: 'assistant.message_delta', data: { deltaContent: 'World' } });
+          // assistant.message arrives after deltas — should NOT overwrite
+          callback({ type: 'assistant.message', data: { content: 'Stale content' } });
+          callback({ type: 'session.idle', data: {} });
+        }, 0);
+      }),
+      send: vi.fn().mockResolvedValue(undefined),
+      destroy: vi.fn().mockResolvedValue(undefined),
+    };
+
+    (handle.client as any).createSession = vi.fn().mockResolvedValue(mockSession);
+
+    const result = await service.sendPrompt(handle, 'Review this');
+    expect(result).toBe('Hello World');
+  });
+
+  it('should use assistant.message content when no deltas were received', async () => {
+    const handle = await service.createClient({
+      name: 'NonDelta',
+      cliPath: 'nondelta-cli',
+      cliArgs: [],
+    });
+
+    const mockSession = {
+      on: vi.fn((callback: (event: any) => void) => {
+        setTimeout(() => {
+          callback({ type: 'assistant.message', data: { content: 'Full message' } });
+          callback({ type: 'session.idle', data: {} });
+        }, 0);
+      }),
+      send: vi.fn().mockResolvedValue(undefined),
+      destroy: vi.fn().mockResolvedValue(undefined),
+    };
+
+    (handle.client as any).createSession = vi.fn().mockResolvedValue(mockSession);
+
+    const result = await service.sendPrompt(handle, 'Review this');
+    expect(result).toBe('Full message');
+  });
+
+  it('should call stopAll on module destroy', async () => {
+    const h1 = await service.createClient({ name: 'R1', cliPath: 'cli1', cliArgs: [] });
+    await service.onModuleDestroy();
+    expect(h1.client.stop).toHaveBeenCalled();
+  });
+
+  it('should reject createClient after stopAll', async () => {
+    await service.stopAll();
+    await expect(
+      service.createClient({ name: 'Late', cliPath: 'cli', cliArgs: [] }),
+    ).rejects.toThrow('shutting down');
+  });
+
   it('should reject with timeout when session never responds', async () => {
     const handle = await service.createClient({
       name: 'SlowReviewer',
