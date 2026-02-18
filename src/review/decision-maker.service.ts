@@ -310,7 +310,11 @@ Rules:
         return `=== ${r.reviewer} ===\n${text}`;
       })
       .join('\n\n');
-    return wrap(truncated);
+    // Hard cap: ensure truncated result never exceeds maxReviewsLength
+    const capped = truncated.length > maxReviewsLength
+      ? truncated.slice(0, maxReviewsLength) + '\n...(hard-truncated)'
+      : truncated;
+    return wrap(capped);
   }
 
   private buildCodeSection(code: string, delimiter: string, maxCodeLength = DEFAULT_MAX_CODE_LENGTH): string {

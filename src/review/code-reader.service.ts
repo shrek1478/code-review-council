@@ -49,20 +49,34 @@ export class CodeReaderService {
   }
 
   private get extensions(): string[] {
-    const configured = this.configService?.getConfig()?.review?.extensions;
+    let configured: string[] | undefined;
+    try {
+      configured = this.configService?.getConfig()?.review?.extensions;
+    } catch {
+      // Config not yet loaded — use defaults
+    }
     return (configured ?? DEFAULT_EXTENSIONS).map((e) =>
       e.startsWith('.') ? e : `.${e}`,
     );
   }
 
+  private _cachedSensitivePatterns: RegExp[] | null = null;
+
   private get sensitivePatterns(): RegExp[] {
-    const configured = this.configService?.getConfig()?.review?.sensitivePatterns;
-    if (configured) {
-      // Merge user-defined patterns with defaults
-      const userPatterns = configured.map((p) => new RegExp(p));
-      return [...SENSITIVE_PATTERNS, ...userPatterns];
+    if (this._cachedSensitivePatterns) return this._cachedSensitivePatterns;
+    let configured: string[] | undefined;
+    try {
+      configured = this.configService?.getConfig()?.review?.sensitivePatterns;
+    } catch {
+      // Config not yet loaded — use defaults
     }
-    return SENSITIVE_PATTERNS;
+    if (configured) {
+      const userPatterns = configured.map((p) => new RegExp(p));
+      this._cachedSensitivePatterns = [...SENSITIVE_PATTERNS, ...userPatterns];
+    } else {
+      this._cachedSensitivePatterns = SENSITIVE_PATTERNS;
+    }
+    return this._cachedSensitivePatterns;
   }
 
   async readGitDiff(
@@ -74,15 +88,30 @@ export class CodeReaderService {
     }
     this.logger.log(`Reading git diff: ${repoPath} (base: ${baseBranch})`);
     const git = simpleGit(repoPath);
-    const diff = await git.diff([baseBranch]);
-    if (!diff) {
-      const diffStaged = await git.diff(['--staged']);
-      if (!diffStaged) {
+
+    // Get changed file list and filter out sensitive files
+    const changedFiles = await this.getFilteredDiffFiles(git, [baseBranch]);
+    if (changedFiles.length === 0) {
+      // Try staged diff
+      const stagedFiles = await this.getFilteredDiffFiles(git, ['--staged']);
+      if (stagedFiles.length === 0) {
         throw new Error('No diff found');
       }
-      return diffStaged;
+      return git.diff(['--staged', '--', ...stagedFiles]);
     }
-    return diff;
+    return git.diff([baseBranch, '--', ...changedFiles]);
+  }
+
+  private async getFilteredDiffFiles(git: ReturnType<typeof simpleGit>, diffArgs: string[]): Promise<string[]> {
+    const nameOnly = await git.diff([...diffArgs, '--name-only']);
+    if (!nameOnly.trim()) return [];
+    const files = nameOnly.trim().split('\n');
+    const filtered = files.filter((f) => !this.isSensitiveFile(f));
+    const skipped = files.length - filtered.length;
+    if (skipped > 0) {
+      this.logger.warn(`Filtered ${skipped} sensitive file(s) from diff`);
+    }
+    return filtered;
   }
 
   async readFiles(
@@ -104,6 +133,10 @@ export class CodeReaderService {
         const real = await realpath(resolved);
         if (!this.isWithinRoot(real, rootReal)) {
           this.logger.warn(`Skipping file outside allowed root: ${filePath}`);
+          return null;
+        }
+        if (this.isSensitiveFile(real)) {
+          this.logger.warn(`Skipping sensitive file (symlink target): ${filePath}`);
           return null;
         }
         const fileStat = await stat(real);
@@ -188,6 +221,10 @@ export class CodeReaderService {
           this.logger.warn(`Skipping symlink pointing outside repo: ${relativePath}`);
           return null;
         }
+        if (this.isSensitiveFile(real)) {
+          this.logger.warn(`Skipping sensitive file (symlink target): ${relativePath}`);
+          return null;
+        }
         const fileStat = await stat(real);
         if (fileStat.size > MAX_FILE_SIZE) {
           this.logger.warn(`Skipping large file (${(fileStat.size / 1024 / 1024).toFixed(1)}MB): ${relativePath}`);
@@ -257,6 +294,10 @@ export class CodeReaderService {
         const real = await realpath(join(directory, f));
         if (!this.isWithinRoot(real, dirReal)) {
           this.logger.warn(`Skipping symlink pointing outside repo: ${f}`);
+          continue;
+        }
+        if (this.isSensitiveFile(real)) {
+          this.logger.warn(`Skipping sensitive file (symlink target): ${f}`);
           continue;
         }
       } catch {

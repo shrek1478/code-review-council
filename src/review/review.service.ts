@@ -72,16 +72,16 @@ export class ReviewService {
             this.logger.warn(`Skipping file outside repo root: ${p}`);
             continue;
           }
+          if (this.codeReader.isSensitiveFile(real)) {
+            this.logger.warn(`Skipping sensitive file: ${p}`);
+            continue;
+          }
+          // Use relative paths based on resolved real path to avoid symlink aliases
+          safePaths.push(relative(repoRoot, real));
         } catch {
           this.logger.warn(`Skipping unresolvable path: ${p}`);
           continue;
         }
-        if (this.codeReader.isSensitiveFile(abs)) {
-          this.logger.warn(`Skipping sensitive file: ${p}`);
-          continue;
-        }
-        // Use relative paths to avoid leaking host directory structure to external LLMs
-        safePaths.push(relative(repoRoot, abs));
       }
       if (safePaths.length === 0) {
         throw new Error('No valid files to review after path validation');
