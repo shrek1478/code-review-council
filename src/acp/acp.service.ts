@@ -4,6 +4,8 @@ import {
   ConsoleLogger,
   OnModuleDestroy,
 } from '@nestjs/common';
+import { execFileSync } from 'node:child_process';
+import { isAbsolute } from 'node:path';
 import { CopilotClient } from '@shrek1478/copilot-sdk-with-acp';
 import { ReviewerConfig } from '../config/config.types.js';
 
@@ -113,14 +115,15 @@ export class AcpService implements OnModuleDestroy {
     if (this.stopping) {
       throw new Error('Cannot create client: AcpService is shutting down');
     }
+    const cliPath = this.resolveCliPath(config.cliPath);
     const modelInfo = config.model ? ` [model: ${config.model}]` : '';
     const maskedArgs = this.maskSensitiveArgs(config.cliArgs);
     const argsInfo = maskedArgs.length > 0 ? ` ${maskedArgs.join(' ')}` : '';
     this.logger.log(
-      `Creating ACP client: ${config.name} (${config.cliPath}${argsInfo})${modelInfo}`,
+      `Creating ACP client: ${config.name} (${cliPath}${argsInfo})${modelInfo}`,
     );
     const client = new CopilotClient({
-      cliPath: config.cliPath,
+      cliPath,
       cliArgs: config.cliArgs,
       protocol: config.protocol ?? 'acp',
     } as ConstructorParameters<typeof CopilotClient>[0]);
@@ -132,6 +135,15 @@ export class AcpService implements OnModuleDestroy {
     };
     this.clients.add(handle);
     return handle;
+  }
+
+  private resolveCliPath(cliPath: string): string {
+    if (isAbsolute(cliPath)) return cliPath;
+    try {
+      return execFileSync('which', [cliPath], { encoding: 'utf-8' }).trim();
+    } catch {
+      return cliPath;
+    }
   }
 
   private asSessionClient(

@@ -3,6 +3,18 @@ import { ConsoleLogger } from '@nestjs/common';
 import { AcpService } from './acp.service.js';
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 
+vi.mock('node:child_process', () => ({
+  execFileSync: vi.fn((cmd: string, args: string[]) => {
+    const map: Record<string, string> = {
+      copilot: '/usr/local/bin/copilot',
+      gemini: '/usr/local/bin/gemini',
+    };
+    const resolved = map[args[0]];
+    if (resolved) return resolved + '\n';
+    throw new Error(`not found: ${args[0]}`);
+  }),
+}));
+
 vi.mock('@shrek1478/copilot-sdk-with-acp', () => {
   const MockCopilotClient = vi.fn().mockImplementation(function (this: any) {
     this.start = vi.fn().mockResolvedValue(undefined);
@@ -219,6 +231,49 @@ describe('AcpService', () => {
     });
     expect(CopilotClient).toHaveBeenCalledWith(
       expect.objectContaining({ protocol: 'acp' }),
+    );
+  });
+
+  it('should resolve command name to absolute path via which', async () => {
+    const { CopilotClient } = await import(
+      '@shrek1478/copilot-sdk-with-acp'
+    );
+    await service.createClient({
+      name: 'Copilot',
+      cliPath: 'copilot',
+      cliArgs: [],
+      protocol: 'copilot',
+    });
+    expect(CopilotClient).toHaveBeenCalledWith(
+      expect.objectContaining({ cliPath: '/usr/local/bin/copilot' }),
+    );
+  });
+
+  it('should keep absolute cliPath as-is without calling which', async () => {
+    const { CopilotClient } = await import(
+      '@shrek1478/copilot-sdk-with-acp'
+    );
+    await service.createClient({
+      name: 'Test',
+      cliPath: '/opt/bin/my-cli',
+      cliArgs: [],
+    });
+    expect(CopilotClient).toHaveBeenCalledWith(
+      expect.objectContaining({ cliPath: '/opt/bin/my-cli' }),
+    );
+  });
+
+  it('should fall back to original cliPath when which fails', async () => {
+    const { CopilotClient } = await import(
+      '@shrek1478/copilot-sdk-with-acp'
+    );
+    await service.createClient({
+      name: 'Unknown',
+      cliPath: 'unknown-cli',
+      cliArgs: [],
+    });
+    expect(CopilotClient).toHaveBeenCalledWith(
+      expect.objectContaining({ cliPath: 'unknown-cli' }),
     );
   });
 
