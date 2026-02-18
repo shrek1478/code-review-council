@@ -6,12 +6,8 @@ on:
   workflow_dispatch:
     inputs:
       version:
-        description: 'Version to publish (e.g. 0.0.2)'
+        description: 'Version to publish (e.g. 0.0.5). Leave empty to use package.json version.'
         required: false
-        default: '0.0.3'
-
-env:
-  VERSION: ${{ github.event.inputs.version || '0.0.3' }}
 
 jobs:
   publish:
@@ -35,10 +31,18 @@ jobs:
 
       - run: npm test
 
-      - name: Set version
-        run: npm version ${{ env.VERSION }} --no-git-tag-version --allow-same-version
+      - name: Set version (workflow_dispatch only)
+        if: github.event_name == 'workflow_dispatch' && github.event.inputs.version != ''
+        run: npm version ${{ github.event.inputs.version }} --no-git-tag-version --allow-same-version
 
-      - name: Publish (skip if version already exists)
-        run: npm publish || echo "::warning::Publish skipped — version may already exist"
+      - name: Publish
+        run: |
+          VERSION=$(node -p "require('./package.json').version")
+          echo "Publishing version $VERSION"
+          if npm view "${{ github.event.repository.full_name }}@${VERSION}" version 2>/dev/null; then
+            echo "::warning::Version ${VERSION} already exists, skipping publish"
+          else
+            npm publish --access public
+          fi
         env:
           NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}

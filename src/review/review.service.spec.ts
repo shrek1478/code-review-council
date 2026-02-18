@@ -19,6 +19,7 @@ describe('ReviewService', () => {
       { path: 'src/main.ts', content: 'const main = 2;' },
     ]]),
     listCodebaseFiles: vi.fn().mockResolvedValue(['src/app.ts', 'src/main.ts']),
+    isSensitiveFile: vi.fn().mockReturnValue(false),
   };
   const mockCouncil = {
     dispatchReviews: vi.fn().mockResolvedValue([
@@ -152,13 +153,16 @@ describe('ReviewService', () => {
     });
 
     it('reviewFiles should not read file content and resolve to absolute paths', async () => {
-      const result = await service.reviewFiles(['src/a.ts', 'src/b.ts']);
+      // Use real existing files so realpath validation succeeds
+      const fileA = 'src/review/review.service.ts';
+      const fileB = 'src/review/review.types.ts';
+      const result = await service.reviewFiles([fileA, fileB]);
       expect(result.status).toBe('completed');
       // Should NOT call readFiles
       expect(mockCodeReader.readFiles).not.toHaveBeenCalled();
 
-      const expectedA = resolve('src/a.ts');
-      const expectedB = resolve('src/b.ts');
+      const expectedA = resolve(fileA);
+      const expectedB = resolve(fileB);
 
       // Should send absolute filePaths with repoPath
       const dispatchCall = mockCouncil.dispatchReviews.mock.calls[0][0];

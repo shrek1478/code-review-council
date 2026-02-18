@@ -164,6 +164,15 @@ Rules:
       } catch {
         // fall through
       }
+
+      // Strategy 3b: strip JS-style comments and trailing commas, then retry
+      const cleaned = this.stripJsonArtifacts(jsonStr);
+      try {
+        const parsed = JSON.parse(cleaned);
+        return this.toDecision(parsed, dmName);
+      } catch {
+        // fall through
+      }
     }
 
     this.logger.warn('Failed to parse decision maker response as JSON, returning raw text');
@@ -194,6 +203,37 @@ Rules:
       }
     }
     return null;
+  }
+
+  private stripJsonArtifacts(text: string): string {
+    // Remove single-line comments (// ...) outside of strings
+    // Remove multi-line comments (/* ... */) outside of strings
+    // Remove trailing commas before } or ]
+    let result = '';
+    let inString = false;
+    let escape = false;
+    for (let i = 0; i < text.length; i++) {
+      const ch = text[i];
+      if (escape) { escape = false; result += ch; continue; }
+      if (ch === '\\' && inString) { escape = true; result += ch; continue; }
+      if (ch === '"') { inString = !inString; result += ch; continue; }
+      if (inString) { result += ch; continue; }
+      // Single-line comment
+      if (ch === '/' && text[i + 1] === '/') {
+        const eol = text.indexOf('\n', i);
+        i = eol === -1 ? text.length - 1 : eol - 1;
+        continue;
+      }
+      // Multi-line comment
+      if (ch === '/' && text[i + 1] === '*') {
+        const end = text.indexOf('*/', i + 2);
+        i = end === -1 ? text.length - 1 : end + 1;
+        continue;
+      }
+      result += ch;
+    }
+    // Remove trailing commas: , followed by optional whitespace then } or ]
+    return result.replace(/,(\s*[}\]])/g, '$1');
   }
 
   private toDecision(parsed: Record<string, unknown>, dmName: string): ReviewDecision {

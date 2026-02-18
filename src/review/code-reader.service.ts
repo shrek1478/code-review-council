@@ -1,7 +1,8 @@
-import { Injectable, ConsoleLogger, Inject } from '@nestjs/common';
+import { Injectable, ConsoleLogger, Inject, Optional } from '@nestjs/common';
 import { simpleGit } from 'simple-git';
 import { readFile, stat, realpath } from 'node:fs/promises';
 import { join, extname, resolve } from 'node:path';
+import { ConfigService } from '../config/config.service.js';
 
 export interface FileContent {
   path: string;
@@ -40,8 +41,26 @@ const CONCURRENCY = 16;
 
 @Injectable()
 export class CodeReaderService {
-  constructor(@Inject(ConsoleLogger) private readonly logger: ConsoleLogger) {
+  constructor(
+    @Inject(ConsoleLogger) private readonly logger: ConsoleLogger,
+    @Optional() @Inject(ConfigService) private readonly configService?: ConfigService,
+  ) {
     this.logger.setContext(CodeReaderService.name);
+  }
+
+  private get extensions(): string[] {
+    const configured = this.configService?.getConfig()?.review?.extensions;
+    return (configured ?? DEFAULT_EXTENSIONS).map((e) =>
+      e.startsWith('.') ? e : `.${e}`,
+    );
+  }
+
+  private get sensitivePatterns(): RegExp[] {
+    const configured = this.configService?.getConfig()?.review?.sensitivePatterns;
+    if (configured) {
+      return configured.map((p) => new RegExp(p));
+    }
+    return SENSITIVE_PATTERNS;
   }
 
   async readGitDiff(
@@ -127,9 +146,9 @@ export class CodeReaderService {
     directory: string,
     options: CodebaseOptions = {},
   ): Promise<FileContent[][]> {
-    const extensions = (options.extensions ?? DEFAULT_EXTENSIONS).map((e) =>
-      e.startsWith('.') ? e : `.${e}`,
-    );
+    const extensions = options.extensions
+      ? options.extensions.map((e) => (e.startsWith('.') ? e : `.${e}`))
+      : this.extensions;
     const maxBatchSize = options.maxBatchSize ?? 100_000;
 
     this.logger.log(`Reading codebase: ${directory}`);
@@ -179,6 +198,7 @@ export class CodeReaderService {
       }
     };
 
+    const allItems: FileContent[] = [];
     let hitSizeLimit = false;
     for (let i = 0; i < allFiles.length && !hitSizeLimit; i += CONCURRENCY) {
       const chunk = allFiles.slice(i, i + CONCURRENCY);
@@ -191,45 +211,24 @@ export class CodeReaderService {
           hitSizeLimit = true;
           break;
         }
-        const fileSize = item.path.length + item.content.length;
-        // File too large for a single batch — flush current and push as its own batch
-        if (fileSize > maxBatchSize) {
-          if (currentBatch.length > 0) {
-            batches.push(currentBatch);
-            currentBatch = [];
-            currentBatchSize = 0;
-          }
-          batches.push([item]);
-          continue;
-        }
-        // Current batch would overflow — flush and start new batch
-        if (currentBatchSize + fileSize > maxBatchSize && currentBatch.length > 0) {
-          batches.push(currentBatch);
-          currentBatch = [];
-          currentBatchSize = 0;
-        }
-        currentBatch.push(item);
-        currentBatchSize += fileSize;
+        allItems.push(item);
       }
     }
-    if (currentBatch.length > 0) {
-      batches.push(currentBatch);
-    }
 
-    if (batches.length === 0) {
+    if (allItems.length === 0) {
       throw new Error('No files found in codebase');
     }
 
-    return batches;
+    return this.createBatches(allItems, maxBatchSize);
   }
 
   async listCodebaseFiles(
     directory: string,
     options: CodebaseOptions = {},
   ): Promise<string[]> {
-    const extensions = (options.extensions ?? DEFAULT_EXTENSIONS).map((e) =>
-      e.startsWith('.') ? e : `.${e}`,
-    );
+    const extensions = options.extensions
+      ? options.extensions.map((e) => (e.startsWith('.') ? e : `.${e}`))
+      : this.extensions;
 
     this.logger.log(`Listing codebase files: ${directory}`);
     const git = simpleGit(directory);
@@ -256,10 +255,45 @@ export class CodeReaderService {
     return files;
   }
 
-  private isSensitiveFile(filePath: string): boolean {
-    const segments = filePath.split('/');
+  private createBatches(items: FileContent[], maxBatchSize: number): FileContent[][] {
+    const batches: FileContent[][] = [];
+    let currentBatch: FileContent[] = [];
+    let currentBatchSize = 0;
+
+    for (const item of items) {
+      const fileSize = item.path.length + item.content.length;
+      // File too large for a single batch — flush current and push as its own batch
+      if (fileSize > maxBatchSize) {
+        if (currentBatch.length > 0) {
+          batches.push(currentBatch);
+          currentBatch = [];
+          currentBatchSize = 0;
+        }
+        batches.push([item]);
+        continue;
+      }
+      // Current batch would overflow — flush and start new batch
+      if (currentBatchSize + fileSize > maxBatchSize && currentBatch.length > 0) {
+        batches.push(currentBatch);
+        currentBatch = [];
+        currentBatchSize = 0;
+      }
+      currentBatch.push(item);
+      currentBatchSize += fileSize;
+    }
+    if (currentBatch.length > 0) {
+      batches.push(currentBatch);
+    }
+
+    return batches;
+  }
+
+  isSensitiveFile(filePath: string): boolean {
+    const normalized = filePath.replace(/\\/g, '/');
+    const segments = normalized.split('/');
+    const patterns = this.sensitivePatterns;
     return segments.some((segment) =>
-      SENSITIVE_PATTERNS.some((pattern) => pattern.test(segment)),
+      patterns.some((pattern) => pattern.test(segment)),
     );
   }
 

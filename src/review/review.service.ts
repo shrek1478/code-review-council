@@ -1,6 +1,7 @@
 import { Injectable, ConsoleLogger, Inject } from '@nestjs/common';
 import { randomUUID } from 'node:crypto';
 import { resolve } from 'node:path';
+import { realpath } from 'node:fs/promises';
 import { CodeReaderService, CodebaseOptions } from './code-reader.service.js';
 import { CouncilService } from './council.service.js';
 import { DecisionMakerService } from './decision-maker.service.js';
@@ -59,9 +60,31 @@ export class ReviewService {
     let result: ReviewResult;
     if (this.allowExplore) {
       // Exploration mode: only send file paths, agent reads content itself
-      const absolutePaths = filePaths.map((p) => resolve(p));
-      this.logger.log(`Exploration mode: sending ${absolutePaths.length} file paths (no content)`);
-      result = await this.runExplorationReview(id, absolutePaths, checks, extraInstructions, resolve('.'));
+      const repoRoot = await realpath(resolve('.'));
+      const safePaths: string[] = [];
+      for (const p of filePaths) {
+        const abs = resolve(p);
+        try {
+          const real = await realpath(abs);
+          if (!real.startsWith(repoRoot + '/') && real !== repoRoot) {
+            this.logger.warn(`Skipping file outside repo root: ${p}`);
+            continue;
+          }
+        } catch {
+          this.logger.warn(`Skipping unresolvable path: ${p}`);
+          continue;
+        }
+        if (this.codeReader.isSensitiveFile(abs)) {
+          this.logger.warn(`Skipping sensitive file: ${p}`);
+          continue;
+        }
+        safePaths.push(abs);
+      }
+      if (safePaths.length === 0) {
+        throw new Error('No valid files to review after path validation');
+      }
+      this.logger.log(`Exploration mode: sending ${safePaths.length} file paths (no content)`);
+      result = await this.runExplorationReview(id, safePaths, checks, extraInstructions, repoRoot);
     } else {
       const files = await this.codeReader.readFiles(filePaths);
       const code = files.map((f) => `=== ${f.path} ===\n${f.content}`).join('\n\n');

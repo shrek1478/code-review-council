@@ -14,6 +14,8 @@ export interface ReviewConfig {
   maxCodeLength?: number;
   maxSummaryLength?: number;
   allowLocalExploration?: boolean;
+  extensions?: string[];
+  sensitivePatterns?: string[];
 }
 
 export interface CouncilConfig {

@@ -2,7 +2,7 @@ import { Test } from '@nestjs/testing';
 import { ConsoleLogger } from '@nestjs/common';
 import { CodeReaderService } from './code-reader.service.js';
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import { writeFile, mkdtemp, rm } from 'node:fs/promises';
+import { writeFile, mkdtemp, rm, mkdir } from 'node:fs/promises';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { simpleGit } from 'simple-git';
@@ -71,29 +71,47 @@ describe('CodeReaderService', () => {
   });
 
   describe('readCodebase', () => {
+    let tmpDir: string;
+
+    beforeEach(async () => {
+      tmpDir = await mkdtemp(join(tmpdir(), 'cr-codebase-'));
+      const git = simpleGit(tmpDir);
+      await git.init();
+      await git.addConfig('user.email', 'test@test.com');
+      await git.addConfig('user.name', 'Test');
+      await mkdir(join(tmpDir, 'src'), { recursive: true });
+      await writeFile(join(tmpDir, 'src', 'app.ts'), 'const app = 1;\n');
+      await writeFile(join(tmpDir, 'src', 'main.ts'), 'const main = 2;\nexport default main;\n');
+      await writeFile(join(tmpDir, 'package.json'), '{"name": "test"}\n');
+      await git.add('.');
+      await git.commit('initial');
+    });
+
+    afterEach(async () => {
+      await rm(tmpDir, { recursive: true, force: true });
+    });
+
     it('should read git-tracked codebase files', async () => {
-      const batches = await service.readCodebase(process.cwd());
+      const batches = await service.readCodebase(tmpDir);
       expect(batches.length).toBeGreaterThanOrEqual(1);
       const allFiles = batches.flat();
-      expect(allFiles.length).toBeGreaterThan(0);
+      expect(allFiles.length).toBe(3);
       const hasTsFile = allFiles.some((f) => f.path.endsWith('.ts'));
       expect(hasTsFile).toBe(true);
     });
 
     it('should filter by extensions', async () => {
-      const batches = await service.readCodebase(process.cwd(), {
+      const batches = await service.readCodebase(tmpDir, {
         extensions: ['.json'],
       });
       const allFiles = batches.flat();
-      expect(allFiles.length).toBeGreaterThan(0);
-      for (const file of allFiles) {
-        expect(file.path).toMatch(/\.json$/);
-      }
+      expect(allFiles.length).toBe(1);
+      expect(allFiles[0].path).toMatch(/\.json$/);
     });
 
     it('should split into batches with small batch size', async () => {
-      const batches = await service.readCodebase(process.cwd(), {
-        maxBatchSize: 500,
+      const batches = await service.readCodebase(tmpDir, {
+        maxBatchSize: 20,
       });
       expect(batches.length).toBeGreaterThan(1);
     });
@@ -106,24 +124,43 @@ describe('CodeReaderService', () => {
   });
 
   describe('listCodebaseFiles', () => {
+    let tmpDir: string;
+
+    beforeEach(async () => {
+      tmpDir = await mkdtemp(join(tmpdir(), 'cr-list-'));
+      const git = simpleGit(tmpDir);
+      await git.init();
+      await git.addConfig('user.email', 'test@test.com');
+      await git.addConfig('user.name', 'Test');
+      await mkdir(join(tmpDir, 'src'), { recursive: true });
+      await writeFile(join(tmpDir, 'src', 'app.ts'), 'const app = 1;\n');
+      await writeFile(join(tmpDir, 'src', 'main.ts'), 'const main = 2;\n');
+      await writeFile(join(tmpDir, 'README.md'), '# readme\n');
+      await git.add('.');
+      await git.commit('initial');
+    });
+
+    afterEach(async () => {
+      await rm(tmpDir, { recursive: true, force: true });
+    });
+
     it('should list git-tracked files without reading content', async () => {
-      const files = await service.listCodebaseFiles(process.cwd());
-      expect(files.length).toBeGreaterThan(0);
+      const files = await service.listCodebaseFiles(tmpDir);
+      expect(files.length).toBe(2); // only .ts files match default extensions
       const hasTsFile = files.some((f) => f.endsWith('.ts'));
       expect(hasTsFile).toBe(true);
-      // Should return strings (paths), not objects with content
       for (const f of files) {
         expect(typeof f).toBe('string');
       }
     });
 
     it('should filter by extensions', async () => {
-      const files = await service.listCodebaseFiles(process.cwd(), {
-        extensions: ['.json'],
+      const files = await service.listCodebaseFiles(tmpDir, {
+        extensions: ['.ts'],
       });
-      expect(files.length).toBeGreaterThan(0);
+      expect(files.length).toBe(2);
       for (const file of files) {
-        expect(file).toMatch(/\.json$/);
+        expect(file).toMatch(/\.ts$/);
       }
     });
 
@@ -131,6 +168,29 @@ describe('CodeReaderService', () => {
       await expect(
         service.listCodebaseFiles('/nonexistent/path'),
       ).rejects.toThrow();
+    });
+  });
+
+  describe('isSensitiveFile', () => {
+    it('should detect .env files', () => {
+      expect(service.isSensitiveFile('.env')).toBe(true);
+      expect(service.isSensitiveFile('.env.local')).toBe(true);
+      expect(service.isSensitiveFile('src/.env.production')).toBe(true);
+    });
+
+    it('should detect key/pem files', () => {
+      expect(service.isSensitiveFile('certs/server.pem')).toBe(true);
+      expect(service.isSensitiveFile('ssl/private.key')).toBe(true);
+    });
+
+    it('should handle Windows-style paths', () => {
+      expect(service.isSensitiveFile('src\\.env')).toBe(true);
+      expect(service.isSensitiveFile('config\\secrets\\db.json')).toBe(true);
+    });
+
+    it('should not flag normal files', () => {
+      expect(service.isSensitiveFile('src/app.ts')).toBe(false);
+      expect(service.isSensitiveFile('package.json')).toBe(false);
     });
   });
 });

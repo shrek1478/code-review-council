@@ -161,6 +161,21 @@ export class ConfigService {
     if (config.review.allowLocalExploration !== undefined && typeof config.review.allowLocalExploration !== 'boolean') {
       throw new Error(`Invalid config (${filePath}): "review.allowLocalExploration" must be a boolean`);
     }
+    if (config.review.extensions !== undefined) {
+      if (!Array.isArray(config.review.extensions) || !config.review.extensions.every((e: unknown) => typeof e === 'string')) {
+        throw new Error(`Invalid config (${filePath}): "review.extensions" must be an array of strings`);
+      }
+    }
+    if (config.review.sensitivePatterns !== undefined) {
+      if (!Array.isArray(config.review.sensitivePatterns) || !config.review.sensitivePatterns.every((p: unknown) => typeof p === 'string')) {
+        throw new Error(`Invalid config (${filePath}): "review.sensitivePatterns" must be an array of strings`);
+      }
+      for (const p of config.review.sensitivePatterns) {
+        try { new RegExp(p); } catch {
+          throw new Error(`Invalid config (${filePath}): "review.sensitivePatterns" contains invalid regex: "${p}"`);
+        }
+      }
+    }
   }
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any -- runtime validation on untrusted JSON
