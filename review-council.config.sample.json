@@ -1,0 +1,52 @@
+{
+  "reviewers": [
+    {
+      "name": "Gemini",
+      "cliPath": "gemini",
+      "cliArgs": [
+        "--experimental-acp"
+      ],
+      "timeoutMs": 120000,
+      "maxRetries": 2
+    },
+    {
+      "name": "Copilot",
+      "cliPath": "copilot",
+      "cliArgs": [
+        "--acp",
+        "--model",
+        "gpt-5.3-codex"
+      ],
+      "timeoutMs": 120000,
+      "maxRetries": 2
+    },
+    {
+      "name": "Codex",
+      "cliPath": "codex-acp",
+      "cliArgs": [],
+      "timeoutMs": 120000,
+      "maxRetries": 2
+    }
+  ],
+  "decisionMaker": {
+    "name": "Claude",
+    "cliPath": "claude-code-acp",
+    "cliArgs": [],
+    "timeoutMs": 600000,
+    "maxRetries": 2
+  },
+  "review": {
+    "defaultChecks": [
+      "code-quality",
+      "security",
+      "performance",
+      "readability",
+      "best-practices"
+    ],
+    "language": "zh-tw",
+    "maxReviewsLength": 60000,
+    "maxCodeLength": 100000,
+    "maxSummaryLength": 60000,
+    "allowLocalExploration": true
+  }
+}

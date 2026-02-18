@@ -73,7 +73,8 @@ function formatDuration(ms: number): string {
 export function printResult(result: ReviewResult): void {
   console.log('\n=== Individual Reviews ===\n');
   for (const r of result.individualReviews) {
-    console.log(`\n--- ${sanitizeLine(r.reviewer)} ---`);
+    const timing = r.durationMs != null ? ` (${formatDuration(r.durationMs)})` : '';
+    console.log(`\n--- ${sanitizeLine(r.reviewer)}${timing} ---`);
     console.log(sanitize(r.review));
     console.log();
   }

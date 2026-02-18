@@ -24,14 +24,14 @@ export const DEFAULT_EXTENSIONS = [
 ];
 
 const SENSITIVE_PATTERNS = [
-  /^\.env($|\.)/,
-  /\.pem$/,
-  /\.key$/,
-  /\.p12$/,
-  /\.pfx$/,
+  /^\.env($|\.)/i,
+  /\.pem$/i,
+  /\.key$/i,
+  /\.p12$/i,
+  /\.pfx$/i,
   /(^|[^A-Z])[Ss][Ee][Cc][Rr][Ee][Tt]s?($|[^a-z])/,
   /(^|[^A-Z])[Cc][Rr][Ee][Dd][Ee][Nn][Tt][Ii][Aa][Ll]s?($|[^a-z])/,
-  /\.keystore$/,
+  /\.keystore$/i,
 ];
 
 const MAX_FILE_SIZE = 1_048_576; // 1MB
@@ -164,12 +164,13 @@ export class CodeReaderService {
       'ls-files',
       '-z',
       '--cached',
+      '--others',
       '--exclude-standard',
     ]);
 
-    const allFiles = result
+    const allFiles = [...new Set(result
       .split('\0')
-      .filter((f) => f.length > 0)
+      .filter((f) => f.length > 0))]
       .filter((f) => extensions.includes(extname(f)))
       .filter((f) => !this.isSensitiveFile(f));
 
@@ -238,12 +239,13 @@ export class CodeReaderService {
       'ls-files',
       '-z',
       '--cached',
+      '--others',
       '--exclude-standard',
     ]);
 
-    const files = result
+    const files = [...new Set(result
       .split('\0')
-      .filter((f) => f.length > 0)
+      .filter((f) => f.length > 0))]
       .filter((f) => extensions.includes(extname(f)))
       .filter((f) => !this.isSensitiveFile(f));
 

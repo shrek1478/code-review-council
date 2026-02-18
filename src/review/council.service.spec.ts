@@ -215,7 +215,7 @@ describe('CouncilService', () => {
 
     const promptArg = mockAcpService.sendPrompt.mock.calls[0][1] as string;
     expect(promptArg).toContain('You MAY use available tools');
-    expect(promptArg).toContain('Repository path: /tmp/repo');
+    expect(promptArg).toContain('Repository: repo');
     expect(promptArg).toContain('src/app.ts');
     expect(promptArg).toContain('src/main.ts');
     expect(promptArg).toContain('Use your tools to read each file');

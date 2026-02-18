@@ -176,9 +176,10 @@ Rules:
     }
 
     this.logger.warn('Failed to parse decision maker response as JSON, returning raw text');
+    const truncated = response.length > 200 ? response.slice(0, 200) + '...' : response;
     return {
       reviewer: `${dmName} (Decision Maker)`,
-      overallAssessment: `[解析失敗] ${response}`,
+      overallAssessment: `[解析失敗] ${truncated}`,
       decisions: [],
       additionalFindings: [],
     };

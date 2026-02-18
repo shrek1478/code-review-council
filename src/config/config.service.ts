@@ -21,9 +21,9 @@ export class ConfigService {
 
   async loadConfig(configPath?: string): Promise<CouncilConfig> {
     const { parsed, source } = await this.resolveBaseConfig(configPath);
-    this.validateConfig(parsed, source);
     const config = parsed as CouncilConfig;
     this.applyEnvOverrides(config);
+    this.validateConfig(config, source);
     this.config = config;
     return this.config;
   }

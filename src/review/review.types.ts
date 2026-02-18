@@ -1,6 +1,7 @@
 export interface IndividualReview {
   reviewer: string;
   review: string;
+  durationMs?: number;
 }
 
 export interface ReviewDecisionItem {

@@ -1,5 +1,6 @@
 import { Inject, Injectable, ConsoleLogger } from '@nestjs/common';
 import { randomUUID } from 'node:crypto';
+import { basename } from 'node:path';
 import { AcpService } from '../acp/acp.service.js';
 import { ConfigService } from '../config/config.service.js';
 import { IndividualReview, ReviewRequest } from './review.types.js';
@@ -25,6 +26,7 @@ export class CouncilService {
     const prompt = this.buildReviewPrompt(request);
 
     const reviewOneReviewer = async (reviewerConfig: (typeof reviewers)[number]) => {
+      const startMs = Date.now();
       const allowExplore = config.review.allowLocalExploration === true;
       const baseTimeout = reviewerConfig.timeoutMs ?? 180_000;
       const timeoutMs = allowExplore ? baseTimeout * 2 : baseTimeout;
@@ -43,16 +45,18 @@ export class CouncilService {
             },
           },
         );
-        return { reviewer: reviewerConfig.name, review };
+        return { reviewer: reviewerConfig.name, review, durationMs: Date.now() - startMs };
       } finally {
         await this.acpService.stopClient(handle);
       }
     };
 
     // Run reviewers in chunks to limit concurrent ACP clients
-    const results: PromiseSettledResult<{ reviewer: string; review: string }>[] = [];
+    const startTimes = new Map<string, number>();
+    const results: PromiseSettledResult<IndividualReview>[] = [];
     for (let i = 0; i < reviewers.length; i += MAX_REVIEWER_CONCURRENCY) {
       const chunk = reviewers.slice(i, i + MAX_REVIEWER_CONCURRENCY);
+      for (const r of chunk) startTimes.set(r.name, Date.now());
       const chunkResults = await Promise.allSettled(chunk.map(reviewOneReviewer));
       results.push(...chunkResults);
     }
@@ -63,7 +67,8 @@ export class CouncilService {
       }
       const msg = result.reason instanceof Error ? result.reason.message : String(result.reason);
       this.logger.error(`Reviewer ${reviewers[i].name} failed: ${msg}`);
-      return { reviewer: reviewers[i].name, review: `[error] ${msg}` };
+      const elapsed = Date.now() - (startTimes.get(reviewers[i].name) ?? Date.now());
+      return { reviewer: reviewers[i].name, review: `[error] ${msg}`, durationMs: elapsed };
     });
   }
 
@@ -97,7 +102,8 @@ export class CouncilService {
       const truncateNote = truncated
         ? `\n\n(Showing ${MAX_EXPLORATION_FILE_PATHS} of ${allPaths.length} files. Focus on the listed files.)`
         : '';
-      const repoInfo = request.repoPath ? `Repository path: ${request.repoPath}` : '';
+      const repoName = request.repoPath ? basename(request.repoPath) : '';
+      const repoInfo = repoName ? `Repository: ${repoName}` : '';
 
       prompt = `You are a senior code reviewer.
 You MUST reply entirely in ${lang}. All descriptions, suggestions, and explanations must be written in ${lang}.
