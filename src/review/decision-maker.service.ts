@@ -137,6 +137,7 @@ Output ONLY a JSON object (no markdown fences, no explanation before or after):
 Rules:
 - Focus on the TOP 15 most important suggestions only. Skip trivial or low-impact items.
 - Be critical: reject suggestions that are subjective, over-engineered, or not actionable
+- Evaluate whether suggestions provide genuine improvement. If the current implementation is already adequate, reject the suggestion — do not over-optimize.
 - Add at most 3 additional findings if reviewers missed important issues
 - verdict "accepted" = you agree with the reviewer's suggestion
 - verdict "rejected" = you disagree and explain why
