@@ -183,6 +183,26 @@ describe('CodeReaderService', () => {
       expect(service.isSensitiveFile('ssl/private.key')).toBe(true);
     });
 
+    it('should detect secret/credential files with precise matching', () => {
+      expect(service.isSensitiveFile('config/secrets/db.json')).toBe(true);
+      expect(service.isSensitiveFile('.secrets')).toBe(true);
+      expect(service.isSensitiveFile('app-secret.yaml')).toBe(true);
+      expect(service.isSensitiveFile('credentials.json')).toBe(true);
+      expect(service.isSensitiveFile('db-credentials.yaml')).toBe(true);
+    });
+
+    it('should detect camelCase secret/credential files', () => {
+      expect(service.isSensitiveFile('appSecret.json')).toBe(true);
+      expect(service.isSensitiveFile('dbCredentials.xml')).toBe(true);
+      expect(service.isSensitiveFile('clientsecret.json')).toBe(true);
+      expect(service.isSensitiveFile('myCredential.yaml')).toBe(true);
+    });
+
+    it('should not falsely flag files containing secret/credential as substring', () => {
+      expect(service.isSensitiveFile('src/secretary.ts')).toBe(false);
+      expect(service.isSensitiveFile('lib/accreditation.ts')).toBe(false);
+    });
+
     it('should handle Windows-style paths', () => {
       expect(service.isSensitiveFile('src\\.env')).toBe(true);
       expect(service.isSensitiveFile('config\\secrets\\db.json')).toBe(true);

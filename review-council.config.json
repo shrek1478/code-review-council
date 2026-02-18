@@ -19,6 +19,13 @@
       ],
       "timeoutMs": 120000,
       "maxRetries": 2
+    },
+    {
+      "name": "Codex",
+      "cliPath": "codex-acp",
+      "cliArgs": [],
+      "timeoutMs": 120000,
+      "maxRetries": 2
     }
   ],
   "decisionMaker": {

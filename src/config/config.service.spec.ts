@@ -243,6 +243,53 @@ describe('ConfigService', () => {
       }
     });
 
+    it('should reject cliPath containing path traversal', async () => {
+      process.env.CONFIG_JSON = JSON.stringify({
+        reviewers: [{ name: 'Evil', cliPath: '../malicious', cliArgs: [] }],
+        decisionMaker: { name: 'DM', cliPath: 'echo', cliArgs: [] },
+        review: { defaultChecks: ['code-quality'], language: 'en' },
+      });
+      await expect(service.loadConfig()).rejects.toThrow('is not a valid command name');
+    });
+
+    it('should reject cliPath containing forward slash', async () => {
+      process.env.CONFIG_JSON = JSON.stringify({
+        reviewers: [{ name: 'Evil', cliPath: '/usr/bin/evil', cliArgs: [] }],
+        decisionMaker: { name: 'DM', cliPath: 'echo', cliArgs: [] },
+        review: { defaultChecks: ['code-quality'], language: 'en' },
+      });
+      await expect(service.loadConfig()).rejects.toThrow('is not a valid command name');
+    });
+
+    it('should reject cliPath containing backslash', async () => {
+      process.env.CONFIG_JSON = JSON.stringify({
+        reviewers: [{ name: 'Evil', cliPath: 'bin\\evil', cliArgs: [] }],
+        decisionMaker: { name: 'DM', cliPath: 'echo', cliArgs: [] },
+        review: { defaultChecks: ['code-quality'], language: 'en' },
+      });
+      await expect(service.loadConfig()).rejects.toThrow('is not a valid command name');
+    });
+
+    it('should reject cliPath containing shell special characters', async () => {
+      for (const bad of ['cmd;evil', 'cmd&evil', 'cmd|evil', 'cmd$evil', 'cmd`evil`']) {
+        process.env.CONFIG_JSON = JSON.stringify({
+          reviewers: [{ name: 'Evil', cliPath: bad, cliArgs: [] }],
+          decisionMaker: { name: 'DM', cliPath: 'echo', cliArgs: [] },
+          review: { defaultChecks: ['code-quality'], language: 'en' },
+        });
+        await expect(service.loadConfig()).rejects.toThrow('is not a valid command name');
+      }
+    });
+
+    it('should reject cliPath starting with dash', async () => {
+      process.env.CONFIG_JSON = JSON.stringify({
+        reviewers: [{ name: 'Evil', cliPath: '-malicious', cliArgs: [] }],
+        decisionMaker: { name: 'DM', cliPath: 'echo', cliArgs: [] },
+        review: { defaultChecks: ['code-quality'], language: 'en' },
+      });
+      await expect(service.loadConfig()).rejects.toThrow('is not a valid command name');
+    });
+
     it('should accept valid timeoutMs and maxRetries', async () => {
       const tmpPath = join(process.cwd(), '__test_valid_new_fields__.json');
       await writeFile(tmpPath, JSON.stringify({

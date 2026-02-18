@@ -196,11 +196,13 @@ export class ConfigService {
     if (!r.cliArgs.every((a: unknown) => typeof a === 'string')) {
       throw new Error(`Invalid config (${filePath}): "${path}.cliArgs" elements must be strings`);
     }
-    // Warn about cliPath containing path separators or traversal — may indicate misconfiguration
-    if (r.cliPath.includes('..') || r.cliPath.includes('/') || r.cliPath.includes('\\')) {
-      this.logger.warn(
-        `Config (${filePath}): "${path}.cliPath" value "${r.cliPath}" contains path separators or '..'. ` +
-        `Consider using a simple command name resolvable via PATH.`,
+    // Whitelist: only allow simple command names (letters, digits, dots, hyphens, underscores)
+    const CLI_PATH_PATTERN = /^[A-Za-z0-9._-]+$/;
+    const trimmed = r.cliPath.trim();
+    if (!CLI_PATH_PATTERN.test(trimmed) || trimmed.startsWith('-')) {
+      throw new Error(
+        `Invalid config (${filePath}): "${path}.cliPath" value "${r.cliPath}" is not a valid command name. ` +
+        `Only simple command names resolvable via PATH are allowed (e.g. "gemini", "copilot", "codex-acp", "claude-code-acp").`,
       );
     }
     if (r.model !== undefined && typeof r.model !== 'string') {

@@ -29,8 +29,8 @@ const SENSITIVE_PATTERNS = [
   /\.key$/,
   /\.p12$/,
   /\.pfx$/,
-  /secret/i,
-  /credential/i,
+  /(^|[^A-Z])[Ss]ecrets?($|[^a-zA-Z])/,
+  /(^|[^A-Z])[Cc]redentials?($|[^a-zA-Z])/,
   /\.keystore$/,
 ];
 
@@ -144,13 +144,17 @@ export class CodeReaderService {
     return results;
   }
 
+  private resolveExtensions(options: CodebaseOptions): string[] {
+    return options.extensions
+      ? options.extensions.map((e) => (e.startsWith('.') ? e : `.${e}`))
+      : this.extensions;
+  }
+
   async readCodebase(
     directory: string,
     options: CodebaseOptions = {},
   ): Promise<FileContent[][]> {
-    const extensions = options.extensions
-      ? options.extensions.map((e) => (e.startsWith('.') ? e : `.${e}`))
-      : this.extensions;
+    const extensions = this.resolveExtensions(options);
     const maxBatchSize = options.maxBatchSize ?? 100_000;
 
     this.logger.log(`Reading codebase: ${directory}`);
@@ -158,13 +162,13 @@ export class CodeReaderService {
 
     const result = await git.raw([
       'ls-files',
+      '-z',
       '--cached',
       '--exclude-standard',
     ]);
 
     const allFiles = result
-      .split('\n')
-      .map((f) => f.trim())
+      .split('\0')
       .filter((f) => f.length > 0)
       .filter((f) => extensions.includes(extname(f)))
       .filter((f) => !this.isSensitiveFile(f));
@@ -225,22 +229,20 @@ export class CodeReaderService {
     directory: string,
     options: CodebaseOptions = {},
   ): Promise<string[]> {
-    const extensions = options.extensions
-      ? options.extensions.map((e) => (e.startsWith('.') ? e : `.${e}`))
-      : this.extensions;
+    const extensions = this.resolveExtensions(options);
 
     this.logger.log(`Listing codebase files: ${directory}`);
     const git = simpleGit(directory);
 
     const result = await git.raw([
       'ls-files',
+      '-z',
       '--cached',
       '--exclude-standard',
     ]);
 
     const files = result
-      .split('\n')
-      .map((f) => f.trim())
+      .split('\0')
       .filter((f) => f.length > 0)
       .filter((f) => extensions.includes(extname(f)))
       .filter((f) => !this.isSensitiveFile(f));
