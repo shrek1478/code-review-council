@@ -196,11 +196,20 @@ describe('CodeReaderService', () => {
       expect(service.isSensitiveFile('dbCredentials.xml')).toBe(true);
       expect(service.isSensitiveFile('clientsecret.json')).toBe(true);
       expect(service.isSensitiveFile('myCredential.yaml')).toBe(true);
+      expect(service.isSensitiveFile('secretKey.ts')).toBe(true);
+      expect(service.isSensitiveFile('credentialStore.json')).toBe(true);
+    });
+
+    it('should detect uppercase secret/credential files', () => {
+      expect(service.isSensitiveFile('SECRETS.md')).toBe(true);
+      expect(service.isSensitiveFile('DB_CREDENTIALS')).toBe(true);
+      expect(service.isSensitiveFile('API_SECRET.env')).toBe(true);
     });
 
     it('should not falsely flag files containing secret/credential as substring', () => {
       expect(service.isSensitiveFile('src/secretary.ts')).toBe(false);
       expect(service.isSensitiveFile('lib/accreditation.ts')).toBe(false);
+      expect(service.isSensitiveFile('src/secretariat.ts')).toBe(false);
     });
 
     it('should handle Windows-style paths', () => {

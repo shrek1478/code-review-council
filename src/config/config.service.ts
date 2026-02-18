@@ -205,6 +205,7 @@ export class ConfigService {
         `Only simple command names resolvable via PATH are allowed (e.g. "gemini", "copilot", "codex-acp", "claude-code-acp").`,
       );
     }
+    r.cliPath = trimmed;
     if (r.model !== undefined && typeof r.model !== 'string') {
       throw new Error(`Invalid config (${filePath}): "${path}.model" must be a string if provided`);
     }

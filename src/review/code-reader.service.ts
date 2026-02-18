@@ -29,8 +29,8 @@ const SENSITIVE_PATTERNS = [
   /\.key$/,
   /\.p12$/,
   /\.pfx$/,
-  /(^|[^A-Z])[Ss]ecrets?($|[^a-zA-Z])/,
-  /(^|[^A-Z])[Cc]redentials?($|[^a-zA-Z])/,
+  /(^|[^A-Z])[Ss][Ee][Cc][Rr][Ee][Tt]s?($|[^a-z])/,
+  /(^|[^A-Z])[Cc][Rr][Ee][Dd][Ee][Nn][Tt][Ii][Aa][Ll]s?($|[^a-z])/,
   /\.keystore$/,
 ];
 
