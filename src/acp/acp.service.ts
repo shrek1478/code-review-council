@@ -119,7 +119,7 @@ export class AcpService implements OnModuleDestroy {
   }
 
   async sendPrompt(handle: AcpClientHandle, prompt: string, timeoutMs = 180_000): Promise<string> {
-    this.logger.log(`📝 ${handle.name} reviewing...`);
+    this.logger.log(`[SEND] ${handle.name} reviewing...`);
 
     const sessionOpts: AcpSessionOptions = { streaming: true };
     if (handle.model) sessionOpts.model = handle.model;
@@ -145,7 +145,7 @@ export class AcpService implements OnModuleDestroy {
             const input = event.data?.inputTokens ?? event.inputTokens;
             const output = event.data?.outputTokens ?? event.outputTokens;
             if (model) {
-              this.logger.log(`🤖 ${handle.name} model: ${model} (in: ${input ?? '?'}, out: ${output ?? '?'})`);
+              this.logger.log(`[MODEL] ${handle.name} model: ${model} (in: ${input ?? '?'}, out: ${output ?? '?'})`);
             }
           }
 
@@ -185,7 +185,7 @@ export class AcpService implements OnModuleDestroy {
         });
       });
 
-      this.logger.log(`✅ ${handle.name} done.`);
+      this.logger.log(`[DONE] ${handle.name} done.`);
       return result;
     } finally {
       try {

@@ -36,6 +36,7 @@ const SENSITIVE_PATTERNS = [
 
 const MAX_FILE_SIZE = 1_048_576; // 1MB
 const MAX_TOTAL_SIZE = 200 * 1_048_576; // 200MB cumulative limit
+const MAX_DIFF_SIZE = 5 * 1_048_576; // 5MB diff size limit
 const BRANCH_PATTERN = /^[A-Za-z0-9._\-/]+$/;
 const CONCURRENCY = 16;
 
@@ -52,8 +53,10 @@ export class CodeReaderService {
     let configured: string[] | undefined;
     try {
       configured = this.configService?.getConfig()?.review?.extensions;
-    } catch {
-      // Config not yet loaded — use defaults
+    } catch (error) {
+      if (!(error instanceof Error && error.message.includes('Config not loaded'))) {
+        this.logger.warn(`Unexpected config error, using defaults: ${error instanceof Error ? error.message : error}`);
+      }
     }
     return (configured ?? DEFAULT_EXTENSIONS).map((e) =>
       e.startsWith('.') ? e : `.${e}`,
@@ -67,8 +70,10 @@ export class CodeReaderService {
     let configured: string[] | undefined;
     try {
       configured = this.configService?.getConfig()?.review?.sensitivePatterns;
-    } catch {
-      // Config not yet loaded — use defaults
+    } catch (error) {
+      if (!(error instanceof Error && error.message.includes('Config not loaded'))) {
+        this.logger.warn(`Unexpected config error, using defaults: ${error instanceof Error ? error.message : error}`);
+      }
     }
     if (configured) {
       const userPatterns = configured.map((p) => new RegExp(p));
@@ -97,9 +102,9 @@ export class CodeReaderService {
       if (stagedFiles.length === 0) {
         throw new Error('No diff found');
       }
-      return git.diff(['--staged', '--', ...stagedFiles]);
+      return this.truncateDiff(await git.diff(['--staged', '--', ...stagedFiles]));
     }
-    return git.diff([baseBranch, '--', ...changedFiles]);
+    return this.truncateDiff(await git.diff([baseBranch, '--', ...changedFiles]));
   }
 
   private async getFilteredDiffFiles(git: ReturnType<typeof simpleGit>, diffArgs: string[]): Promise<string[]> {
@@ -112,6 +117,12 @@ export class CodeReaderService {
       this.logger.warn(`Filtered ${skipped} sensitive file(s) from diff`);
     }
     return filtered;
+  }
+
+  private truncateDiff(diff: string): string {
+    if (diff.length <= MAX_DIFF_SIZE) return diff;
+    this.logger.warn(`Diff size (${(diff.length / 1_048_576).toFixed(1)}MB) exceeds ${MAX_DIFF_SIZE / 1_048_576}MB limit, truncating`);
+    return diff.slice(0, MAX_DIFF_SIZE) + '\n...(diff truncated due to size)';
   }
 
   async readFiles(
@@ -147,7 +158,8 @@ export class CodeReaderService {
           return null;
         }
         const content = await readFile(real, 'utf-8');
-        return { path: filePath, content };
+        // Use relative path to avoid leaking host directory structure
+        return { path: relative(rootReal, real), content };
       } catch (error) {
         const msg = error instanceof Error ? error.message : String(error);
         this.logger.warn(`Skipping unreadable file: ${filePath} (${msg})`);
@@ -289,22 +301,28 @@ export class CodeReaderService {
     // Verify symlinks stay within repo boundary
     const dirReal = await realpath(resolve(directory));
     const files: string[] = [];
+    let skippedCount = 0;
     for (const f of candidates) {
       try {
         const real = await realpath(join(directory, f));
         if (!this.isWithinRoot(real, dirReal)) {
           this.logger.warn(`Skipping symlink pointing outside repo: ${f}`);
+          skippedCount++;
           continue;
         }
         if (this.isSensitiveFile(real)) {
           this.logger.warn(`Skipping sensitive file (symlink target): ${f}`);
+          skippedCount++;
           continue;
         }
       } catch {
-        // Unresolvable path (broken symlink, etc.) — skip silently
+        skippedCount++;
         continue;
       }
       files.push(f);
+    }
+    if (skippedCount > 0) {
+      this.logger.warn(`Skipped ${skippedCount} file(s) during path validation`);
     }
 
     this.logger.log(`Found ${files.length} files matching extensions`);

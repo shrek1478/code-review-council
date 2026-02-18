@@ -179,7 +179,7 @@ Rules:
     const truncated = response.length > 200 ? response.slice(0, 200) + '...' : response;
     return {
       reviewer: `${dmName} (Decision Maker)`,
-      overallAssessment: `[解析失敗] ${truncated}`,
+      overallAssessment: `[PARSE_FAILED] ${truncated}`,
       decisions: [],
       additionalFindings: [],
     };
