@@ -152,21 +152,28 @@ export class AcpService implements OnModuleDestroy {
    * Resolve a CLI command name to its absolute path (cached).
    * - Absolute paths are returned as-is (used internally by SDK; config validator restricts
    *   user-facing cliPath to bare command names for security).
-   * - Bare command names are resolved via `which` (Unix-only; falls back to original on failure).
+   * - Bare command names are resolved via `which` (Unix/macOS) or `where` (Windows);
+   *   falls back to original on failure.
+   * - On Windows, `where` may return multiple matches; the first line is used.
    */
   private resolveCliPath(cliPath: string): string {
     if (isAbsolute(cliPath)) return cliPath;
     const cached = this.resolvedPaths.get(cliPath);
     if (cached) return cached;
+    const lookupCmd = process.platform === 'win32' ? 'where' : 'which';
     try {
-      const resolved = execFileSync('which', [cliPath], {
-        encoding: 'utf-8',
-      }).trim();
+      const output = execFileSync(lookupCmd, [cliPath], { encoding: 'utf-8' });
+      // `where` may return multiple matches (one per line); use the first non-empty line
+      const resolved =
+        output
+          .split('\n')
+          .map((l) => l.trim())
+          .find((l) => l.length > 0) ?? cliPath;
       this.resolvedPaths.set(cliPath, resolved);
       return resolved;
     } catch {
       this.logger.debug(
-        `Could not resolve "${cliPath}" via which, using as-is`,
+        `Could not resolve "${cliPath}" via ${lookupCmd}, using as-is`,
       );
       this.resolvedPaths.set(cliPath, cliPath);
       return cliPath;

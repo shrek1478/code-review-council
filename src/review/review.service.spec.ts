@@ -140,7 +140,7 @@ describe('ReviewService', () => {
       const decideCalls = mockDecisionMaker.decide.mock.calls[0];
       expect(decideCalls[0]).toContain('batch1.ts');
       expect(decideCalls[0]).toContain('lines');
-      expect(decideCalls[2]).toBe(true); // isSummaryMode
+      expect(decideCalls[2]).toBe('batch');
     });
 
     it('should throw when no files found', async () => {
@@ -189,11 +189,11 @@ describe('ReviewService', () => {
       expect(dispatchCall.filePaths).toEqual([fileA, fileB]);
       expect(dispatchCall.repoPath).toBe(resolve('.'));
 
-      // Decision maker should use summary mode with relative paths
+      // Decision maker should use explore mode with relative paths
       expect(mockDecisionMaker.decide).toHaveBeenCalledWith(
         `${fileA}\n${fileB}`,
         expect.any(Array),
-        true,
+        'explore',
       );
     });
 
@@ -213,11 +213,11 @@ describe('ReviewService', () => {
       expect(dispatchCall.repoPath).toBe('/tmp/project');
       expect(dispatchCall.filePaths).toEqual(['src/app.ts', 'src/main.ts']);
 
-      // Decision maker should use summary mode
+      // Decision maker should use explore mode
       expect(mockDecisionMaker.decide).toHaveBeenCalledWith(
         'src/app.ts\nsrc/main.ts',
         expect.any(Array),
-        true,
+        'explore',
       );
     });
   });

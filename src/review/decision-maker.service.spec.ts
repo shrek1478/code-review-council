@@ -132,14 +132,26 @@ describe('DecisionMakerService', () => {
     expect(decision.overallAssessment).toBe('Good code.');
   });
 
-  it('should use summary mode prompt when isSummaryMode is true', async () => {
+  it('should use batch mode prompt when reviewMode is batch', async () => {
     await service.decide(
       'file1.ts (10 lines)\nfile2.ts (20 lines)',
       [{ reviewer: 'Test', review: 'OK' }],
-      true,
+      'batch',
     );
     const sentPrompt = mockAcpService.sendPrompt.mock.calls[0][1];
     expect(sentPrompt).toContain('file summary');
+    expect(sentPrompt).toContain('split into batches');
+    expect(sentPrompt).not.toContain('Review the code yourself');
+  });
+
+  it('should use explore mode prompt when reviewMode is explore', async () => {
+    await service.decide(
+      'file1.ts\nfile2.ts',
+      [{ reviewer: 'Test', review: 'OK' }],
+      'explore',
+    );
+    const sentPrompt = mockAcpService.sendPrompt.mock.calls[0][1];
+    expect(sentPrompt).toContain('file reading tools');
     expect(sentPrompt).not.toContain('Review the code yourself');
   });
 

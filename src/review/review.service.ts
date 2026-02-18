@@ -195,7 +195,7 @@ export class ReviewService {
         const decision = await this.decisionMaker.decide(
           fileSummary,
           allReviews,
-          true,
+          'batch',
         );
         result = {
           id,
@@ -231,7 +231,7 @@ export class ReviewService {
     const decision = await this.decisionMaker.decide(
       fileSummary,
       individualReviews,
-      true,
+      'explore',
     );
     return { id, status: 'completed', individualReviews, decision };
   }
