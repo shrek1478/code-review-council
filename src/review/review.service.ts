@@ -15,7 +15,8 @@ export class ReviewService {
     @Inject(ConsoleLogger) private readonly logger: ConsoleLogger,
     @Inject(CodeReaderService) private readonly codeReader: CodeReaderService,
     @Inject(CouncilService) private readonly council: CouncilService,
-    @Inject(DecisionMakerService) private readonly decisionMaker: DecisionMakerService,
+    @Inject(DecisionMakerService)
+    private readonly decisionMaker: DecisionMakerService,
     @Inject(ConfigService) private readonly configService: ConfigService,
   ) {
     this.logger.setContext(ReviewService.name);
@@ -40,7 +41,13 @@ export class ReviewService {
 
     let result: ReviewResult;
     if (this.allowExplore) {
-      result = await this.runReview(id, code, checks, extraInstructions, resolve(repoPath));
+      result = await this.runReview(
+        id,
+        code,
+        checks,
+        extraInstructions,
+        resolve(repoPath),
+      );
     } else {
       result = await this.runReview(id, code, checks, extraInstructions);
     }
@@ -86,11 +93,21 @@ export class ReviewService {
       if (safePaths.length === 0) {
         throw new Error('No valid files to review after path validation');
       }
-      this.logger.log(`Exploration mode: sending ${safePaths.length} file paths (no content)`);
-      result = await this.runExplorationReview(id, safePaths, checks, extraInstructions, repoRoot);
+      this.logger.log(
+        `Exploration mode: sending ${safePaths.length} file paths (no content)`,
+      );
+      result = await this.runExplorationReview(
+        id,
+        safePaths,
+        checks,
+        extraInstructions,
+        repoRoot,
+      );
     } else {
       const files = await this.codeReader.readFiles(filePaths);
-      const code = files.map((f) => `=== ${f.path} ===\n${f.content}`).join('\n\n');
+      const code = files
+        .map((f) => `=== ${f.path} ===\n${f.content}`)
+        .join('\n\n');
       result = await this.runReview(id, code, checks, extraInstructions);
     }
     result.durationMs = Date.now() - startMs;
@@ -113,9 +130,20 @@ export class ReviewService {
     if (this.allowExplore) {
       // Exploration mode: only list files, no content reading, no batching
       const absoluteDir = resolve(directory);
-      const filePaths = await this.codeReader.listCodebaseFiles(directory, options);
-      this.logger.log(`Exploration mode: found ${filePaths.length} files (no content)`);
-      result = await this.runExplorationReview(id, filePaths, checks, extraInstructions, absoluteDir);
+      const filePaths = await this.codeReader.listCodebaseFiles(
+        directory,
+        options,
+      );
+      this.logger.log(
+        `Exploration mode: found ${filePaths.length} files (no content)`,
+      );
+      result = await this.runExplorationReview(
+        id,
+        filePaths,
+        checks,
+        extraInstructions,
+        absoluteDir,
+      );
     } else {
       const batches = await this.codeReader.readCodebase(directory, options);
       this.logger.log(`Codebase split into ${batches.length} batch(es)`);
@@ -147,7 +175,9 @@ export class ReviewService {
             .filter(Boolean)
             .join(' ');
 
-          this.logger.log(`[Batch ${i + 1}/${batches.length}] Dispatching to reviewers (${batch.length} files, ${code.length} chars)...`);
+          this.logger.log(
+            `[Batch ${i + 1}/${batches.length}] Dispatching to reviewers (${batch.length} files, ${code.length} chars)...`,
+          );
           const reviews = await this.council.dispatchReviews({
             code,
             checks,
@@ -158,15 +188,28 @@ export class ReviewService {
         }
 
         // Pass file summary instead of full code to decision maker
-        this.logger.log(`All ${batches.length} batches complete. Sending ${allReviews.length} reviews to decision maker...`);
+        this.logger.log(
+          `All ${batches.length} batches complete. Sending ${allReviews.length} reviews to decision maker...`,
+        );
         const fileSummary = allFileNames.join('\n');
-        const decision = await this.decisionMaker.decide(fileSummary, allReviews, true);
-        result = { id, status: 'completed', individualReviews: allReviews, decision };
+        const decision = await this.decisionMaker.decide(
+          fileSummary,
+          allReviews,
+          true,
+        );
+        result = {
+          id,
+          status: 'completed',
+          individualReviews: allReviews,
+          decision,
+        };
       }
     }
 
     result.durationMs = Date.now() - startMs;
-    this.logger.log(`Codebase review ${id} completed in ${result.durationMs}ms`);
+    this.logger.log(
+      `Codebase review ${id} completed in ${result.durationMs}ms`,
+    );
     return result;
   }
 
@@ -185,7 +228,11 @@ export class ReviewService {
     });
 
     const fileSummary = filePaths.join('\n');
-    const decision = await this.decisionMaker.decide(fileSummary, individualReviews, true);
+    const decision = await this.decisionMaker.decide(
+      fileSummary,
+      individualReviews,
+      true,
+    );
     return { id, status: 'completed', individualReviews, decision };
   }
 

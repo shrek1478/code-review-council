@@ -15,12 +15,30 @@ export interface CodebaseOptions {
 }
 
 export const DEFAULT_EXTENSIONS = [
-  '.ts', '.js', '.tsx', '.jsx',
-  '.py', '.go', '.java', '.kt',
-  '.rs', '.rb', '.php', '.cs',
-  '.swift', '.c', '.cpp', '.h',
-  '.vue', '.svelte', '.html', '.css', '.scss',
-  '.json', '.yaml', '.yml',
+  '.ts',
+  '.js',
+  '.tsx',
+  '.jsx',
+  '.py',
+  '.go',
+  '.java',
+  '.kt',
+  '.rs',
+  '.rb',
+  '.php',
+  '.cs',
+  '.swift',
+  '.c',
+  '.cpp',
+  '.h',
+  '.vue',
+  '.svelte',
+  '.html',
+  '.css',
+  '.scss',
+  '.json',
+  '.yaml',
+  '.yml',
 ];
 
 const SENSITIVE_PATTERNS = [
@@ -44,7 +62,9 @@ const CONCURRENCY = 16;
 export class CodeReaderService {
   constructor(
     @Inject(ConsoleLogger) private readonly logger: ConsoleLogger,
-    @Optional() @Inject(ConfigService) private readonly configService?: ConfigService,
+    @Optional()
+    @Inject(ConfigService)
+    private readonly configService?: ConfigService,
   ) {
     this.logger.setContext(CodeReaderService.name);
   }
@@ -54,8 +74,12 @@ export class CodeReaderService {
     try {
       configured = this.configService?.getConfig()?.review?.extensions;
     } catch (error) {
-      if (!(error instanceof Error && error.message.includes('Config not loaded'))) {
-        this.logger.warn(`Unexpected config error, using defaults: ${error instanceof Error ? error.message : error}`);
+      if (
+        !(error instanceof Error && error.message.includes('Config not loaded'))
+      ) {
+        this.logger.warn(
+          `Unexpected config error, using defaults: ${error instanceof Error ? error.message : error}`,
+        );
       }
     }
     return (configured ?? DEFAULT_EXTENSIONS).map((e) =>
@@ -73,8 +97,12 @@ export class CodeReaderService {
       configured = this.configService?.getConfig()?.review?.sensitivePatterns;
       configLoaded = true;
     } catch (error) {
-      if (!(error instanceof Error && error.message.includes('Config not loaded'))) {
-        this.logger.warn(`Unexpected config error, using defaults: ${error instanceof Error ? error.message : error}`);
+      if (
+        !(error instanceof Error && error.message.includes('Config not loaded'))
+      ) {
+        this.logger.warn(
+          `Unexpected config error, using defaults: ${error instanceof Error ? error.message : error}`,
+        );
       }
     }
     if (configured) {
@@ -91,7 +119,11 @@ export class CodeReaderService {
     repoPath: string,
     baseBranch: string = 'main',
   ): Promise<string> {
-    if (!BRANCH_PATTERN.test(baseBranch) || baseBranch.startsWith('-') || baseBranch.includes('..')) {
+    if (
+      !BRANCH_PATTERN.test(baseBranch) ||
+      baseBranch.startsWith('-') ||
+      baseBranch.includes('..')
+    ) {
       throw new Error(`Invalid base branch name: "${baseBranch}"`);
     }
     this.logger.log(`Reading git diff: ${repoPath} (base: ${baseBranch})`);
@@ -105,12 +137,19 @@ export class CodeReaderService {
       if (stagedFiles.length === 0) {
         throw new Error('No diff found');
       }
-      return this.truncateDiff(await git.diff(['--staged', '--', ...stagedFiles]));
+      return this.truncateDiff(
+        await git.diff(['--staged', '--', ...stagedFiles]),
+      );
     }
-    return this.truncateDiff(await git.diff([baseBranch, '--', ...changedFiles]));
+    return this.truncateDiff(
+      await git.diff([baseBranch, '--', ...changedFiles]),
+    );
   }
 
-  private async getFilteredDiffFiles(git: ReturnType<typeof simpleGit>, diffArgs: string[]): Promise<string[]> {
+  private async getFilteredDiffFiles(
+    git: ReturnType<typeof simpleGit>,
+    diffArgs: string[],
+  ): Promise<string[]> {
     const nameOnly = await git.diff([...diffArgs, '--name-only']);
     if (!nameOnly.trim()) return [];
     const files = nameOnly.trim().split('\n');
@@ -124,7 +163,9 @@ export class CodeReaderService {
 
   private truncateDiff(diff: string): string {
     if (diff.length <= MAX_DIFF_SIZE) return diff;
-    this.logger.warn(`Diff size (${(diff.length / 1_048_576).toFixed(1)}MB) exceeds ${MAX_DIFF_SIZE / 1_048_576}MB limit, truncating`);
+    this.logger.warn(
+      `Diff size (${(diff.length / 1_048_576).toFixed(1)}MB) exceeds ${MAX_DIFF_SIZE / 1_048_576}MB limit, truncating`,
+    );
     return diff.slice(0, MAX_DIFF_SIZE) + '\n...(diff truncated due to size)';
   }
 
@@ -150,7 +191,9 @@ export class CodeReaderService {
           return null;
         }
         if (this.isSensitiveFile(real)) {
-          this.logger.warn(`Skipping sensitive file (symlink target): ${filePath}`);
+          this.logger.warn(
+            `Skipping sensitive file (symlink target): ${filePath}`,
+          );
           return null;
         }
         const fileStat = await stat(real);
@@ -177,7 +220,9 @@ export class CodeReaderService {
         if (item) {
           totalSize += item.content.length;
           if (totalSize > MAX_TOTAL_SIZE) {
-            this.logger.warn(`Cumulative size exceeded ${MAX_TOTAL_SIZE / 1_048_576}MB, stopping file reads`);
+            this.logger.warn(
+              `Cumulative size exceeded ${MAX_TOTAL_SIZE / 1_048_576}MB, stopping file reads`,
+            );
             break;
           }
           results.push(item);
@@ -216,9 +261,9 @@ export class CodeReaderService {
       '--exclude-standard',
     ]);
 
-    const allFiles = [...new Set(result
-      .split('\0')
-      .filter((f) => f.length > 0))]
+    const allFiles = [
+      ...new Set(result.split('\0').filter((f) => f.length > 0)),
+    ]
       .filter((f) => extensions.includes(extname(f)))
       .filter((f) => !this.isSensitiveFile(f));
 
@@ -228,21 +273,29 @@ export class CodeReaderService {
 
     const dirReal = await realpath(resolve(directory));
 
-    const readOne = async (relativePath: string): Promise<FileContent | null> => {
+    const readOne = async (
+      relativePath: string,
+    ): Promise<FileContent | null> => {
       const fullPath = join(directory, relativePath);
       try {
         const real = await realpath(fullPath);
         if (!this.isWithinRoot(real, dirReal)) {
-          this.logger.warn(`Skipping symlink pointing outside repo: ${relativePath}`);
+          this.logger.warn(
+            `Skipping symlink pointing outside repo: ${relativePath}`,
+          );
           return null;
         }
         if (this.isSensitiveFile(real)) {
-          this.logger.warn(`Skipping sensitive file (symlink target): ${relativePath}`);
+          this.logger.warn(
+            `Skipping sensitive file (symlink target): ${relativePath}`,
+          );
           return null;
         }
         const fileStat = await stat(real);
         if (fileStat.size > MAX_FILE_SIZE) {
-          this.logger.warn(`Skipping large file (${(fileStat.size / 1024 / 1024).toFixed(1)}MB): ${relativePath}`);
+          this.logger.warn(
+            `Skipping large file (${(fileStat.size / 1024 / 1024).toFixed(1)}MB): ${relativePath}`,
+          );
           return null;
         }
         const content = await readFile(real, 'utf-8');
@@ -263,7 +316,9 @@ export class CodeReaderService {
         if (!item) continue;
         totalSize += item.content.length;
         if (totalSize > MAX_TOTAL_SIZE) {
-          this.logger.warn(`Cumulative size exceeded ${MAX_TOTAL_SIZE / 1_048_576}MB, stopping file reads`);
+          this.logger.warn(
+            `Cumulative size exceeded ${MAX_TOTAL_SIZE / 1_048_576}MB, stopping file reads`,
+          );
           hitSizeLimit = true;
           break;
         }
@@ -295,9 +350,9 @@ export class CodeReaderService {
       '--exclude-standard',
     ]);
 
-    const candidates = [...new Set(result
-      .split('\0')
-      .filter((f) => f.length > 0))]
+    const candidates = [
+      ...new Set(result.split('\0').filter((f) => f.length > 0)),
+    ]
       .filter((f) => extensions.includes(extname(f)))
       .filter((f) => !this.isSensitiveFile(f));
 
@@ -325,7 +380,9 @@ export class CodeReaderService {
       files.push(f);
     }
     if (skippedCount > 0) {
-      this.logger.warn(`Skipped ${skippedCount} file(s) during path validation`);
+      this.logger.warn(
+        `Skipped ${skippedCount} file(s) during path validation`,
+      );
     }
 
     this.logger.log(`Found ${files.length} files matching extensions`);
@@ -337,7 +394,10 @@ export class CodeReaderService {
     return files;
   }
 
-  private createBatches(items: FileContent[], maxBatchSize: number): FileContent[][] {
+  private createBatches(
+    items: FileContent[],
+    maxBatchSize: number,
+  ): FileContent[][] {
     const batches: FileContent[][] = [];
     let currentBatch: FileContent[] = [];
     let currentBatchSize = 0;
@@ -355,7 +415,10 @@ export class CodeReaderService {
         continue;
       }
       // Current batch would overflow — flush and start new batch
-      if (currentBatchSize + fileSize > maxBatchSize && currentBatch.length > 0) {
+      if (
+        currentBatchSize + fileSize > maxBatchSize &&
+        currentBatch.length > 0
+      ) {
         batches.push(currentBatch);
         currentBatch = [];
         currentBatchSize = 0;
@@ -385,5 +448,4 @@ export class CodeReaderService {
       patterns.some((pattern) => pattern.test(segment)),
     );
   }
-
 }

@@ -49,7 +49,9 @@ export class ConfigService {
       return this.loadFromFile(USER_CONFIG_PATH);
     }
     // 5. 內建預設
-    return this.loadFromFile(resolve(PROJECT_ROOT, 'review-council.config.json'));
+    return this.loadFromFile(
+      resolve(PROJECT_ROOT, 'review-council.config.json'),
+    );
   }
 
   private async fileExists(filePath: string): Promise<boolean> {
@@ -75,9 +77,10 @@ export class ConfigService {
     return { parsed, source: filePath };
   }
 
-  private parseConfigJson(
-    configJson: string,
-  ): { parsed: unknown; source: string } {
+  private parseConfigJson(configJson: string): {
+    parsed: unknown;
+    source: string;
+  } {
     let parsed: unknown;
     try {
       parsed = JSON.parse(configJson);
@@ -107,7 +110,11 @@ export class ConfigService {
       }
     }
     const reviewerTimeout = process.env.REVIEWER_TIMEOUT_MS;
-    if (reviewerTimeout && reviewerTimeout.trim() !== '' && Array.isArray(config.reviewers)) {
+    if (
+      reviewerTimeout &&
+      reviewerTimeout.trim() !== '' &&
+      Array.isArray(config.reviewers)
+    ) {
       const parsed = Number(reviewerTimeout.trim());
       if (Number.isInteger(parsed) && parsed > 0) {
         for (const r of config.reviewers) {
@@ -133,73 +140,133 @@ export class ConfigService {
     return this.config;
   }
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- runtime validation on untrusted JSON
   private validateConfig(config: any, filePath: string): void {
     if (!Array.isArray(config.reviewers) || config.reviewers.length === 0) {
-      throw new Error(`Invalid config (${filePath}): "reviewers" must be a non-empty array`);
+      throw new Error(
+        `Invalid config (${filePath}): "reviewers" must be a non-empty array`,
+      );
     }
     const reviewerNames = new Set<string>();
     for (const [i, r] of config.reviewers.entries()) {
       this.validateReviewerConfig(r, `reviewers[${i}]`, filePath);
       if (r.name && reviewerNames.has(r.name)) {
-        throw new Error(`Invalid config (${filePath}): duplicate reviewer name "${r.name}"`);
+        throw new Error(
+          `Invalid config (${filePath}): duplicate reviewer name "${r.name}"`,
+        );
       }
       if (r.name) reviewerNames.add(r.name);
     }
     if (!config.decisionMaker) {
-      throw new Error(`Invalid config (${filePath}): "decisionMaker" is required`);
+      throw new Error(
+        `Invalid config (${filePath}): "decisionMaker" is required`,
+      );
     }
-    this.validateReviewerConfig(config.decisionMaker, 'decisionMaker', filePath);
+    this.validateReviewerConfig(
+      config.decisionMaker,
+      'decisionMaker',
+      filePath,
+    );
     if (!config.review || !Array.isArray(config.review.defaultChecks)) {
-      throw new Error(`Invalid config (${filePath}): "review.defaultChecks" must be an array`);
+      throw new Error(
+        `Invalid config (${filePath}): "review.defaultChecks" must be an array`,
+      );
     }
-    if (!config.review.defaultChecks.every((c: unknown) => typeof c === 'string' && (c as string).trim() !== '')) {
-      throw new Error(`Invalid config (${filePath}): "review.defaultChecks" elements must be non-empty strings`);
+    if (
+      !config.review.defaultChecks.every(
+        (c: unknown) => typeof c === 'string' && c.trim() !== '',
+      )
+    ) {
+      throw new Error(
+        `Invalid config (${filePath}): "review.defaultChecks" elements must be non-empty strings`,
+      );
     }
-    if (typeof config.review.language !== 'string' || config.review.language.trim() === '') {
-      throw new Error(`Invalid config (${filePath}): "review.language" must be a non-empty string`);
+    if (
+      typeof config.review.language !== 'string' ||
+      config.review.language.trim() === ''
+    ) {
+      throw new Error(
+        `Invalid config (${filePath}): "review.language" must be a non-empty string`,
+      );
     }
     const MAX_LENGTH_LIMIT = 500_000;
-    for (const field of ['maxReviewsLength', 'maxCodeLength', 'maxSummaryLength'] as const) {
+    for (const field of [
+      'maxReviewsLength',
+      'maxCodeLength',
+      'maxSummaryLength',
+    ] as const) {
       if (config.review[field] !== undefined) {
-        if (!Number.isInteger(config.review[field]) || config.review[field] <= 0 || config.review[field] > MAX_LENGTH_LIMIT) {
-          throw new Error(`Invalid config (${filePath}): "review.${field}" must be a positive integer up to ${MAX_LENGTH_LIMIT}`);
+        if (
+          !Number.isInteger(config.review[field]) ||
+          config.review[field] <= 0 ||
+          config.review[field] > MAX_LENGTH_LIMIT
+        ) {
+          throw new Error(
+            `Invalid config (${filePath}): "review.${field}" must be a positive integer up to ${MAX_LENGTH_LIMIT}`,
+          );
         }
       }
     }
-    if (config.review.allowLocalExploration !== undefined && typeof config.review.allowLocalExploration !== 'boolean') {
-      throw new Error(`Invalid config (${filePath}): "review.allowLocalExploration" must be a boolean`);
+    if (
+      config.review.allowLocalExploration !== undefined &&
+      typeof config.review.allowLocalExploration !== 'boolean'
+    ) {
+      throw new Error(
+        `Invalid config (${filePath}): "review.allowLocalExploration" must be a boolean`,
+      );
     }
     if (config.review.extensions !== undefined) {
-      if (!Array.isArray(config.review.extensions) || !config.review.extensions.every((e: unknown) => typeof e === 'string')) {
-        throw new Error(`Invalid config (${filePath}): "review.extensions" must be an array of strings`);
+      if (
+        !Array.isArray(config.review.extensions) ||
+        !config.review.extensions.every((e: unknown) => typeof e === 'string')
+      ) {
+        throw new Error(
+          `Invalid config (${filePath}): "review.extensions" must be an array of strings`,
+        );
       }
     }
     if (config.review.sensitivePatterns !== undefined) {
-      if (!Array.isArray(config.review.sensitivePatterns) || !config.review.sensitivePatterns.every((p: unknown) => typeof p === 'string')) {
-        throw new Error(`Invalid config (${filePath}): "review.sensitivePatterns" must be an array of strings`);
+      if (
+        !Array.isArray(config.review.sensitivePatterns) ||
+        !config.review.sensitivePatterns.every(
+          (p: unknown) => typeof p === 'string',
+        )
+      ) {
+        throw new Error(
+          `Invalid config (${filePath}): "review.sensitivePatterns" must be an array of strings`,
+        );
       }
       for (const p of config.review.sensitivePatterns) {
-        try { new RegExp(p); } catch {
-          throw new Error(`Invalid config (${filePath}): "review.sensitivePatterns" contains invalid regex: "${p}"`);
+        try {
+          new RegExp(p);
+        } catch {
+          throw new Error(
+            `Invalid config (${filePath}): "review.sensitivePatterns" contains invalid regex: "${p}"`,
+          );
         }
       }
     }
   }
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- runtime validation on untrusted JSON
   private validateReviewerConfig(r: any, path: string, filePath: string): void {
     if (!r.name || typeof r.name !== 'string') {
-      throw new Error(`Invalid config (${filePath}): "${path}.name" is required`);
+      throw new Error(
+        `Invalid config (${filePath}): "${path}.name" is required`,
+      );
     }
     if (!r.cliPath || typeof r.cliPath !== 'string') {
-      throw new Error(`Invalid config (${filePath}): "${path}.cliPath" is required`);
+      throw new Error(
+        `Invalid config (${filePath}): "${path}.cliPath" is required`,
+      );
     }
     if (!Array.isArray(r.cliArgs)) {
-      throw new Error(`Invalid config (${filePath}): "${path}.cliArgs" must be an array`);
+      throw new Error(
+        `Invalid config (${filePath}): "${path}.cliArgs" must be an array`,
+      );
     }
     if (!r.cliArgs.every((a: unknown) => typeof a === 'string')) {
-      throw new Error(`Invalid config (${filePath}): "${path}.cliArgs" elements must be strings`);
+      throw new Error(
+        `Invalid config (${filePath}): "${path}.cliArgs" elements must be strings`,
+      );
     }
     // Whitelist: only allow simple command names (letters, digits, dots, hyphens, underscores)
     const CLI_PATH_PATTERN = /^[A-Za-z0-9._-]+$/;
@@ -207,21 +274,38 @@ export class ConfigService {
     if (!CLI_PATH_PATTERN.test(trimmed) || trimmed.startsWith('-')) {
       throw new Error(
         `Invalid config (${filePath}): "${path}.cliPath" value "${r.cliPath}" is not a valid command name. ` +
-        `Only simple command names resolvable via PATH are allowed (e.g. "gemini", "copilot", "codex-acp", "claude-code-acp").`,
+          `Only simple command names resolvable via PATH are allowed (e.g. "gemini", "copilot", "codex-acp", "claude-code-acp").`,
       );
     }
     r.cliPath = trimmed;
+    if (r.protocol !== undefined) {
+      if (r.protocol !== 'acp' && r.protocol !== 'copilot') {
+        throw new Error(
+          `Invalid config (${filePath}): "${path}.protocol" must be "acp" or "copilot" if provided`,
+        );
+      }
+    }
     if (r.model !== undefined && typeof r.model !== 'string') {
-      throw new Error(`Invalid config (${filePath}): "${path}.model" must be a string if provided`);
+      throw new Error(
+        `Invalid config (${filePath}): "${path}.model" must be a string if provided`,
+      );
     }
     if (r.timeoutMs !== undefined) {
       if (!Number.isInteger(r.timeoutMs) || r.timeoutMs <= 0) {
-        throw new Error(`Invalid config (${filePath}): "${path}.timeoutMs" must be a positive integer`);
+        throw new Error(
+          `Invalid config (${filePath}): "${path}.timeoutMs" must be a positive integer`,
+        );
       }
     }
     if (r.maxRetries !== undefined) {
-      if (!Number.isInteger(r.maxRetries) || r.maxRetries < 0 || r.maxRetries > 5) {
-        throw new Error(`Invalid config (${filePath}): "${path}.maxRetries" must be an integer between 0 and 5`);
+      if (
+        !Number.isInteger(r.maxRetries) ||
+        r.maxRetries < 0 ||
+        r.maxRetries > 5
+      ) {
+        throw new Error(
+          `Invalid config (${filePath}): "${path}.maxRetries" must be an integer between 0 and 5`,
+        );
       }
     }
   }

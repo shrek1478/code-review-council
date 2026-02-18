@@ -2,6 +2,7 @@ export interface ReviewerConfig {
   name: string;
   cliPath: string;
   cliArgs: string[];
+  protocol?: 'acp' | 'copilot';
   model?: string;
   timeoutMs?: number;
   maxRetries?: number;

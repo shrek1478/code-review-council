@@ -23,7 +23,9 @@ class CliLogger extends ConsoleLogger {
 // Formula: Node.js default (10) + max concurrent clients (reviewers + decision maker) * listeners per client.
 const BASE_LISTENERS = 10;
 const LISTENERS_PER_CLIENT = 4;
-process.setMaxListeners(BASE_LISTENERS + (MAX_REVIEWER_CONCURRENCY + 1) * LISTENERS_PER_CLIENT);
+process.setMaxListeners(
+  BASE_LISTENERS + (MAX_REVIEWER_CONCURRENCY + 1) * LISTENERS_PER_CLIENT,
+);
 
 async function bootstrap() {
   await CommandFactory.run(CliModule, { logger: new CliLogger() });

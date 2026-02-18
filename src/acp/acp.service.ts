@@ -1,4 +1,9 @@
-import { Inject, Injectable, ConsoleLogger, OnModuleDestroy } from '@nestjs/common';
+import {
+  Inject,
+  Injectable,
+  ConsoleLogger,
+  OnModuleDestroy,
+} from '@nestjs/common';
 import { CopilotClient } from '@shrek1478/copilot-sdk-with-acp';
 import { ReviewerConfig } from '../config/config.types.js';
 
@@ -27,7 +32,11 @@ interface CopilotClientWithSession {
 }
 
 interface AcpUsageEvent extends AcpEvent {
-  data?: AcpEvent['data'] & { model?: string; inputTokens?: number; outputTokens?: number };
+  data?: AcpEvent['data'] & {
+    model?: string;
+    inputTokens?: number;
+    outputTokens?: number;
+  };
   model?: string;
   inputTokens?: number;
   outputTokens?: number;
@@ -54,10 +63,18 @@ export class AcpService implements OnModuleDestroy {
 
   private maskSensitiveArgs(args: string[]): string[] {
     const sensitiveFlags = new Set([
-      '--api-key', '--token', '--secret', '--password',
-      '--auth', '--bearer-token', '--client-secret',
-      '--access-token', '--refresh-token', '--credentials',
-      '-k', '-p',
+      '--api-key',
+      '--token',
+      '--secret',
+      '--password',
+      '--auth',
+      '--bearer-token',
+      '--client-secret',
+      '--access-token',
+      '--refresh-token',
+      '--credentials',
+      '-k',
+      '-p',
     ]);
     return args.map((arg, i) => {
       if (i > 0 && sensitiveFlags.has(args[i - 1])) return '[REDACTED]';
@@ -85,7 +102,8 @@ export class AcpService implements OnModuleDestroy {
   private looksLikeSecret(value: string): boolean {
     if (value.length < 8) return false;
     // Common secret prefixes
-    if (/^(sk-|ghp_|gho_|ghu_|ghs_|ghr_|glpat-|xox[bsrap]-)/i.test(value)) return true;
+    if (/^(sk-|ghp_|gho_|ghu_|ghs_|ghr_|glpat-|xox[bsrap]-)/i.test(value))
+      return true;
     // Base64-like long strings (32+ chars, alphanumeric with +/= padding)
     if (value.length >= 32 && /^[A-Za-z0-9+/=_-]+$/.test(value)) return true;
     return false;
@@ -98,27 +116,42 @@ export class AcpService implements OnModuleDestroy {
     const modelInfo = config.model ? ` [model: ${config.model}]` : '';
     const maskedArgs = this.maskSensitiveArgs(config.cliArgs);
     const argsInfo = maskedArgs.length > 0 ? ` ${maskedArgs.join(' ')}` : '';
-    this.logger.log(`Creating ACP client: ${config.name} (${config.cliPath}${argsInfo})${modelInfo}`);
+    this.logger.log(
+      `Creating ACP client: ${config.name} (${config.cliPath}${argsInfo})${modelInfo}`,
+    );
     const client = new CopilotClient({
       cliPath: config.cliPath,
       cliArgs: config.cliArgs,
-      protocol: 'acp',
+      protocol: config.protocol ?? 'acp',
     } as ConstructorParameters<typeof CopilotClient>[0]);
     await client.start();
-    const handle: AcpClientHandle = { name: config.name, client, model: config.model };
+    const handle: AcpClientHandle = {
+      name: config.name,
+      client,
+      model: config.model,
+    };
     this.clients.add(handle);
     return handle;
   }
 
-  private asSessionClient(client: CopilotClient, name: string): CopilotClientWithSession {
+  private asSessionClient(
+    client: CopilotClient,
+    name: string,
+  ): CopilotClientWithSession {
     const c = client as unknown as CopilotClientWithSession;
     if (typeof c.createSession !== 'function') {
-      throw new Error(`SDK incompatible: ${name} client has no createSession method`);
+      throw new Error(
+        `SDK incompatible: ${name} client has no createSession method`,
+      );
     }
     return c;
   }
 
-  async sendPrompt(handle: AcpClientHandle, prompt: string, timeoutMs = 180_000): Promise<string> {
+  async sendPrompt(
+    handle: AcpClientHandle,
+    prompt: string,
+    timeoutMs = 180_000,
+  ): Promise<string> {
     this.logger.log(`[SEND] ${handle.name} reviewing...`);
 
     const sessionOpts: AcpSessionOptions = { streaming: true };
@@ -145,7 +178,9 @@ export class AcpService implements OnModuleDestroy {
             const input = event.data?.inputTokens ?? event.inputTokens;
             const output = event.data?.outputTokens ?? event.outputTokens;
             if (model) {
-              this.logger.log(`[MODEL] ${handle.name} model: ${model} (in: ${input ?? '?'}, out: ${output ?? '?'})`);
+              this.logger.log(
+                `[MODEL] ${handle.name} model: ${model} (in: ${input ?? '?'}, out: ${output ?? '?'})`,
+              );
             }
           }
 
@@ -191,7 +226,9 @@ export class AcpService implements OnModuleDestroy {
       try {
         await session.destroy();
       } catch (error) {
-        this.logger.warn(`Failed to destroy session for ${handle.name}: ${this.sanitizeErrorMessage(error)}`);
+        this.logger.warn(
+          `Failed to destroy session for ${handle.name}: ${this.sanitizeErrorMessage(error)}`,
+        );
       }
     }
   }
@@ -200,7 +237,9 @@ export class AcpService implements OnModuleDestroy {
     try {
       await handle.client.stop();
     } catch (error) {
-      this.logger.warn(`Failed to stop client ${handle.name}: ${this.sanitizeErrorMessage(error)}`);
+      this.logger.warn(
+        `Failed to stop client ${handle.name}: ${this.sanitizeErrorMessage(error)}`,
+      );
     }
     this.clients.delete(handle);
   }
@@ -218,7 +257,9 @@ export class AcpService implements OnModuleDestroy {
         try {
           await handle.client.stop();
         } catch (error) {
-          this.logger.warn(`Failed to stop client ${handle.name}: ${this.sanitizeErrorMessage(error)}`);
+          this.logger.warn(
+            `Failed to stop client ${handle.name}: ${this.sanitizeErrorMessage(error)}`,
+          );
         }
       }),
     );

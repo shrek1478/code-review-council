@@ -20,18 +20,18 @@ export class FileCommand extends CommandRunner {
 
     await this.configService.loadConfig(options.config);
 
-    const checks = options.checks?.split(',').map((s) => s.trim()).filter(Boolean) ?? [];
+    const checks =
+      options.checks
+        ?.split(',')
+        .map((s) => s.trim())
+        .filter(Boolean) ?? [];
     const extra = options.extra;
 
     console.log('\n=== Code Review Council ===\n');
     console.log(`Files: ${params.join(', ')}`);
     console.log('Reviewing...\n');
 
-    const result = await this.reviewService.reviewFiles(
-      params,
-      checks,
-      extra,
-    );
+    const result = await this.reviewService.reviewFiles(params, checks, extra);
 
     printResult(result);
   }

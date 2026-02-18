@@ -41,7 +41,9 @@ describe('ConfigService', () => {
   });
 
   it('should throw when getConfig() called before loadConfig()', () => {
-    expect(() => service.getConfig()).toThrow('Config not loaded. Call loadConfig() first.');
+    expect(() => service.getConfig()).toThrow(
+      'Config not loaded. Call loadConfig() first.',
+    );
   });
 
   it('should return config after loadConfig()', async () => {
@@ -63,11 +65,14 @@ describe('ConfigService', () => {
 
   it('should throw on config with invalid reviewer (missing cliPath)', async () => {
     const tmpPath = join(process.cwd(), '__test_bad_reviewer__.json');
-    await writeFile(tmpPath, JSON.stringify({
-      reviewers: [{ name: 'Test' }],
-      decisionMaker: { name: 'DM', cliPath: 'dm', cliArgs: [] },
-      review: { defaultChecks: ['code-quality'], language: 'en' },
-    }));
+    await writeFile(
+      tmpPath,
+      JSON.stringify({
+        reviewers: [{ name: 'Test' }],
+        decisionMaker: { name: 'DM', cliPath: 'dm', cliArgs: [] },
+        review: { defaultChecks: ['code-quality'], language: 'en' },
+      }),
+    );
     try {
       await expect(service.loadConfig(tmpPath)).rejects.toThrow('cliPath');
     } finally {
@@ -195,7 +200,11 @@ describe('ConfigService', () => {
       process.env.CONFIG_JSON = JSON.stringify({
         reviewers: [{ name: 'Test', cliPath: 'echo', cliArgs: [] }],
         decisionMaker: { name: 'DM', cliPath: 'echo', cliArgs: [] },
-        review: { defaultChecks: ['code-quality'], language: 'en', allowLocalExploration: true },
+        review: {
+          defaultChecks: ['code-quality'],
+          language: 'en',
+          allowLocalExploration: true,
+        },
       });
       process.env.REVIEWER_EXPLORE_LOCAL = '';
       const config = await service.loadConfig();
@@ -206,7 +215,11 @@ describe('ConfigService', () => {
       process.env.CONFIG_JSON = JSON.stringify({
         reviewers: [{ name: 'Test', cliPath: 'echo', cliArgs: [] }],
         decisionMaker: { name: 'DM', cliPath: 'echo', cliArgs: [] },
-        review: { defaultChecks: ['code-quality'], language: 'en', allowLocalExploration: false },
+        review: {
+          defaultChecks: ['code-quality'],
+          language: 'en',
+          allowLocalExploration: false,
+        },
       });
       process.env.REVIEWER_EXPLORE_LOCAL = '';
       const config = await service.loadConfig();
@@ -217,11 +230,16 @@ describe('ConfigService', () => {
   describe('new field validation', () => {
     it('should reject negative timeoutMs', async () => {
       const tmpPath = join(process.cwd(), '__test_bad_timeout__.json');
-      await writeFile(tmpPath, JSON.stringify({
-        reviewers: [{ name: 'Test', cliPath: 'echo', cliArgs: [], timeoutMs: -1 }],
-        decisionMaker: { name: 'DM', cliPath: 'echo', cliArgs: [] },
-        review: { defaultChecks: ['code-quality'], language: 'en' },
-      }));
+      await writeFile(
+        tmpPath,
+        JSON.stringify({
+          reviewers: [
+            { name: 'Test', cliPath: 'echo', cliArgs: [], timeoutMs: -1 },
+          ],
+          decisionMaker: { name: 'DM', cliPath: 'echo', cliArgs: [] },
+          review: { defaultChecks: ['code-quality'], language: 'en' },
+        }),
+      );
       try {
         await expect(service.loadConfig(tmpPath)).rejects.toThrow('timeoutMs');
       } finally {
@@ -231,11 +249,16 @@ describe('ConfigService', () => {
 
     it('should reject maxRetries > 5', async () => {
       const tmpPath = join(process.cwd(), '__test_bad_retries__.json');
-      await writeFile(tmpPath, JSON.stringify({
-        reviewers: [{ name: 'Test', cliPath: 'echo', cliArgs: [], maxRetries: 6 }],
-        decisionMaker: { name: 'DM', cliPath: 'echo', cliArgs: [] },
-        review: { defaultChecks: ['code-quality'], language: 'en' },
-      }));
+      await writeFile(
+        tmpPath,
+        JSON.stringify({
+          reviewers: [
+            { name: 'Test', cliPath: 'echo', cliArgs: [], maxRetries: 6 },
+          ],
+          decisionMaker: { name: 'DM', cliPath: 'echo', cliArgs: [] },
+          review: { defaultChecks: ['code-quality'], language: 'en' },
+        }),
+      );
       try {
         await expect(service.loadConfig(tmpPath)).rejects.toThrow('maxRetries');
       } finally {
@@ -249,7 +272,9 @@ describe('ConfigService', () => {
         decisionMaker: { name: 'DM', cliPath: 'echo', cliArgs: [] },
         review: { defaultChecks: ['code-quality'], language: 'en' },
       });
-      await expect(service.loadConfig()).rejects.toThrow('is not a valid command name');
+      await expect(service.loadConfig()).rejects.toThrow(
+        'is not a valid command name',
+      );
     });
 
     it('should reject cliPath containing forward slash', async () => {
@@ -258,7 +283,9 @@ describe('ConfigService', () => {
         decisionMaker: { name: 'DM', cliPath: 'echo', cliArgs: [] },
         review: { defaultChecks: ['code-quality'], language: 'en' },
       });
-      await expect(service.loadConfig()).rejects.toThrow('is not a valid command name');
+      await expect(service.loadConfig()).rejects.toThrow(
+        'is not a valid command name',
+      );
     });
 
     it('should reject cliPath containing backslash', async () => {
@@ -267,17 +294,27 @@ describe('ConfigService', () => {
         decisionMaker: { name: 'DM', cliPath: 'echo', cliArgs: [] },
         review: { defaultChecks: ['code-quality'], language: 'en' },
       });
-      await expect(service.loadConfig()).rejects.toThrow('is not a valid command name');
+      await expect(service.loadConfig()).rejects.toThrow(
+        'is not a valid command name',
+      );
     });
 
     it('should reject cliPath containing shell special characters', async () => {
-      for (const bad of ['cmd;evil', 'cmd&evil', 'cmd|evil', 'cmd$evil', 'cmd`evil`']) {
+      for (const bad of [
+        'cmd;evil',
+        'cmd&evil',
+        'cmd|evil',
+        'cmd$evil',
+        'cmd`evil`',
+      ]) {
         process.env.CONFIG_JSON = JSON.stringify({
           reviewers: [{ name: 'Evil', cliPath: bad, cliArgs: [] }],
           decisionMaker: { name: 'DM', cliPath: 'echo', cliArgs: [] },
           review: { defaultChecks: ['code-quality'], language: 'en' },
         });
-        await expect(service.loadConfig()).rejects.toThrow('is not a valid command name');
+        await expect(service.loadConfig()).rejects.toThrow(
+          'is not a valid command name',
+        );
       }
     });
 
@@ -287,16 +324,90 @@ describe('ConfigService', () => {
         decisionMaker: { name: 'DM', cliPath: 'echo', cliArgs: [] },
         review: { defaultChecks: ['code-quality'], language: 'en' },
       });
-      await expect(service.loadConfig()).rejects.toThrow('is not a valid command name');
+      await expect(service.loadConfig()).rejects.toThrow(
+        'is not a valid command name',
+      );
+    });
+
+    it('should accept protocol "acp"', async () => {
+      process.env.CONFIG_JSON = JSON.stringify({
+        reviewers: [
+          { name: 'Test', cliPath: 'echo', cliArgs: [], protocol: 'acp' },
+        ],
+        decisionMaker: { name: 'DM', cliPath: 'echo', cliArgs: [] },
+        review: { defaultChecks: ['code-quality'], language: 'en' },
+      });
+      const config = await service.loadConfig();
+      expect(config.reviewers[0].protocol).toBe('acp');
+    });
+
+    it('should accept protocol "copilot"', async () => {
+      process.env.CONFIG_JSON = JSON.stringify({
+        reviewers: [
+          { name: 'Copilot', cliPath: 'copilot', cliArgs: [], protocol: 'copilot' },
+        ],
+        decisionMaker: { name: 'DM', cliPath: 'echo', cliArgs: [] },
+        review: { defaultChecks: ['code-quality'], language: 'en' },
+      });
+      const config = await service.loadConfig();
+      expect(config.reviewers[0].protocol).toBe('copilot');
+    });
+
+    it('should accept missing protocol (defaults to undefined)', async () => {
+      process.env.CONFIG_JSON = JSON.stringify({
+        reviewers: [
+          { name: 'Test', cliPath: 'echo', cliArgs: [] },
+        ],
+        decisionMaker: { name: 'DM', cliPath: 'echo', cliArgs: [] },
+        review: { defaultChecks: ['code-quality'], language: 'en' },
+      });
+      const config = await service.loadConfig();
+      expect(config.reviewers[0].protocol).toBeUndefined();
+    });
+
+    it('should reject invalid protocol value', async () => {
+      process.env.CONFIG_JSON = JSON.stringify({
+        reviewers: [
+          { name: 'Test', cliPath: 'echo', cliArgs: [], protocol: 'invalid' },
+        ],
+        decisionMaker: { name: 'DM', cliPath: 'echo', cliArgs: [] },
+        review: { defaultChecks: ['code-quality'], language: 'en' },
+      });
+      await expect(service.loadConfig()).rejects.toThrow(
+        'protocol" must be "acp" or "copilot"',
+      );
     });
 
     it('should accept valid timeoutMs and maxRetries', async () => {
       const tmpPath = join(process.cwd(), '__test_valid_new_fields__.json');
-      await writeFile(tmpPath, JSON.stringify({
-        reviewers: [{ name: 'Test', cliPath: 'echo', cliArgs: [], timeoutMs: 300000, maxRetries: 2 }],
-        decisionMaker: { name: 'DM', cliPath: 'echo', cliArgs: [], timeoutMs: 600000, maxRetries: 1 },
-        review: { defaultChecks: ['code-quality'], language: 'en', maxReviewsLength: 60000, maxCodeLength: 100000, maxSummaryLength: 60000 },
-      }));
+      await writeFile(
+        tmpPath,
+        JSON.stringify({
+          reviewers: [
+            {
+              name: 'Test',
+              cliPath: 'echo',
+              cliArgs: [],
+              timeoutMs: 300000,
+              maxRetries: 2,
+            },
+          ],
+          decisionMaker: {
+            name: 'DM',
+            cliPath: 'echo',
+            cliArgs: [],
+            timeoutMs: 600000,
+            maxRetries: 1,
+          },
+          review: {
+            defaultChecks: ['code-quality'],
+            language: 'en',
+            maxReviewsLength: 60000,
+            maxCodeLength: 100000,
+            maxSummaryLength: 60000,
+          },
+        }),
+      );
       try {
         const config = await service.loadConfig(tmpPath);
         expect(config.reviewers[0].timeoutMs).toBe(300000);

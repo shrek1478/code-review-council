@@ -12,7 +12,10 @@ describe('CodeReaderService', () => {
 
   beforeEach(async () => {
     const module = await Test.createTestingModule({
-      providers: [CodeReaderService, { provide: ConsoleLogger, useValue: new ConsoleLogger() }],
+      providers: [
+        CodeReaderService,
+        { provide: ConsoleLogger, useValue: new ConsoleLogger() },
+      ],
     }).compile();
     service = module.get(CodeReaderService);
   });
@@ -51,9 +54,9 @@ describe('CodeReaderService', () => {
     });
 
     it('should reject branch names starting with dash', async () => {
-      await expect(
-        service.readGitDiff(tmpDir, '--staged'),
-      ).rejects.toThrow('Invalid base branch name');
+      await expect(service.readGitDiff(tmpDir, '--staged')).rejects.toThrow(
+        'Invalid base branch name',
+      );
     });
   });
 
@@ -81,7 +84,10 @@ describe('CodeReaderService', () => {
       await git.addConfig('user.name', 'Test');
       await mkdir(join(tmpDir, 'src'), { recursive: true });
       await writeFile(join(tmpDir, 'src', 'app.ts'), 'const app = 1;\n');
-      await writeFile(join(tmpDir, 'src', 'main.ts'), 'const main = 2;\nexport default main;\n');
+      await writeFile(
+        join(tmpDir, 'src', 'main.ts'),
+        'const main = 2;\nexport default main;\n',
+      );
       await writeFile(join(tmpDir, 'package.json'), '{"name": "test"}\n');
       await git.add('.');
       await git.commit('initial');
@@ -117,9 +123,7 @@ describe('CodeReaderService', () => {
     });
 
     it('should throw on invalid directory', async () => {
-      await expect(
-        service.readCodebase('/nonexistent/path'),
-      ).rejects.toThrow();
+      await expect(service.readCodebase('/nonexistent/path')).rejects.toThrow();
     });
   });
 

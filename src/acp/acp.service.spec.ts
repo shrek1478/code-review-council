@@ -60,8 +60,16 @@ describe('AcpService', () => {
   });
 
   it('should track and stop all created clients', async () => {
-    const h1 = await service.createClient({ name: 'R1', cliPath: 'cli1', cliArgs: [] });
-    const h2 = await service.createClient({ name: 'R2', cliPath: 'cli2', cliArgs: [] });
+    const h1 = await service.createClient({
+      name: 'R1',
+      cliPath: 'cli1',
+      cliArgs: [],
+    });
+    const h2 = await service.createClient({
+      name: 'R2',
+      cliPath: 'cli2',
+      cliArgs: [],
+    });
 
     await service.stopAll();
 
@@ -80,7 +88,10 @@ describe('AcpService', () => {
     const mockSession = {
       on: vi.fn((callback: (event: any) => void) => {
         setTimeout(() => {
-          callback({ type: 'assistant.message', data: { content: 'Review result' } });
+          callback({
+            type: 'assistant.message',
+            data: { content: 'Review result' },
+          });
           callback({ type: 'session.idle', data: {} });
         }, 0);
       }),
@@ -88,7 +99,9 @@ describe('AcpService', () => {
       destroy: vi.fn().mockResolvedValue(undefined),
     };
 
-    (handle.client as any).createSession = vi.fn().mockResolvedValue(mockSession);
+    (handle.client as any).createSession = vi
+      .fn()
+      .mockResolvedValue(mockSession);
 
     const result = await service.sendPrompt(handle, 'Review this code');
 
@@ -111,10 +124,19 @@ describe('AcpService', () => {
       on: vi.fn((callback: (event: any) => void) => {
         setTimeout(() => {
           // Simulate streaming deltas
-          callback({ type: 'assistant.message_delta', data: { deltaContent: 'Hello ' } });
-          callback({ type: 'assistant.message_delta', data: { deltaContent: 'World' } });
+          callback({
+            type: 'assistant.message_delta',
+            data: { deltaContent: 'Hello ' },
+          });
+          callback({
+            type: 'assistant.message_delta',
+            data: { deltaContent: 'World' },
+          });
           // assistant.message arrives after deltas — should NOT overwrite
-          callback({ type: 'assistant.message', data: { content: 'Stale content' } });
+          callback({
+            type: 'assistant.message',
+            data: { content: 'Stale content' },
+          });
           callback({ type: 'session.idle', data: {} });
         }, 0);
       }),
@@ -122,7 +144,9 @@ describe('AcpService', () => {
       destroy: vi.fn().mockResolvedValue(undefined),
     };
 
-    (handle.client as any).createSession = vi.fn().mockResolvedValue(mockSession);
+    (handle.client as any).createSession = vi
+      .fn()
+      .mockResolvedValue(mockSession);
 
     const result = await service.sendPrompt(handle, 'Review this');
     expect(result).toBe('Hello World');
@@ -138,7 +162,10 @@ describe('AcpService', () => {
     const mockSession = {
       on: vi.fn((callback: (event: any) => void) => {
         setTimeout(() => {
-          callback({ type: 'assistant.message', data: { content: 'Full message' } });
+          callback({
+            type: 'assistant.message',
+            data: { content: 'Full message' },
+          });
           callback({ type: 'session.idle', data: {} });
         }, 0);
       }),
@@ -146,16 +173,53 @@ describe('AcpService', () => {
       destroy: vi.fn().mockResolvedValue(undefined),
     };
 
-    (handle.client as any).createSession = vi.fn().mockResolvedValue(mockSession);
+    (handle.client as any).createSession = vi
+      .fn()
+      .mockResolvedValue(mockSession);
 
     const result = await service.sendPrompt(handle, 'Review this');
     expect(result).toBe('Full message');
   });
 
   it('should call stopAll on module destroy', async () => {
-    const h1 = await service.createClient({ name: 'R1', cliPath: 'cli1', cliArgs: [] });
+    const h1 = await service.createClient({
+      name: 'R1',
+      cliPath: 'cli1',
+      cliArgs: [],
+    });
     await service.onModuleDestroy();
     expect(h1.client.stop).toHaveBeenCalled();
+  });
+
+  it('should pass protocol from config to CopilotClient', async () => {
+    const { CopilotClient } = await import(
+      '@shrek1478/copilot-sdk-with-acp'
+    );
+    const handle = await service.createClient({
+      name: 'CopilotNative',
+      cliPath: 'copilot',
+      cliArgs: [],
+      protocol: 'copilot',
+      model: 'gpt-5-mini',
+    });
+    expect(handle).toBeDefined();
+    expect(CopilotClient).toHaveBeenCalledWith(
+      expect.objectContaining({ protocol: 'copilot' }),
+    );
+  });
+
+  it('should default protocol to acp when not specified', async () => {
+    const { CopilotClient } = await import(
+      '@shrek1478/copilot-sdk-with-acp'
+    );
+    await service.createClient({
+      name: 'DefaultProtocol',
+      cliPath: 'some-cli',
+      cliArgs: [],
+    });
+    expect(CopilotClient).toHaveBeenCalledWith(
+      expect.objectContaining({ protocol: 'acp' }),
+    );
   });
 
   it('should reject createClient after stopAll', async () => {
@@ -178,7 +242,9 @@ describe('AcpService', () => {
       destroy: vi.fn().mockResolvedValue(undefined),
     };
 
-    (handle.client as any).createSession = vi.fn().mockResolvedValue(mockSession);
+    (handle.client as any).createSession = vi
+      .fn()
+      .mockResolvedValue(mockSession);
 
     await expect(
       service.sendPrompt(handle, 'Review this code', 100),

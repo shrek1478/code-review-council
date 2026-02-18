@@ -13,11 +13,15 @@ describe('ReviewService', () => {
 
   const mockCodeReader = {
     readGitDiff: vi.fn().mockResolvedValue('diff --git a/test.ts'),
-    readFiles: vi.fn().mockResolvedValue([{ path: 'test.ts', content: 'const x = 1;' }]),
-    readCodebase: vi.fn().mockResolvedValue([[
-      { path: 'src/app.ts', content: 'const app = 1;' },
-      { path: 'src/main.ts', content: 'const main = 2;' },
-    ]]),
+    readFiles: vi
+      .fn()
+      .mockResolvedValue([{ path: 'test.ts', content: 'const x = 1;' }]),
+    readCodebase: vi.fn().mockResolvedValue([
+      [
+        { path: 'src/app.ts', content: 'const app = 1;' },
+        { path: 'src/main.ts', content: 'const main = 2;' },
+      ],
+    ]),
     listCodebaseFiles: vi.fn().mockResolvedValue(['src/app.ts', 'src/main.ts']),
     isSensitiveFile: vi.fn().mockReturnValue(false),
   };
@@ -44,12 +48,19 @@ describe('ReviewService', () => {
   beforeEach(async () => {
     vi.clearAllMocks();
     mockCodeReader.readGitDiff.mockResolvedValue('diff --git a/test.ts');
-    mockCodeReader.readFiles.mockResolvedValue([{ path: 'test.ts', content: 'const x = 1;' }]);
-    mockCodeReader.readCodebase.mockResolvedValue([[
-      { path: 'src/app.ts', content: 'const app = 1;' },
-      { path: 'src/main.ts', content: 'const main = 2;' },
-    ]]);
-    mockCodeReader.listCodebaseFiles.mockResolvedValue(['src/app.ts', 'src/main.ts']);
+    mockCodeReader.readFiles.mockResolvedValue([
+      { path: 'test.ts', content: 'const x = 1;' },
+    ]);
+    mockCodeReader.readCodebase.mockResolvedValue([
+      [
+        { path: 'src/app.ts', content: 'const app = 1;' },
+        { path: 'src/main.ts', content: 'const main = 2;' },
+      ],
+    ]);
+    mockCodeReader.listCodebaseFiles.mockResolvedValue([
+      'src/app.ts',
+      'src/main.ts',
+    ]);
     mockCouncil.dispatchReviews.mockResolvedValue([
       { reviewer: 'Gemini', review: 'Looks good' },
       { reviewer: 'Codex', review: 'LGTM' },
@@ -81,13 +92,14 @@ describe('ReviewService', () => {
     expect(result.status).toBe('completed');
     expect(result.individualReviews.length).toBe(2);
     expect(result.decision).toBeDefined();
-    expect(mockCodeReader.readGitDiff).toHaveBeenCalledWith('/tmp/repo', 'main');
+    expect(mockCodeReader.readGitDiff).toHaveBeenCalledWith(
+      '/tmp/repo',
+      'main',
+    );
     // Decision maker receives both code and reviews
     expect(mockDecisionMaker.decide).toHaveBeenCalledWith(
       'diff --git a/test.ts',
-      expect.arrayContaining([
-        expect.objectContaining({ reviewer: 'Gemini' }),
-      ]),
+      expect.arrayContaining([expect.objectContaining({ reviewer: 'Gemini' })]),
     );
   });
 
@@ -104,7 +116,10 @@ describe('ReviewService', () => {
       expect(result.status).toBe('completed');
       expect(result.individualReviews.length).toBe(2);
       expect(result.decision).toBeDefined();
-      expect(mockCodeReader.readCodebase).toHaveBeenCalledWith('/tmp/project', {});
+      expect(mockCodeReader.readCodebase).toHaveBeenCalledWith(
+        '/tmp/project',
+        {},
+      );
       expect(mockCouncil.dispatchReviews).toHaveBeenCalledTimes(1);
     });
 
@@ -129,8 +144,12 @@ describe('ReviewService', () => {
     });
 
     it('should throw when no files found', async () => {
-      mockCodeReader.readCodebase.mockRejectedValue(new Error('No files found in codebase'));
-      await expect(service.reviewCodebase('/tmp/empty')).rejects.toThrow('No files found in codebase');
+      mockCodeReader.readCodebase.mockRejectedValue(
+        new Error('No files found in codebase'),
+      );
+      await expect(service.reviewCodebase('/tmp/empty')).rejects.toThrow(
+        'No files found in codebase',
+      );
     });
   });
 
@@ -144,7 +163,10 @@ describe('ReviewService', () => {
     it('reviewDiff should still send diff but include repoPath', async () => {
       const result = await service.reviewDiff('/tmp/repo', 'main');
       expect(result.status).toBe('completed');
-      expect(mockCodeReader.readGitDiff).toHaveBeenCalledWith('/tmp/repo', 'main');
+      expect(mockCodeReader.readGitDiff).toHaveBeenCalledWith(
+        '/tmp/repo',
+        'main',
+      );
 
       // Should pass repoPath to council
       const dispatchCall = mockCouncil.dispatchReviews.mock.calls[0][0];
@@ -179,7 +201,10 @@ describe('ReviewService', () => {
       const result = await service.reviewCodebase('/tmp/project');
       expect(result.status).toBe('completed');
       // Should call listCodebaseFiles, NOT readCodebase
-      expect(mockCodeReader.listCodebaseFiles).toHaveBeenCalledWith('/tmp/project', {});
+      expect(mockCodeReader.listCodebaseFiles).toHaveBeenCalledWith(
+        '/tmp/project',
+        {},
+      );
       expect(mockCodeReader.readCodebase).not.toHaveBeenCalled();
 
       // Should send filePaths and repoPath

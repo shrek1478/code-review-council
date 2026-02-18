@@ -5,8 +5,9 @@ import {
 } from '../review/review.types.js';
 
 // CSI sequences: ESC [ ... final_byte
-// eslint-disable-next-line no-control-regex
-const CSI_REGEX = /[\u001b\u009b][[()#;?]*(?:\d{1,4}(?:;\d{0,4})*)?[\d<=>A-ORZcf-nqry]/g;
+
+const CSI_REGEX =
+  /[\u001b\u009b][[()#;?]*(?:\d{1,4}(?:;\d{0,4})*)?[\d<=>A-ORZcf-nqry]/g;
 // OSC sequences: ESC ] ... (BEL | ESC \)
 const OSC_REGEX = /\u001b\][\s\S]*?(?:\u0007|\u001b\\)/g;
 // DCS, PM, APC sequences: ESC (P|^|_) ... ESC \
@@ -34,7 +35,9 @@ export function getVerdictIcon(verdict: ReviewDecisionItem['verdict']): string {
 
 function printDecisionItem(d: ReviewDecisionItem): void {
   const icon = getVerdictIcon(d.verdict);
-  console.log(`  ${icon} [${sanitizeLine(d.severity)}] ${sanitizeLine(d.category)}: ${sanitize(d.description)}`);
+  console.log(
+    `  ${icon} [${sanitizeLine(d.severity)}] ${sanitizeLine(d.category)}: ${sanitize(d.description)}`,
+  );
   if (d.reasoning) console.log(`    Reasoning: ${sanitize(d.reasoning)}`);
   if (d.suggestion) console.log(`    Action: ${sanitize(d.suggestion)}`);
   if (d.raisedBy?.length > 0) {
@@ -43,7 +46,9 @@ function printDecisionItem(d: ReviewDecisionItem): void {
 }
 
 function printDecision(decision: ReviewDecision): void {
-  console.log(`\n=== Final Decision (by ${sanitizeLine(decision.reviewer)}) ===\n`);
+  console.log(
+    `\n=== Final Decision (by ${sanitizeLine(decision.reviewer)}) ===\n`,
+  );
   console.log(sanitize(decision.overallAssessment));
   if (decision.decisions.length > 0) {
     console.log('\nDecisions:');
@@ -54,7 +59,9 @@ function printDecision(decision: ReviewDecision): void {
   if (decision.additionalFindings.length > 0) {
     console.log('\nAdditional Findings (by Decision Maker):');
     for (const f of decision.additionalFindings) {
-      console.log(`  [${sanitizeLine(f.severity)}] ${sanitizeLine(f.category)}: ${sanitize(f.description)}`);
+      console.log(
+        `  [${sanitizeLine(f.severity)}] ${sanitizeLine(f.category)}: ${sanitize(f.description)}`,
+      );
       if (f.suggestion) console.log(`    Action: ${sanitize(f.suggestion)}`);
     }
   }
@@ -73,7 +80,8 @@ function formatDuration(ms: number): string {
 export function printResult(result: ReviewResult): void {
   console.log('\n=== Individual Reviews ===\n');
   for (const r of result.individualReviews) {
-    const timing = r.durationMs != null ? ` (${formatDuration(r.durationMs)})` : '';
+    const timing =
+      r.durationMs != null ? ` (${formatDuration(r.durationMs)})` : '';
     console.log(`\n--- ${sanitizeLine(r.reviewer)}${timing} ---`);
     console.log(sanitize(r.review));
     console.log();
@@ -84,6 +92,8 @@ export function printResult(result: ReviewResult): void {
   }
 
   if (result.durationMs != null) {
-    console.log(`\n--- Total review time: ${formatDuration(result.durationMs)} (${result.durationMs}ms) ---`);
+    console.log(
+      `\n--- Total review time: ${formatDuration(result.durationMs)} (${result.durationMs}ms) ---`,
+    );
   }
 }

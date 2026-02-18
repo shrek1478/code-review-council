@@ -5,12 +5,24 @@ export interface RetryOptions {
   onRetry?: () => Promise<void>;
 }
 
-const NON_RETRYABLE_CODES = new Set(['ERR_INVALID_TOKEN', 'ERR_UNAUTHORIZED', 'ERR_AUTHENTICATION']);
+const NON_RETRYABLE_CODES = new Set([
+  'ERR_INVALID_TOKEN',
+  'ERR_UNAUTHORIZED',
+  'ERR_AUTHENTICATION',
+]);
 const RETRYABLE_CODES = new Set([
-  'ETIMEDOUT', 'ECONNRESET', 'ECONNREFUSED', 'EPIPE', 'EAI_AGAIN',
+  'ETIMEDOUT',
+  'ECONNRESET',
+  'ECONNREFUSED',
+  'EPIPE',
+  'EAI_AGAIN',
 ]);
 
-const NON_RETRYABLE_PATTERNS = ['invalid token', 'unauthorized', 'authentication'];
+const NON_RETRYABLE_PATTERNS = [
+  'invalid token',
+  'unauthorized',
+  'authentication',
+];
 const RETRYABLE_PATTERNS = [
   'timed out',
   'timeout',
@@ -46,8 +58,12 @@ export async function retryWithBackoff<T>(
     } catch (error) {
       if (attempt < maxRetries && isRetryable(error)) {
         // Add jitter (0.75x–1.25x) to avoid synchronized retry storms across reviewers
-        const delay = Math.round(2000 * Math.pow(2, attempt) * (0.75 + Math.random() * 0.5));
-        logger.warn(`${label} attempt ${attempt + 1} failed, retrying in ${delay}ms...`);
+        const delay = Math.round(
+          2000 * Math.pow(2, attempt) * (0.75 + Math.random() * 0.5),
+        );
+        logger.warn(
+          `${label} attempt ${attempt + 1} failed, retrying in ${delay}ms...`,
+        );
         await new Promise((r) => setTimeout(r, delay));
         if (onRetry) await onRetry();
         continue;

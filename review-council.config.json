@@ -12,11 +12,9 @@
     {
       "name": "Copilot",
       "cliPath": "copilot",
-      "cliArgs": [
-        "--acp",
-        "--model",
-        "gpt-5.3-codex"
-      ],
+      "cliArgs": [],
+      "protocol": "copilot",
+      "model": "gpt-5-mini",
       "timeoutMs": 120000,
       "maxRetries": 2
     },

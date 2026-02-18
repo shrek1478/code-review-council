@@ -8,7 +8,9 @@ import { describe, it, expect, beforeEach, vi } from 'vitest';
 describe('CouncilService', () => {
   let service: CouncilService;
   const mockAcpService = {
-    createClient: vi.fn().mockResolvedValue({ name: 'MockReviewer', client: {} }),
+    createClient: vi
+      .fn()
+      .mockResolvedValue({ name: 'MockReviewer', client: {} }),
     sendPrompt: vi.fn().mockResolvedValue('No issues found.'),
     stopClient: vi.fn().mockResolvedValue(undefined),
     stopAll: vi.fn().mockResolvedValue(undefined),
@@ -25,7 +27,10 @@ describe('CouncilService', () => {
 
   beforeEach(async () => {
     vi.clearAllMocks();
-    mockAcpService.createClient.mockResolvedValue({ name: 'MockReviewer', client: {} });
+    mockAcpService.createClient.mockResolvedValue({
+      name: 'MockReviewer',
+      client: {},
+    });
     mockAcpService.sendPrompt.mockResolvedValue('No issues found.');
     mockAcpService.stopAll.mockResolvedValue(undefined);
     mockConfigService.getConfig.mockReturnValue({
@@ -100,8 +105,7 @@ describe('CouncilService', () => {
       ],
       review: { defaultChecks: ['code-quality'], language: 'zh-tw' },
     });
-    mockAcpService.sendPrompt
-      .mockRejectedValueOnce(new Error('Invalid token'));
+    mockAcpService.sendPrompt.mockRejectedValueOnce(new Error('Invalid token'));
 
     const reviews = await service.dispatchReviews({
       code: 'const x = 1;',
@@ -138,7 +142,11 @@ describe('CouncilService', () => {
       reviewers: [
         { name: 'Codex', cliPath: 'codex-acp', cliArgs: [], timeoutMs: 300000 },
       ],
-      review: { defaultChecks: ['code-quality'], language: 'zh-tw', allowLocalExploration: true },
+      review: {
+        defaultChecks: ['code-quality'],
+        language: 'zh-tw',
+        allowLocalExploration: true,
+      },
     });
 
     await service.dispatchReviews({
@@ -155,10 +163,12 @@ describe('CouncilService', () => {
 
   it('should include no-tools instruction when allowLocalExploration is false', async () => {
     mockConfigService.getConfig.mockReturnValue({
-      reviewers: [
-        { name: 'Codex', cliPath: 'codex-acp', cliArgs: [] },
-      ],
-      review: { defaultChecks: ['code-quality'], language: 'zh-tw', allowLocalExploration: false },
+      reviewers: [{ name: 'Codex', cliPath: 'codex-acp', cliArgs: [] }],
+      review: {
+        defaultChecks: ['code-quality'],
+        language: 'zh-tw',
+        allowLocalExploration: false,
+      },
     });
 
     await service.dispatchReviews({
@@ -173,10 +183,12 @@ describe('CouncilService', () => {
 
   it('should include explore instruction when allowLocalExploration is true', async () => {
     mockConfigService.getConfig.mockReturnValue({
-      reviewers: [
-        { name: 'Gemini', cliPath: 'gemini', cliArgs: [] },
-      ],
-      review: { defaultChecks: ['code-quality'], language: 'zh-tw', allowLocalExploration: true },
+      reviewers: [{ name: 'Gemini', cliPath: 'gemini', cliArgs: [] }],
+      review: {
+        defaultChecks: ['code-quality'],
+        language: 'zh-tw',
+        allowLocalExploration: true,
+      },
     });
 
     await service.dispatchReviews({
@@ -201,10 +213,12 @@ describe('CouncilService', () => {
 
   it('should build exploration prompt with file list when allowExplore=true and no code', async () => {
     mockConfigService.getConfig.mockReturnValue({
-      reviewers: [
-        { name: 'Gemini', cliPath: 'gemini', cliArgs: [] },
-      ],
-      review: { defaultChecks: ['code-quality'], language: 'zh-tw', allowLocalExploration: true },
+      reviewers: [{ name: 'Gemini', cliPath: 'gemini', cliArgs: [] }],
+      review: {
+        defaultChecks: ['code-quality'],
+        language: 'zh-tw',
+        allowLocalExploration: true,
+      },
     });
 
     await service.dispatchReviews({
@@ -228,10 +242,12 @@ describe('CouncilService', () => {
 
   it('should fall back to inline mode when allowExplore=true but code is provided', async () => {
     mockConfigService.getConfig.mockReturnValue({
-      reviewers: [
-        { name: 'Gemini', cliPath: 'gemini', cliArgs: [] },
-      ],
-      review: { defaultChecks: ['code-quality'], language: 'zh-tw', allowLocalExploration: true },
+      reviewers: [{ name: 'Gemini', cliPath: 'gemini', cliArgs: [] }],
+      review: {
+        defaultChecks: ['code-quality'],
+        language: 'zh-tw',
+        allowLocalExploration: true,
+      },
     });
 
     await service.dispatchReviews({

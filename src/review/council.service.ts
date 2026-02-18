@@ -5,7 +5,10 @@ import { AcpService } from '../acp/acp.service.js';
 import { ConfigService } from '../config/config.service.js';
 import { IndividualReview, ReviewRequest } from './review.types.js';
 import { retryWithBackoff } from './retry-utils.js';
-import { MAX_REVIEWER_CONCURRENCY, MAX_EXPLORATION_FILE_PATHS } from '../constants.js';
+import {
+  MAX_REVIEWER_CONCURRENCY,
+  MAX_EXPLORATION_FILE_PATHS,
+} from '../constants.js';
 
 @Injectable()
 export class CouncilService {
@@ -25,7 +28,9 @@ export class CouncilService {
 
     const prompt = this.buildReviewPrompt(request);
 
-    const reviewOneReviewer = async (reviewerConfig: (typeof reviewers)[number]) => {
+    const reviewOneReviewer = async (
+      reviewerConfig: (typeof reviewers)[number],
+    ) => {
       const startMs = Date.now();
       const allowExplore = config.review.allowLocalExploration === true;
       const baseTimeout = reviewerConfig.timeoutMs ?? 180_000;
@@ -45,7 +50,11 @@ export class CouncilService {
             },
           },
         );
-        return { reviewer: reviewerConfig.name, review, durationMs: Date.now() - startMs };
+        return {
+          reviewer: reviewerConfig.name,
+          review,
+          durationMs: Date.now() - startMs,
+        };
       } finally {
         await this.acpService.stopClient(handle);
       }
@@ -57,7 +66,9 @@ export class CouncilService {
     for (let i = 0; i < reviewers.length; i += MAX_REVIEWER_CONCURRENCY) {
       const chunk = reviewers.slice(i, i + MAX_REVIEWER_CONCURRENCY);
       for (const r of chunk) startTimes.set(r.name, Date.now());
-      const chunkResults = await Promise.allSettled(chunk.map(reviewOneReviewer));
+      const chunkResults = await Promise.allSettled(
+        chunk.map(reviewOneReviewer),
+      );
       results.push(...chunkResults);
     }
 
@@ -65,17 +76,26 @@ export class CouncilService {
       if (result.status === 'fulfilled') {
         return result.value;
       }
-      const msg = result.reason instanceof Error ? result.reason.message : String(result.reason);
+      const msg =
+        result.reason instanceof Error
+          ? result.reason.message
+          : String(result.reason);
       this.logger.error(`Reviewer ${reviewers[i].name} failed: ${msg}`);
-      const elapsed = Date.now() - (startTimes.get(reviewers[i].name) ?? Date.now());
-      return { reviewer: reviewers[i].name, review: `[error] ${msg}`, durationMs: elapsed };
+      const elapsed =
+        Date.now() - (startTimes.get(reviewers[i].name) ?? Date.now());
+      return {
+        reviewer: reviewers[i].name,
+        review: `[error] ${msg}`,
+        durationMs: elapsed,
+      };
     });
   }
 
   private buildReviewPrompt(request: ReviewRequest): string {
     const config = this.configService.getConfig();
     const lang = request.language ?? config.review.language ?? 'zh-tw';
-    const checks = request.checks.length > 0 ? request.checks : config.review.defaultChecks;
+    const checks =
+      request.checks.length > 0 ? request.checks : config.review.defaultChecks;
 
     const allowExplore = config.review.allowLocalExploration === true;
     const toolInstruction = allowExplore
@@ -97,7 +117,9 @@ export class CouncilService {
       const delimiter = `FILES-${randomUUID().slice(0, 8)}`;
       const allPaths = request.filePaths ?? [];
       const truncated = allPaths.length > MAX_EXPLORATION_FILE_PATHS;
-      const paths = truncated ? allPaths.slice(0, MAX_EXPLORATION_FILE_PATHS) : allPaths;
+      const paths = truncated
+        ? allPaths.slice(0, MAX_EXPLORATION_FILE_PATHS)
+        : allPaths;
       const fileList = paths.join('\n') || '(no files specified)';
       const truncateNote = truncated
         ? `\n\n(Showing ${MAX_EXPLORATION_FILE_PATHS} of ${allPaths.length} files. Focus on the listed files.)`

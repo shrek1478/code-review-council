@@ -8,55 +8,70 @@ import { describe, it, expect, beforeEach, vi } from 'vitest';
 describe('DecisionMakerService', () => {
   let service: DecisionMakerService;
   const mockAcpService = {
-    createClient: vi.fn().mockResolvedValue({ name: 'DecisionMaker', client: {} }),
-    sendPrompt: vi.fn().mockResolvedValue(JSON.stringify({
-      overallAssessment: 'Code is well-structured overall.',
-      decisions: [
-        {
-          severity: 'medium',
-          category: 'readability',
-          description: 'Variable naming could be improved',
-          raisedBy: ['Gemini', 'Codex'],
-          verdict: 'accepted',
-          reasoning: 'Both reviewers agree, and the naming is indeed unclear',
-          suggestion: 'Use descriptive names',
-        },
-      ],
-      additionalFindings: [
-        {
-          severity: 'low',
-          category: 'best-practices',
-          description: 'Missing error handling in async function',
-          suggestion: 'Add try-catch block',
-        },
-      ],
-    })),
+    createClient: vi
+      .fn()
+      .mockResolvedValue({ name: 'DecisionMaker', client: {} }),
+    sendPrompt: vi.fn().mockResolvedValue(
+      JSON.stringify({
+        overallAssessment: 'Code is well-structured overall.',
+        decisions: [
+          {
+            severity: 'medium',
+            category: 'readability',
+            description: 'Variable naming could be improved',
+            raisedBy: ['Gemini', 'Codex'],
+            verdict: 'accepted',
+            reasoning: 'Both reviewers agree, and the naming is indeed unclear',
+            suggestion: 'Use descriptive names',
+          },
+        ],
+        additionalFindings: [
+          {
+            severity: 'low',
+            category: 'best-practices',
+            description: 'Missing error handling in async function',
+            suggestion: 'Add try-catch block',
+          },
+        ],
+      }),
+    ),
     stopClient: vi.fn().mockResolvedValue(undefined),
     stopAll: vi.fn().mockResolvedValue(undefined),
   };
   const mockConfigService = {
     getConfig: vi.fn().mockReturnValue({
-      decisionMaker: { name: 'Claude', cliPath: 'claude-code-acp', cliArgs: [] },
+      decisionMaker: {
+        name: 'Claude',
+        cliPath: 'claude-code-acp',
+        cliArgs: [],
+      },
       review: { language: 'zh-tw' },
     }),
   };
 
   beforeEach(async () => {
     vi.clearAllMocks();
-    mockAcpService.createClient.mockResolvedValue({ name: 'DecisionMaker', client: {} });
-    mockAcpService.sendPrompt.mockResolvedValue(JSON.stringify({
-      overallAssessment: 'Code is well-structured overall.',
-      decisions: [{
-        severity: 'medium',
-        category: 'readability',
-        description: 'Variable naming could be improved',
-        raisedBy: ['Gemini', 'Codex'],
-        verdict: 'accepted',
-        reasoning: 'Both reviewers agree',
-        suggestion: 'Use descriptive names',
-      }],
-      additionalFindings: [],
-    }));
+    mockAcpService.createClient.mockResolvedValue({
+      name: 'DecisionMaker',
+      client: {},
+    });
+    mockAcpService.sendPrompt.mockResolvedValue(
+      JSON.stringify({
+        overallAssessment: 'Code is well-structured overall.',
+        decisions: [
+          {
+            severity: 'medium',
+            category: 'readability',
+            description: 'Variable naming could be improved',
+            raisedBy: ['Gemini', 'Codex'],
+            verdict: 'accepted',
+            reasoning: 'Both reviewers agree',
+            suggestion: 'Use descriptive names',
+          },
+        ],
+        additionalFindings: [],
+      }),
+    );
 
     const module = await Test.createTestingModule({
       providers: [
@@ -70,13 +85,10 @@ describe('DecisionMakerService', () => {
   });
 
   it('should decide based on code and reviewer opinions', async () => {
-    const decision = await service.decide(
-      'const x = 1;',
-      [
-        { reviewer: 'Gemini', review: 'Variable naming could be improved.' },
-        { reviewer: 'Codex', review: 'Consider renaming variables for clarity.' },
-      ],
-    );
+    const decision = await service.decide('const x = 1;', [
+      { reviewer: 'Gemini', review: 'Variable naming could be improved.' },
+      { reviewer: 'Codex', review: 'Consider renaming variables for clarity.' },
+    ]);
     expect(decision.reviewer).toContain('Claude');
     expect(decision.reviewer).toContain('Decision Maker');
     expect(decision.overallAssessment).toBeDefined();
@@ -90,12 +102,15 @@ describe('DecisionMakerService', () => {
   });
 
   it('should handle non-JSON response gracefully', async () => {
-    mockAcpService.sendPrompt.mockResolvedValue('This is just plain text, not JSON.');
-    const decision = await service.decide(
-      'const x = 1;',
-      [{ reviewer: 'Gemini', review: 'Looks good.' }],
+    mockAcpService.sendPrompt.mockResolvedValue(
+      'This is just plain text, not JSON.',
     );
-    expect(decision.overallAssessment).toBe('[PARSE_FAILED] This is just plain text, not JSON.');
+    const decision = await service.decide('const x = 1;', [
+      { reviewer: 'Gemini', review: 'Looks good.' },
+    ]);
+    expect(decision.overallAssessment).toBe(
+      '[PARSE_FAILED] This is just plain text, not JSON.',
+    );
     expect(decision.decisions).toEqual([]);
     expect(decision.additionalFindings).toEqual([]);
   });
@@ -107,12 +122,13 @@ describe('DecisionMakerService', () => {
       additionalFindings: [],
     };
     mockAcpService.sendPrompt.mockResolvedValue(
-      'Here is my analysis:\n```json\n' + JSON.stringify(jsonObj) + '\n```\nEnd.'
+      'Here is my analysis:\n```json\n' +
+        JSON.stringify(jsonObj) +
+        '\n```\nEnd.',
     );
-    const decision = await service.decide(
-      'const x = 1;',
-      [{ reviewer: 'Test', review: 'OK' }],
-    );
+    const decision = await service.decide('const x = 1;', [
+      { reviewer: 'Test', review: 'OK' },
+    ]);
     expect(decision.overallAssessment).toBe('Good code.');
   });
 
@@ -129,27 +145,32 @@ describe('DecisionMakerService', () => {
 
   it('should use config maxReviewsLength for truncation', async () => {
     mockConfigService.getConfig.mockReturnValue({
-      decisionMaker: { name: 'Claude', cliPath: 'claude-code-acp', cliArgs: [] },
+      decisionMaker: {
+        name: 'Claude',
+        cliPath: 'claude-code-acp',
+        cliArgs: [],
+      },
       review: { language: 'zh-tw', maxReviewsLength: 100 },
     });
     const longReview = 'x'.repeat(500);
-    await service.decide(
-      'const x = 1;',
-      [{ reviewer: 'Test', review: longReview }],
-    );
+    await service.decide('const x = 1;', [
+      { reviewer: 'Test', review: longReview },
+    ]);
     const sentPrompt = mockAcpService.sendPrompt.mock.calls[0][1];
     expect(sentPrompt).toContain('truncated');
   });
 
   it('should use config timeoutMs for decision maker', async () => {
     mockConfigService.getConfig.mockReturnValue({
-      decisionMaker: { name: 'Claude', cliPath: 'claude-code-acp', cliArgs: [], timeoutMs: 600000 },
+      decisionMaker: {
+        name: 'Claude',
+        cliPath: 'claude-code-acp',
+        cliArgs: [],
+        timeoutMs: 600000,
+      },
       review: { language: 'zh-tw' },
     });
-    await service.decide(
-      'const x = 1;',
-      [{ reviewer: 'Test', review: 'OK' }],
-    );
+    await service.decide('const x = 1;', [{ reviewer: 'Test', review: 'OK' }]);
     expect(mockAcpService.sendPrompt).toHaveBeenCalledWith(
       expect.anything(),
       expect.any(String),
@@ -159,24 +180,30 @@ describe('DecisionMakerService', () => {
 
   it('should retry on timeout and succeed on second attempt', async () => {
     mockConfigService.getConfig.mockReturnValue({
-      decisionMaker: { name: 'Claude', cliPath: 'claude-code-acp', cliArgs: [], maxRetries: 1 },
+      decisionMaker: {
+        name: 'Claude',
+        cliPath: 'claude-code-acp',
+        cliArgs: [],
+        maxRetries: 1,
+      },
       review: { language: 'zh-tw' },
     });
     mockAcpService.sendPrompt
       .mockRejectedValueOnce(new Error('Claude timed out after 300000ms'))
-      .mockResolvedValueOnce(JSON.stringify({
-        overallAssessment: 'OK after retry',
-        decisions: [],
-        additionalFindings: [],
-      }));
+      .mockResolvedValueOnce(
+        JSON.stringify({
+          overallAssessment: 'OK after retry',
+          decisions: [],
+          additionalFindings: [],
+        }),
+      );
     mockAcpService.createClient
       .mockResolvedValueOnce({ name: 'Claude', client: {} })
       .mockResolvedValueOnce({ name: 'Claude', client: {} });
 
-    const decision = await service.decide(
-      'const x = 1;',
-      [{ reviewer: 'Test', review: 'OK' }],
-    );
+    const decision = await service.decide('const x = 1;', [
+      { reviewer: 'Test', review: 'OK' },
+    ]);
     expect(decision.overallAssessment).toBe('OK after retry');
     expect(mockAcpService.createClient).toHaveBeenCalledTimes(2);
   });
