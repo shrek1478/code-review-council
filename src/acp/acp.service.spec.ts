@@ -19,6 +19,7 @@ vi.mock('@shrek1478/copilot-sdk-with-acp', () => {
   const MockCopilotClient = vi.fn().mockImplementation(function (this: any) {
     this.start = vi.fn().mockResolvedValue(undefined);
     this.stop = vi.fn().mockResolvedValue(undefined);
+    this.forceStop = vi.fn().mockResolvedValue(undefined);
     this.createSession = vi.fn().mockResolvedValue({
       on: vi.fn(),
       send: vi.fn().mockResolvedValue(undefined),
@@ -87,6 +88,48 @@ describe('AcpService', () => {
 
     expect(h1.client.stop).toHaveBeenCalled();
     expect(h2.client.stop).toHaveBeenCalled();
+  });
+
+  it('should forceStop when graceful stop hangs', async () => {
+    vi.useFakeTimers();
+    try {
+      const handle = await service.createClient({
+        name: 'HangingCli',
+        cliPath: 'hanging-cli',
+        cliArgs: [],
+      });
+
+      // Make stop() never resolve
+      (handle.client.stop as ReturnType<typeof vi.fn>).mockReturnValue(
+        new Promise(() => {}),
+      );
+
+      const stopPromise = service.stopClient(handle);
+      await vi.advanceTimersByTimeAsync(6000);
+      await stopPromise;
+
+      expect(handle.client.stop).toHaveBeenCalled();
+      expect(
+        (handle.client as any).forceStop,
+      ).toHaveBeenCalled();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('should not forceStop when graceful stop succeeds', async () => {
+    const handle = await service.createClient({
+      name: 'GoodCli',
+      cliPath: 'good-cli',
+      cliArgs: [],
+    });
+
+    await service.stopClient(handle);
+
+    expect(handle.client.stop).toHaveBeenCalled();
+    expect(
+      (handle.client as any).forceStop,
+    ).not.toHaveBeenCalled();
   });
 
   it('should pass model and streaming to createSession in sendPrompt', async () => {

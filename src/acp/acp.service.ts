@@ -245,14 +245,32 @@ export class AcpService implements OnModuleDestroy {
     }
   }
 
-  async stopClient(handle: AcpClientHandle): Promise<void> {
+  private async stopWithForce(
+    client: CopilotClient,
+    name: string,
+    timeoutMs = 5_000,
+  ): Promise<void> {
+    const timeout = new Promise<never>((_, reject) =>
+      setTimeout(() => reject(new Error('stop timeout')), timeoutMs),
+    );
     try {
-      await handle.client.stop();
-    } catch (error) {
+      await Promise.race([client.stop(), timeout]);
+    } catch {
       this.logger.warn(
-        `Failed to stop client ${handle.name}: ${this.sanitizeErrorMessage(error)}`,
+        `Graceful stop failed for ${name}, force stopping...`,
       );
+      try {
+        await (client as unknown as { forceStop(): Promise<void> }).forceStop();
+      } catch (error) {
+        this.logger.warn(
+          `Force stop failed for ${name}: ${this.sanitizeErrorMessage(error)}`,
+        );
+      }
     }
+  }
+
+  async stopClient(handle: AcpClientHandle): Promise<void> {
+    await this.stopWithForce(handle.client, handle.name);
     this.clients.delete(handle);
   }
 
@@ -265,15 +283,9 @@ export class AcpService implements OnModuleDestroy {
     const handles = [...this.clients];
     this.clients.clear();
     await Promise.allSettled(
-      handles.map(async (handle) => {
-        try {
-          await handle.client.stop();
-        } catch (error) {
-          this.logger.warn(
-            `Failed to stop client ${handle.name}: ${this.sanitizeErrorMessage(error)}`,
-          );
-        }
-      }),
+      handles.map((handle) =>
+        this.stopWithForce(handle.client, handle.name),
+      ),
     );
   }
 }
