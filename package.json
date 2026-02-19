@@ -1,6 +1,6 @@
 {
   "name": "@shrek1478/code-review-council",
-  "version": "0.0.24",
+  "version": "0.0.25",
   "description": "AI-powered code review council using multiple LLM reviewers",
   "author": "shrek1478",
   "license": "MIT",
