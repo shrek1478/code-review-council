@@ -299,16 +299,15 @@ export class ConfigService {
   /**
    * Detect patterns that can cause catastrophic backtracking (ReDoS).
    * Note: This is a heuristic check and cannot catch all possible ReDoS patterns.
-   * It covers nested quantifiers and quantified alternations with overlapping branches.
+   * It covers nested quantifiers — the most common and dangerous ReDoS trigger.
+   * Simple quantified alternation like (foo|bar)+ is NOT flagged because it
+   * rarely causes backtracking in practice (branches with distinct prefixes).
    */
   private isReDoSRisk(regex: RegExp): boolean {
     const src = regex.source;
     // Nested quantifiers: (...)+ followed by +, *, or {n,}
-    // e.g. (a+)+, (a*)+, (a+)*, ([^x]+)+
+    // e.g. (a+)+, (a*)+, (a+)*, ([^x]+)+, (a+|b)+
     if (/\([^)]*[+*][^)]*\)[+*{]/.test(src)) return true;
-    // Quantified alternation with overlapping branches: (a|ab)+ or (a|a)* etc.
-    // Matches a group with alternation that is itself quantified
-    if (/\([^)]*\|[^)]*\)[+*{]/.test(src)) return true;
     return false;
   }
 

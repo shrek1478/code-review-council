@@ -20,6 +20,8 @@ class CliLogger extends ConsoleLogger {
 
 // CopilotClient spawns child processes that register exit/signal listeners on `process`.
 // With multiple reviewers in parallel, this exceeds the default 10 listeners limit.
+// Uses MAX_REVIEWER_CONCURRENCY (the hard concurrency cap enforced by council.service chunking)
+// as the upper bound, so this is safe regardless of how many reviewers are configured.
 // Formula: Node.js default (10) + max concurrent clients (reviewers + decision maker) * listeners per client.
 const BASE_LISTENERS = 10;
 const LISTENERS_PER_CLIENT = 4;

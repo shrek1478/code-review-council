@@ -434,17 +434,18 @@ describe('ConfigService', () => {
       );
     });
 
-    it('should reject ReDoS-vulnerable alternation patterns', async () => {
+    it('should accept quantified alternation without nested quantifiers', async () => {
       process.env.CONFIG_JSON = JSON.stringify({
         reviewers: [{ name: 'Test', cliPath: 'echo', cliArgs: [] }],
         decisionMaker: { name: 'DM', cliPath: 'echo', cliArgs: [] },
         review: {
           defaultChecks: ['code-quality'],
           language: 'en',
-          sensitivePatterns: ['(a|ab)+'],
+          sensitivePatterns: ['(a|ab)+', '(foo|bar)+'],
         },
       });
-      await expect(service.loadConfig()).rejects.toThrow('ReDoS risk');
+      const config = await service.loadConfig();
+      expect(config.review.sensitivePatterns).toHaveLength(2);
     });
 
     it('should accept valid timeoutMs and maxRetries', async () => {

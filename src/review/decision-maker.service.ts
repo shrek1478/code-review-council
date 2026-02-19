@@ -169,46 +169,41 @@ Rules:
   }
 
   private parseResponse(response: string, dmName: string): ReviewDecision {
-    // Strategy 1: try direct parse
-    try {
-      const parsed = JSON.parse(response.trim());
-      return this.toDecision(parsed, dmName);
-    } catch {
-      // continue to strategy 2
+    for (const candidate of this.buildParseCandidates(response)) {
+      try {
+        return this.toDecision(JSON.parse(candidate), dmName);
+      } catch {
+        continue;
+      }
     }
+    return this.buildFallbackDecision(response, dmName);
+  }
 
-    // Strategy 2: extract JSON from markdown fences or surrounding text
+  /** Generate candidate JSON strings from the raw response, ordered by parsing strategy. */
+  private buildParseCandidates(response: string): string[] {
+    const candidates: string[] = [];
+    // Strategy 1: direct parse
+    candidates.push(response.trim());
+    // Strategy 2: strip markdown fences
     const stripped = response
       .replace(/```json\s*/g, '')
       .replace(/```\s*/g, '')
       .trim();
-    try {
-      const parsed = JSON.parse(stripped);
-      return this.toDecision(parsed, dmName);
-    } catch {
-      // continue to strategy 3
-    }
-
-    // Strategy 3: find first balanced JSON object using bracket counting
+    candidates.push(stripped);
+    // Strategy 3: balanced JSON extraction
     const jsonStr = this.extractBalancedJson(stripped);
     if (jsonStr) {
-      try {
-        const parsed = JSON.parse(jsonStr);
-        return this.toDecision(parsed, dmName);
-      } catch {
-        // fall through
-      }
-
-      // Strategy 3b: strip JS-style comments and trailing commas, then retry
-      const cleaned = this.stripJsonArtifacts(jsonStr);
-      try {
-        const parsed = JSON.parse(cleaned);
-        return this.toDecision(parsed, dmName);
-      } catch {
-        // fall through
-      }
+      candidates.push(jsonStr);
+      // Strategy 3b: strip JS-style comments and trailing commas
+      candidates.push(this.stripJsonArtifacts(jsonStr));
     }
+    return candidates;
+  }
 
+  private buildFallbackDecision(
+    response: string,
+    dmName: string,
+  ): ReviewDecision {
     this.logger.warn(
       'Failed to parse decision maker response as JSON, returning raw text',
     );

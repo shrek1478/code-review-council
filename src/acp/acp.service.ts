@@ -285,9 +285,12 @@ export class AcpService implements OnModuleDestroy {
     const timeout = new Promise<never>((_, reject) => {
       timer = setTimeout(() => reject(new Error('stop timeout')), timeoutMs);
     });
+    const stopPromise = client.stop();
     try {
-      await Promise.race([client.stop(), timeout]);
+      await Promise.race([stopPromise, timeout]);
     } catch {
+      // Prevent unhandled rejection from the dangling stopPromise
+      stopPromise.catch(() => {});
       this.logger.warn(
         `Graceful stop failed for ${name}, force stopping...`,
       );
