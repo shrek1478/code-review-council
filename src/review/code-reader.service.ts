@@ -129,8 +129,18 @@ export class CodeReaderService {
     this.logger.log(`Reading git diff: ${repoPath} (base: ${baseBranch})`);
     const git = simpleGit(repoPath);
 
+    // Use merge-base for more accurate diff (only changes introduced on this branch)
+    let mergeBase: string;
+    try {
+      const raw = await git.raw(['merge-base', baseBranch, 'HEAD']);
+      mergeBase = raw.trim();
+    } catch {
+      // Fallback to baseBranch directly (e.g. shallow clone or no common ancestor)
+      mergeBase = baseBranch;
+    }
+
     // Get changed file list and filter out sensitive files
-    const changedFiles = await this.getFilteredDiffFiles(git, [baseBranch]);
+    const changedFiles = await this.getFilteredDiffFiles(git, [mergeBase]);
     if (changedFiles.length === 0) {
       // Try staged diff
       const stagedFiles = await this.getFilteredDiffFiles(git, ['--staged']);
@@ -142,7 +152,7 @@ export class CodeReaderService {
       );
     }
     return this.truncateDiff(
-      await git.diff([baseBranch, '--', ...changedFiles]),
+      await git.diff([mergeBase, '--', ...changedFiles]),
     );
   }
 

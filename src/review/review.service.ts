@@ -74,24 +74,32 @@ export class ReviewService {
       // Exploration mode: only send file paths, agent reads content itself
       const repoRoot = await this.resolveGitRoot();
       const safePaths: string[] = [];
-      for (const p of filePaths) {
-        const abs = resolve(p);
-        try {
-          const real = await realpath(abs);
-          const rel = relative(repoRoot, real);
-          if (rel.startsWith('..') || isAbsolute(rel)) {
-            this.logger.warn(`Skipping file outside repo root: ${p}`);
-            continue;
-          }
-          if (this.codeReader.isSensitiveFile(real)) {
-            this.logger.warn(`Skipping sensitive file: ${p}`);
-            continue;
-          }
-          // Use relative paths based on resolved real path to avoid symlink aliases
-          safePaths.push(relative(repoRoot, real));
-        } catch {
-          this.logger.warn(`Skipping unresolvable path: ${p}`);
-          continue;
+      const REALPATH_CHUNK = 20;
+      for (let i = 0; i < filePaths.length; i += REALPATH_CHUNK) {
+        const chunk = filePaths.slice(i, i + REALPATH_CHUNK);
+        const results = await Promise.all(
+          chunk.map(async (p) => {
+            const abs = resolve(p);
+            try {
+              const real = await realpath(abs);
+              const rel = relative(repoRoot, real);
+              if (rel.startsWith('..') || isAbsolute(rel)) {
+                this.logger.warn(`Skipping file outside repo root: ${p}`);
+                return null;
+              }
+              if (this.codeReader.isSensitiveFile(real)) {
+                this.logger.warn(`Skipping sensitive file: ${p}`);
+                return null;
+              }
+              return relative(repoRoot, real);
+            } catch {
+              this.logger.warn(`Skipping unresolvable path: ${p}`);
+              return null;
+            }
+          }),
+        );
+        for (const r of results) {
+          if (r !== null) safePaths.push(r);
         }
       }
       if (safePaths.length === 0) {

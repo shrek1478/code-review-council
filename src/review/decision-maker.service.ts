@@ -8,7 +8,7 @@ import {
   ReviewDecisionItem,
   AdditionalFinding,
 } from './review.types.js';
-import { retryWithBackoff } from './retry-utils.js';
+import { retryWithBackoff, sanitizeErrorMessage } from './retry-utils.js';
 
 const DEFAULT_MAX_CODE_LENGTH = 60_000;
 const DEFAULT_MAX_REVIEWS_LENGTH = 30_000;
@@ -156,7 +156,9 @@ Rules:
           label: dmConfig.name,
           logger: this.logger,
           onRetry: async () => {
-            await this.acpService.stopClient(handle);
+            const prev = handle;
+            handle = null as any;
+            await this.acpService.stopClient(prev);
             handle = await this.acpService.createClient(dmConfig);
           },
         },
@@ -164,7 +166,15 @@ Rules:
 
       return this.parseResponse(response, dmConfig.name);
     } finally {
-      await this.acpService.stopClient(handle);
+      if (handle) {
+        try {
+          await this.acpService.stopClient(handle);
+        } catch (error) {
+          this.logger.warn(
+            `Failed to stop decision maker client: ${sanitizeErrorMessage(error)}`,
+          );
+        }
+      }
     }
   }
 
