@@ -118,7 +118,9 @@ export class CouncilService {
       const paths = truncated
         ? allPaths.slice(0, MAX_EXPLORATION_FILE_PATHS)
         : allPaths;
-      const fileList = paths.join('\n') || '(no files specified)';
+      const fileList =
+        paths.map((p) => this.sanitizePath(p)).join('\n') ||
+        '(no files specified)';
       const truncateNote = truncated
         ? `\n\n(Showing ${MAX_EXPLORATION_FILE_PATHS} of ${allPaths.length} files. Focus on the listed files.)`
         : '';

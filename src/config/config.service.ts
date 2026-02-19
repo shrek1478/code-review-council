@@ -355,10 +355,15 @@ export class ConfigService {
         );
       }
     }
-    if (r.model !== undefined && typeof r.model !== 'string') {
-      throw new Error(
-        `Invalid config (${filePath}): "${path}.model" must be a string if provided`,
-      );
+    if (r.model !== undefined) {
+      if (
+        typeof r.model !== 'string' ||
+        !ConfigService.SAFE_MODEL.test(r.model)
+      ) {
+        throw new Error(
+          `Invalid config (${filePath}): "${path}.model" must be a string of 1-100 chars with no newlines`,
+        );
+      }
     }
     if (r.timeoutMs !== undefined) {
       if (!Number.isInteger(r.timeoutMs) || r.timeoutMs <= 0) {
