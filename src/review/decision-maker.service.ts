@@ -405,7 +405,7 @@ Rules:
       }));
 
     const MAX_DECISIONS = 15;
-    const MAX_ADDITIONAL = 5;
+    const MAX_ADDITIONAL = 3;
     return {
       reviewer: `${dmName} (Decision Maker)`,
       overallAssessment:

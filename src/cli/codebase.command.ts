@@ -3,7 +3,7 @@ import { Inject } from '@nestjs/common';
 import { existsSync, statSync } from 'node:fs';
 import { ReviewService } from '../review/review.service.js';
 import { ConfigService } from '../config/config.service.js';
-import { printResult } from './result-printer.js';
+import { printResult, sanitize, parseChecksOption } from './result-printer.js';
 
 @Command({ name: 'codebase', description: 'Review entire codebase' })
 export class CodebaseCommand extends CommandRunner {
@@ -35,23 +35,14 @@ export class CodebaseCommand extends CommandRunner {
       );
     }
     const config = this.configService.getConfig();
-    const validChecks = new Set(config.review.defaultChecks);
-    const checks = (
-      options.checks
-        ?.split(',')
-        .map((s) => s.trim())
-        .filter(Boolean) ?? []
-    ).filter((c) => {
-      if (!validChecks.has(c)) {
-        console.warn(`Warning: Unknown check category ignored: "${c}"`);
-        return false;
-      }
-      return true;
-    });
+    const checks = parseChecksOption(
+      options.checks,
+      new Set(config.review.defaultChecks),
+    );
     const extra = options.extra;
 
     console.log('\n=== Code Review Council ===\n');
-    console.log(`Directory: ${directory}`);
+    console.log(`Directory: ${sanitize(directory)}`);
     if (extensions) console.log(`Extensions: ${extensions.join(', ')}`);
     if (parsedBatchSize) console.log(`Batch size: ${parsedBatchSize}`);
     console.log('Reviewing...\n');

@@ -228,7 +228,9 @@ export class ReviewService {
       return { id, status: 'completed', individualReviews, decision };
     } catch (error) {
       const msg = error instanceof Error ? error.message : String(error);
-      this.logger.error(`Decision maker failed, returning partial result: ${msg}`);
+      this.logger.error(
+        `Decision maker failed, returning partial result: ${msg}`,
+      );
       return { id, status: 'partial', individualReviews };
     }
   }
@@ -319,7 +321,9 @@ export class ReviewService {
       };
     } catch (error) {
       const msg = error instanceof Error ? error.message : String(error);
-      this.logger.error(`Decision maker failed, returning partial result: ${msg}`);
+      this.logger.error(
+        `Decision maker failed, returning partial result: ${msg}`,
+      );
       return { id, status: 'partial', individualReviews: allReviews };
     }
   }
@@ -366,7 +370,9 @@ export class ReviewService {
       };
     } catch (error) {
       const msg = error instanceof Error ? error.message : String(error);
-      this.logger.error(`Decision maker failed, returning partial result: ${msg}`);
+      this.logger.error(
+        `Decision maker failed, returning partial result: ${msg}`,
+      );
       return { id, status: 'partial', individualReviews };
     }
   }

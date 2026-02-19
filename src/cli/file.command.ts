@@ -2,7 +2,7 @@ import { Command, CommandRunner, Option } from 'nest-commander';
 import { Inject } from '@nestjs/common';
 import { ReviewService } from '../review/review.service.js';
 import { ConfigService } from '../config/config.service.js';
-import { printResult } from './result-printer.js';
+import { printResult, sanitize, parseChecksOption } from './result-printer.js';
 
 @Command({ name: 'file', description: 'Review specific files' })
 export class FileCommand extends CommandRunner {
@@ -21,23 +21,14 @@ export class FileCommand extends CommandRunner {
     await this.configService.loadConfig(options.config);
 
     const config = this.configService.getConfig();
-    const validChecks = new Set(config.review.defaultChecks);
-    const checks = (
-      options.checks
-        ?.split(',')
-        .map((s) => s.trim())
-        .filter(Boolean) ?? []
-    ).filter((c) => {
-      if (!validChecks.has(c)) {
-        console.warn(`Warning: Unknown check category ignored: "${c}"`);
-        return false;
-      }
-      return true;
-    });
+    const checks = parseChecksOption(
+      options.checks,
+      new Set(config.review.defaultChecks),
+    );
     const extra = options.extra;
 
     console.log('\n=== Code Review Council ===\n');
-    console.log(`Files: ${params.join(', ')}`);
+    console.log(`Files: ${params.map(sanitize).join(', ')}`);
     console.log('Reviewing...\n');
 
     const result = await this.reviewService.reviewFiles(params, checks, extra);

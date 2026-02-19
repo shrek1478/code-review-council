@@ -115,8 +115,13 @@ export class CouncilService {
   private buildReviewPrompt(request: ReviewRequest): string {
     const config = this.configService.getConfig();
     const lang = request.language ?? config.review.language ?? 'zh-tw';
-    const checks =
+    const MAX_CHECK_LENGTH = 50;
+    const rawChecks =
       request.checks.length > 0 ? request.checks : config.review.defaultChecks;
+    // eslint-disable-next-line no-control-regex
+    const checks = rawChecks
+      .filter((c) => c.trim().length > 0)
+      .map((c) => c.slice(0, MAX_CHECK_LENGTH).replace(/[\x00-\x1f\x7f]/g, ''));
 
     const allowExplore = config.review.mode === 'explore';
     const toolInstruction = allowExplore

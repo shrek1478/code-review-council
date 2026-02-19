@@ -16,7 +16,7 @@ const DCS_PM_APC_REGEX = /\u001b[P^_][\s\S]*?\u001b\\/g;
 // eslint-disable-next-line no-control-regex
 const C0_CONTROL_REGEX = /[\x00-\x08\x0B\x0C\x0E-\x1F]/g;
 
-function sanitize(text: string): string {
+export function sanitize(text: string): string {
   return text
     .replace(OSC_REGEX, '')
     .replace(DCS_PM_APC_REGEX, '')
@@ -46,7 +46,9 @@ function printDecisionItem(d: ReviewDecisionItem): void {
     `  ${icon} [${sanitizeLine(d.severity)}] ${sanitizeLine(d.category)}: ${sanitizeIndented(d.description, '    ')}`,
   );
   if (d.file) {
-    const loc = d.line ? `${sanitizeLine(d.file)}:${d.line}` : sanitizeLine(d.file);
+    const loc = d.line
+      ? `${sanitizeLine(d.file)}:${d.line}`
+      : sanitizeLine(d.file);
     console.log(`    File: ${loc}`);
   }
   if (d.reasoning)
@@ -110,4 +112,22 @@ export function printResult(result: ReviewResult): void {
       `\n--- Total review time: ${formatDuration(result.durationMs)} (${result.durationMs}ms) ---`,
     );
   }
+}
+
+export function parseChecksOption(
+  raw: string | undefined,
+  validChecks: Set<string>,
+): string[] {
+  return (
+    raw
+      ?.split(',')
+      .map((s) => s.trim())
+      .filter(Boolean) ?? []
+  ).filter((c) => {
+    if (!validChecks.has(c)) {
+      console.warn(`Warning: Unknown check category ignored: "${c}"`);
+      return false;
+    }
+    return true;
+  });
 }

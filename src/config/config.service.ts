@@ -359,6 +359,25 @@ export class ConfigService {
         `Invalid config (${filePath}): "${path}.cliArgs" elements must be strings`,
       );
     }
+    const MAX_CLI_ARGS = 30;
+    const MAX_CLI_ARG_LENGTH = 500;
+    if (r.cliArgs.length > MAX_CLI_ARGS) {
+      throw new Error(
+        `Invalid config (${filePath}): "${path}.cliArgs" exceeds maximum of ${MAX_CLI_ARGS} arguments`,
+      );
+    }
+    for (const arg of r.cliArgs) {
+      if (arg.length > MAX_CLI_ARG_LENGTH) {
+        throw new Error(
+          `Invalid config (${filePath}): "${path}.cliArgs" element exceeds maximum length of ${MAX_CLI_ARG_LENGTH} characters`,
+        );
+      }
+      if (arg.includes('\0')) {
+        throw new Error(
+          `Invalid config (${filePath}): "${path}.cliArgs" element contains null byte`,
+        );
+      }
+    }
     // Whitelist: only allow simple command names (letters, digits, dots, hyphens, underscores)
     const CLI_PATH_PATTERN = /^[A-Za-z0-9._-]+$/;
     const trimmed = r.cliPath.trim();

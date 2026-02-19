@@ -104,6 +104,8 @@ export class AcpService implements OnModuleDestroy {
       return true;
     // Base64-like long strings (32+ chars, alphanumeric with +/= padding)
     if (value.length >= 32 && /^[A-Za-z0-9+/=_-]+$/.test(value)) return true;
+    // Long hex strings (64+ chars) — common API key format
+    if (value.length >= 64 && /^[0-9a-f]+$/i.test(value)) return true;
     return false;
   }
 

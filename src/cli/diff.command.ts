@@ -3,7 +3,7 @@ import { Inject } from '@nestjs/common';
 import { existsSync, statSync } from 'node:fs';
 import { ReviewService } from '../review/review.service.js';
 import { ConfigService } from '../config/config.service.js';
-import { printResult } from './result-printer.js';
+import { printResult, sanitize, parseChecksOption } from './result-printer.js';
 
 @Command({ name: 'diff', description: 'Review git diff' })
 export class DiffCommand extends CommandRunner {
@@ -20,24 +20,15 @@ export class DiffCommand extends CommandRunner {
     const repoPath = options.repo ?? process.cwd();
     const baseBranch = options.base ?? 'main';
     const config = this.configService.getConfig();
-    const validChecks = new Set(config.review.defaultChecks);
-    const checks = (
-      options.checks
-        ?.split(',')
-        .map((s) => s.trim())
-        .filter(Boolean) ?? []
-    ).filter((c) => {
-      if (!validChecks.has(c)) {
-        console.warn(`Warning: Unknown check category ignored: "${c}"`);
-        return false;
-      }
-      return true;
-    });
+    const checks = parseChecksOption(
+      options.checks,
+      new Set(config.review.defaultChecks),
+    );
     const extra = options.extra;
 
     console.log('\n=== Code Review Council ===\n');
-    console.log(`Repo: ${repoPath}`);
-    console.log(`Base: ${baseBranch}`);
+    console.log(`Repo: ${sanitize(repoPath)}`);
+    console.log(`Base: ${sanitize(baseBranch)}`);
     console.log('Reviewing...\n');
 
     const result = await this.reviewService.reviewDiff(
