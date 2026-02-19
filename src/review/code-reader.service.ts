@@ -43,10 +43,16 @@ export const DEFAULT_EXTENSIONS = [
 
 const SENSITIVE_PATTERNS = [
   /^\.env($|\.)/i,
+  /^\.envrc$/i,
+  /^\.npmrc$/i,
   /\.pem$/i,
   /\.key$/i,
   /\.p12$/i,
   /\.pfx$/i,
+  /\.jks$/i,
+  /^id_rsa/,
+  /^id_ed25519/,
+  /^id_ecdsa/,
   /(^|[^A-Z])[Ss][Ee][Cc][Rr][Ee][Tt]s?($|[^a-z])/,
   /(^|[^A-Z])[Cc][Rr][Ee][Dd][Ee][Nn][Tt][Ii][Aa][Ll]s?($|[^a-z])/,
   /\.keystore$/i,
@@ -80,41 +86,49 @@ export class CodeReaderService {
   private get extensions(): string[] {
     if (this.cachedExtensions) return this.cachedExtensions;
     let configured: string[] | undefined;
+    let configLoaded = true;
     try {
       configured = this.configService?.getConfig()?.review?.extensions;
     } catch (error) {
       if (
-        !(error instanceof Error && error.message.includes('Config not loaded'))
+        error instanceof Error && error.message.includes('Config not loaded')
       ) {
+        configLoaded = false;
+      } else {
         this.logger.warn(
           `Unexpected config error, using defaults: ${error instanceof Error ? error.message : error}`,
         );
       }
     }
-    this.cachedExtensions = (configured ?? DEFAULT_EXTENSIONS).map((e) =>
+    const result = (configured ?? DEFAULT_EXTENSIONS).map((e) =>
       e.startsWith('.') ? e : `.${e}`,
     );
-    return this.cachedExtensions;
+    if (configLoaded) this.cachedExtensions = result;
+    return result;
   }
 
   private get sensitivePatterns(): RegExp[] {
     if (this.cachedSensitivePatterns) return this.cachedSensitivePatterns;
     let configured: string[] | undefined;
+    let configLoaded = true;
     try {
       configured = this.configService?.getConfig()?.review?.sensitivePatterns;
     } catch (error) {
       if (
-        !(error instanceof Error && error.message.includes('Config not loaded'))
+        error instanceof Error && error.message.includes('Config not loaded')
       ) {
+        configLoaded = false;
+      } else {
         this.logger.warn(
           `Unexpected config error, using defaults: ${error instanceof Error ? error.message : error}`,
         );
       }
     }
-    this.cachedSensitivePatterns = configured
+    const result = configured
       ? [...SENSITIVE_PATTERNS, ...configured.map((p) => new RegExp(p))]
-      : SENSITIVE_PATTERNS;
-    return this.cachedSensitivePatterns;
+      : [...SENSITIVE_PATTERNS];
+    if (configLoaded) this.cachedSensitivePatterns = result;
+    return result;
   }
 
   async readGitDiff(

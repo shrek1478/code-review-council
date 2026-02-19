@@ -12,6 +12,7 @@ import { CouncilService } from './council.service.js';
 import { DecisionMakerService } from './decision-maker.service.js';
 import { ConfigService } from '../config/config.service.js';
 import { IndividualReview, ReviewResult } from './review.types.js';
+import { sanitizeErrorMessage } from './retry-utils.js';
 import { BATCH_CONCURRENCY } from '../constants.js';
 
 // eslint-disable-next-line no-control-regex
@@ -228,9 +229,8 @@ export class ReviewService {
       );
       return { id, status: 'completed', individualReviews, decision };
     } catch (error) {
-      const msg = error instanceof Error ? error.message : String(error);
       this.logger.error(
-        `Decision maker failed, returning partial result: ${msg}`,
+        `Decision maker failed, returning partial result: ${sanitizeErrorMessage(error)}`,
       );
       return { id, status: 'partial', individualReviews };
     }
@@ -320,9 +320,8 @@ export class ReviewService {
         decision,
       };
     } catch (error) {
-      const msg = error instanceof Error ? error.message : String(error);
       this.logger.error(
-        `Decision maker failed, returning partial result: ${msg}`,
+        `Decision maker failed, returning partial result: ${sanitizeErrorMessage(error)}`,
       );
       return { id, status: 'partial', individualReviews: allReviews };
     }
@@ -369,9 +368,8 @@ export class ReviewService {
         decision,
       };
     } catch (error) {
-      const msg = error instanceof Error ? error.message : String(error);
       this.logger.error(
-        `Decision maker failed, returning partial result: ${msg}`,
+        `Decision maker failed, returning partial result: ${sanitizeErrorMessage(error)}`,
       );
       return { id, status: 'partial', individualReviews };
     }
