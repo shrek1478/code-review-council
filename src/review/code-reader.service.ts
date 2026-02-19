@@ -259,8 +259,8 @@ export class CodeReaderService {
           skippedCount++;
           return null;
         }
-        budget.remaining -= fileStat.size;
         const content = await readFile(real, 'utf-8');
+        budget.remaining -= fileStat.size;
         // Use relative path to avoid leaking host directory structure
         return { path: relative(rootReal, real), content };
       } catch (error) {
@@ -376,8 +376,8 @@ export class CodeReaderService {
           skippedCount++;
           return null;
         }
-        budget.remaining -= fileStat.size;
         const content = await readFile(real, 'utf-8');
+        budget.remaining -= fileStat.size;
         return { path: relativePath, content };
       } catch (error) {
         const msg = error instanceof Error ? error.message : String(error);

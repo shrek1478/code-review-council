@@ -58,6 +58,7 @@ describe('ReviewService', () => {
         { path: 'src/main.ts', content: 'const main = 2;' },
       ],
     ]);
+    mockCodeReader.createBatches.mockImplementation((items: any[]) => [items]);
     mockCodeReader.listCodebaseFiles.mockResolvedValue([
       'src/app.ts',
       'src/main.ts',
@@ -176,6 +177,44 @@ describe('ReviewService', () => {
     });
   });
 
+  describe('decision maker failure degradation', () => {
+    it('should return partial result when decision maker fails for reviewDiff', async () => {
+      mockDecisionMaker.decide.mockRejectedValue(new Error('DM timeout'));
+      const result = await service.reviewDiff('/tmp/repo', 'main');
+      expect(result.status).toBe('partial');
+      expect(result.individualReviews.length).toBe(2);
+      expect(result.decision).toBeUndefined();
+    });
+
+    it('should return partial result when decision maker fails for reviewFiles', async () => {
+      mockDecisionMaker.decide.mockRejectedValue(new Error('DM error'));
+      const result = await service.reviewFiles(['test.ts']);
+      expect(result.status).toBe('partial');
+      expect(result.individualReviews.length).toBe(2);
+      expect(result.decision).toBeUndefined();
+    });
+
+    it('should return partial result when decision maker fails for reviewCodebase', async () => {
+      mockDecisionMaker.decide.mockRejectedValue(new Error('DM crash'));
+      const result = await service.reviewCodebase('/tmp/project');
+      expect(result.status).toBe('partial');
+      expect(result.individualReviews.length).toBe(2);
+      expect(result.decision).toBeUndefined();
+    });
+
+    it('should return partial result for multi-batch when decision maker fails', async () => {
+      mockCodeReader.readCodebase.mockResolvedValue([
+        [{ path: 'a.ts', content: 'aaa' }],
+        [{ path: 'b.ts', content: 'bbb' }],
+      ]);
+      mockDecisionMaker.decide.mockRejectedValue(new Error('DM error'));
+      const result = await service.reviewCodebase('/tmp/project');
+      expect(result.status).toBe('partial');
+      expect(result.individualReviews.length).toBe(4);
+      expect(result.decision).toBeUndefined();
+    });
+  });
+
   describe('exploration mode (mode=explore)', () => {
     beforeEach(() => {
       mockConfigService.getConfig.mockReturnValue({
@@ -242,6 +281,14 @@ describe('ReviewService', () => {
         expect.any(Array),
         'explore',
       );
+    });
+
+    it('should return partial result when decision maker fails in explore mode', async () => {
+      mockDecisionMaker.decide.mockRejectedValue(new Error('DM timeout'));
+      const result = await service.reviewCodebase('/tmp/project');
+      expect(result.status).toBe('partial');
+      expect(result.individualReviews.length).toBe(2);
+      expect(result.decision).toBeUndefined();
     });
   });
 });

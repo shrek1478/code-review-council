@@ -34,7 +34,7 @@ export interface ReviewDecision {
 
 export interface ReviewResult {
   id: string;
-  status: 'completed' | 'failed';
+  status: 'completed' | 'failed' | 'partial';
   individualReviews: IndividualReview[];
   decision?: ReviewDecision;
   durationMs?: number;

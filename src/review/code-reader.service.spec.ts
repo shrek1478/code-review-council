@@ -4,6 +4,7 @@ import { CodeReaderService } from './code-reader.service.js';
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { writeFile, mkdtemp, rm, mkdir } from 'node:fs/promises';
 import { join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { tmpdir } from 'node:os';
 import { simpleGit } from 'simple-git';
 
@@ -61,7 +62,7 @@ describe('CodeReaderService', () => {
   });
 
   it('should read file contents', async () => {
-    const testFile = new URL(import.meta.url).pathname;
+    const testFile = fileURLToPath(import.meta.url);
     const content = await service.readFiles([testFile]);
     expect(content.length).toBe(1);
     expect(content[0].content).toContain('CodeReaderService');

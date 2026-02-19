@@ -45,12 +45,18 @@ export class ReviewService {
 
     let result: ReviewResult;
     if (this.allowExplore) {
+      let absolutePath: string;
+      try {
+        absolutePath = await realpath(resolve(repoPath));
+      } catch {
+        absolutePath = resolve(repoPath);
+      }
       result = await this.runReview(
         id,
         code,
         checks,
         extraInstructions,
-        resolve(repoPath),
+        absolutePath,
       );
     } else {
       result = await this.runReview(id, code, checks, extraInstructions);
@@ -207,12 +213,18 @@ export class ReviewService {
     }
 
     const fileSummary = filePaths.join('\n');
-    const decision = await this.decisionMaker.decide(
-      fileSummary,
-      individualReviews,
-      'explore',
-    );
-    return { id, status: 'completed', individualReviews, decision };
+    try {
+      const decision = await this.decisionMaker.decide(
+        fileSummary,
+        individualReviews,
+        'explore',
+      );
+      return { id, status: 'completed', individualReviews, decision };
+    } catch (error) {
+      const msg = error instanceof Error ? error.message : String(error);
+      this.logger.error(`Decision maker failed, returning partial result: ${msg}`);
+      return { id, status: 'partial', individualReviews };
+    }
   }
 
   private async runBatchedInlineReview(
@@ -274,17 +286,23 @@ export class ReviewService {
       `Sending ${allReviews.length} reviews to decision maker...`,
     );
     const fileSummary = allFileNames.join('\n');
-    const decision = await this.decisionMaker.decide(
-      fileSummary,
-      allReviews,
-      'batch',
-    );
-    return {
-      id,
-      status: 'completed',
-      individualReviews: allReviews,
-      decision,
-    };
+    try {
+      const decision = await this.decisionMaker.decide(
+        fileSummary,
+        allReviews,
+        'batch',
+      );
+      return {
+        id,
+        status: 'completed',
+        individualReviews: allReviews,
+        decision,
+      };
+    } catch (error) {
+      const msg = error instanceof Error ? error.message : String(error);
+      this.logger.error(`Decision maker failed, returning partial result: ${msg}`);
+      return { id, status: 'partial', individualReviews: allReviews };
+    }
   }
 
   private async resolveGitRoot(): Promise<string> {
@@ -319,13 +337,18 @@ export class ReviewService {
       return { id, status: 'failed', individualReviews };
     }
 
-    const decision = await this.decisionMaker.decide(code, individualReviews);
-
-    return {
-      id,
-      status: 'completed',
-      individualReviews,
-      decision,
-    };
+    try {
+      const decision = await this.decisionMaker.decide(code, individualReviews);
+      return {
+        id,
+        status: 'completed',
+        individualReviews,
+        decision,
+      };
+    } catch (error) {
+      const msg = error instanceof Error ? error.message : String(error);
+      this.logger.error(`Decision maker failed, returning partial result: ${msg}`);
+      return { id, status: 'partial', individualReviews };
+    }
   }
 }
