@@ -16,7 +16,7 @@ import { sanitizeErrorMessage } from './retry-utils.js';
 import { BATCH_CONCURRENCY } from '../constants.js';
 
 // eslint-disable-next-line no-control-regex
-const CONTROL_CHARS = /[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g;
+const CONTROL_CHARS = /[\x00-\x08\x09\x0B\x0C\x0E-\x1F\x7F]/g;
 function sanitizeFileName(name: string): string {
   return name.replace(CONTROL_CHARS, '').replace(/[\r\n]+/g, ' ');
 }
@@ -231,9 +231,10 @@ export class ReviewService {
         individualReviews,
         'explore',
       );
-      const status = this.hasAnyReviewerFailure(individualReviews)
-        ? 'partial'
-        : 'completed';
+      const status =
+        decision.parseFailed || this.hasAnyReviewerFailure(individualReviews)
+          ? 'partial'
+          : 'completed';
       return { id, status, individualReviews, decision };
     } catch (error) {
       this.logger.error(
@@ -320,9 +321,10 @@ export class ReviewService {
         allReviews,
         'batch',
       );
-      const status = this.hasAnyReviewerFailure(allReviews)
-        ? 'partial'
-        : 'completed';
+      const status =
+        decision.parseFailed || this.hasAnyReviewerFailure(allReviews)
+          ? 'partial'
+          : 'completed';
       return {
         id,
         status,
@@ -371,9 +373,10 @@ export class ReviewService {
 
     try {
       const decision = await this.decisionMaker.decide(code, individualReviews);
-      const status = this.hasAnyReviewerFailure(individualReviews)
-        ? 'partial'
-        : 'completed';
+      const status =
+        decision.parseFailed || this.hasAnyReviewerFailure(individualReviews)
+          ? 'partial'
+          : 'completed';
       return {
         id,
         status,

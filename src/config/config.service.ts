@@ -102,7 +102,7 @@ export class ConfigService {
   }
 
   private static readonly SAFE_LANGUAGE = /^[a-zA-Z-]{2,10}$/;
-  private static readonly SAFE_MODEL = /^[^\n\r]{1,100}$/;
+  private static readonly SAFE_MODEL = /^[A-Za-z0-9._:\/-]{1,100}$/;
 
   private applyEnvOverrides(config: CouncilConfig): void {
     const model = process.env.DECISION_MAKER_MODEL;
@@ -112,7 +112,7 @@ export class ConfigService {
         config.decisionMaker.model = trimmed;
       } else {
         this.logger.warn(
-          'Ignoring invalid DECISION_MAKER_MODEL env (must be 1-100 chars, no newlines)',
+          'Ignoring invalid DECISION_MAKER_MODEL env (must be 1-100 alphanumeric/._:/-chars)',
         );
       }
     }
@@ -423,7 +423,7 @@ export class ConfigService {
         !ConfigService.SAFE_MODEL.test(r.model)
       ) {
         throw new Error(
-          `Invalid config (${filePath}): "${path}.model" must be a string of 1-100 chars with no newlines`,
+          `Invalid config (${filePath}): "${path}.model" must be 1-100 alphanumeric/._:/-chars`,
         );
       }
     }

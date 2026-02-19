@@ -177,7 +177,7 @@ export class CodeReaderService {
     diffArgs: string[],
   ): Promise<string[]> {
     const nameOnly = await git.diff([...diffArgs, '--name-only', '-z']);
-    if (!nameOnly.trim()) return [];
+    if (nameOnly.length === 0) return [];
     const files = nameOnly.split('\0').filter((f) => f.length > 0);
     const filtered = files.filter((f) => !this.isSensitiveFile(f));
     const skipped = files.length - filtered.length;

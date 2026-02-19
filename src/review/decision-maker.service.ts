@@ -240,6 +240,7 @@ Rules:
       overallAssessment: `[PARSE_FAILED] ${truncated}`,
       decisions: [],
       additionalFindings: [],
+      parseFailed: true,
     };
   }
 

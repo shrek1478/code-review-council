@@ -38,6 +38,7 @@ export interface ReviewDecision {
   overallAssessment: string;
   decisions: ReviewDecisionItem[];
   additionalFindings: AdditionalFinding[];
+  parseFailed?: boolean;
 }
 
 export interface ReviewResult {

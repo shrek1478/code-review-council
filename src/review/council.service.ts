@@ -7,6 +7,7 @@ import { retryWithBackoff, sanitizeErrorMessage } from './retry-utils.js';
 import {
   MAX_REVIEWER_CONCURRENCY,
   MAX_EXPLORATION_FILE_PATHS,
+  MAX_FILE_LIST_CHARS,
 } from '../constants.js';
 
 @Injectable()
@@ -148,15 +149,33 @@ export class CouncilService {
           `Explore mode: truncating file list from ${allPaths.length} to ${MAX_EXPLORATION_FILE_PATHS} files`,
         );
       }
-      const paths = truncated
+      const countLimited = truncated
         ? allPaths.slice(0, MAX_EXPLORATION_FILE_PATHS)
         : allPaths;
-      const fileList =
-        paths.map((p) => this.sanitizePath(p)).join('\n') ||
-        '(no files specified)';
-      const truncateNote = truncated
-        ? `\n\n(Showing ${MAX_EXPLORATION_FILE_PATHS} of ${allPaths.length} files. Focus on the listed files.)`
-        : '';
+      // Apply character limit to the assembled file list
+      let charsTruncated = false;
+      let totalChars = 0;
+      const finalPaths: string[] = [];
+      for (const p of countLimited) {
+        const sanitized = this.sanitizePath(p);
+        if (totalChars + sanitized.length + 1 > MAX_FILE_LIST_CHARS) {
+          charsTruncated = true;
+          break;
+        }
+        finalPaths.push(sanitized);
+        totalChars += sanitized.length + 1; // +1 for newline
+      }
+      if (charsTruncated) {
+        this.logger.warn(
+          `Explore mode: file list truncated at ${finalPaths.length} files due to ${MAX_FILE_LIST_CHARS} char limit`,
+        );
+      }
+      const fileList = finalPaths.join('\n') || '(no files specified)';
+      const omitted = allPaths.length - finalPaths.length;
+      const truncateNote =
+        truncated || charsTruncated
+          ? `\n\n(Showing ${finalPaths.length} of ${allPaths.length} files${omitted > 0 ? `, ${omitted} omitted` : ''}. Focus on the listed files.)`
+          : '';
       const repoInfo = request.repoPath
         ? `Repository Root: ${this.sanitizePath(request.repoPath)}`
         : '';

@@ -90,11 +90,14 @@ export class AcpService implements OnModuleDestroy {
         const eqIdx = arg.indexOf('=');
         const value = arg.slice(eqIdx + 1);
         if (this.looksLikeSecret(value)) {
-          return `${arg.slice(0, eqIdx + 1)}[REDACTED]`;
+          const tag = value.length > 200 ? '[REDACTED:length]' : '[REDACTED]';
+          return `${arg.slice(0, eqIdx + 1)}${tag}`;
         }
       }
       // Mask standalone positional args that look like secrets (tokens, API keys)
-      if (!arg.startsWith('-') && this.looksLikeSecret(arg)) return '[REDACTED]';
+      if (!arg.startsWith('-') && this.looksLikeSecret(arg)) {
+        return arg.length > 200 ? '[REDACTED:length]' : '[REDACTED]';
+      }
       return arg;
     });
   }

@@ -6,3 +6,6 @@ export const BATCH_CONCURRENCY = 2;
 
 /** Maximum number of file paths to include in exploration mode prompt. */
 export const MAX_EXPLORATION_FILE_PATHS = 1000;
+
+/** Maximum total characters for exploration mode file list in prompt. */
+export const MAX_FILE_LIST_CHARS = 80_000;
