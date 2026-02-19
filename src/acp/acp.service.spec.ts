@@ -119,9 +119,7 @@ describe('AcpService', () => {
       await stopPromise;
 
       expect(handle.client.stop).toHaveBeenCalled();
-      expect(
-        (handle.client as any).forceStop,
-      ).toHaveBeenCalled();
+      expect((handle.client as any).forceStop).toHaveBeenCalled();
     } finally {
       vi.useRealTimers();
     }
@@ -137,9 +135,7 @@ describe('AcpService', () => {
     await service.stopClient(handle);
 
     expect(handle.client.stop).toHaveBeenCalled();
-    expect(
-      (handle.client as any).forceStop,
-    ).not.toHaveBeenCalled();
+    expect((handle.client as any).forceStop).not.toHaveBeenCalled();
   });
 
   it('should pass model and streaming to createSession in sendPrompt', async () => {
@@ -257,9 +253,7 @@ describe('AcpService', () => {
   });
 
   it('should pass protocol from config to CopilotClient', async () => {
-    const { CopilotClient } = await import(
-      '@shrek1478/copilot-sdk-with-acp'
-    );
+    const { CopilotClient } = await import('@shrek1478/copilot-sdk-with-acp');
     const handle = await service.createClient({
       name: 'CopilotNative',
       cliPath: 'copilot',
@@ -274,9 +268,7 @@ describe('AcpService', () => {
   });
 
   it('should default protocol to acp when not specified', async () => {
-    const { CopilotClient } = await import(
-      '@shrek1478/copilot-sdk-with-acp'
-    );
+    const { CopilotClient } = await import('@shrek1478/copilot-sdk-with-acp');
     await service.createClient({
       name: 'DefaultProtocol',
       cliPath: 'some-cli',
@@ -288,9 +280,7 @@ describe('AcpService', () => {
   });
 
   it('should resolve command name to absolute path via which', async () => {
-    const { CopilotClient } = await import(
-      '@shrek1478/copilot-sdk-with-acp'
-    );
+    const { CopilotClient } = await import('@shrek1478/copilot-sdk-with-acp');
     await service.createClient({
       name: 'Copilot',
       cliPath: 'copilot',
@@ -342,9 +332,7 @@ describe('AcpService', () => {
   });
 
   it('should fall back to original cliPath when which fails', async () => {
-    const { CopilotClient } = await import(
-      '@shrek1478/copilot-sdk-with-acp'
-    );
+    const { CopilotClient } = await import('@shrek1478/copilot-sdk-with-acp');
     await service.createClient({
       name: 'Unknown',
       cliPath: 'unknown-cli',

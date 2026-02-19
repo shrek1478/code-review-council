@@ -86,8 +86,16 @@ describe('DecisionMakerService', () => {
 
   it('should decide based on code and reviewer opinions', async () => {
     const decision = await service.decide('const x = 1;', [
-      { reviewer: 'Gemini', review: 'Variable naming could be improved.', status: 'success' as const },
-      { reviewer: 'Codex', review: 'Consider renaming variables for clarity.', status: 'success' as const },
+      {
+        reviewer: 'Gemini',
+        review: 'Variable naming could be improved.',
+        status: 'success' as const,
+      },
+      {
+        reviewer: 'Codex',
+        review: 'Consider renaming variables for clarity.',
+        status: 'success' as const,
+      },
     ]);
     expect(decision.reviewer).toContain('Claude');
     expect(decision.reviewer).toContain('Decision Maker');
@@ -182,7 +190,9 @@ describe('DecisionMakerService', () => {
       },
       review: { language: 'zh-tw' },
     });
-    await service.decide('const x = 1;', [{ reviewer: 'Test', review: 'OK', status: 'success' as const }]);
+    await service.decide('const x = 1;', [
+      { reviewer: 'Test', review: 'OK', status: 'success' as const },
+    ]);
     expect(mockAcpService.sendPrompt).toHaveBeenCalledWith(
       expect.anything(),
       expect.any(String),

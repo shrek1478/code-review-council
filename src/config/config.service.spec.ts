@@ -2,8 +2,9 @@ import { Test } from '@nestjs/testing';
 import { ConsoleLogger } from '@nestjs/common';
 import { ConfigService } from './config.service.js';
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import { writeFile, unlink } from 'node:fs/promises';
+import { writeFile, mkdtemp, rm } from 'node:fs/promises';
 import { join } from 'node:path';
+import { tmpdir } from 'node:os';
 
 describe('ConfigService', () => {
   let service: ConfigService;
@@ -54,17 +55,19 @@ describe('ConfigService', () => {
   });
 
   it('should throw on config missing required fields', async () => {
-    const tmpPath = join(process.cwd(), '__test_invalid_config__.json');
+    const dir = await mkdtemp(join(tmpdir(), 'crc-test-'));
+    const tmpPath = join(dir, 'config.json');
     await writeFile(tmpPath, JSON.stringify({ reviewers: [] }));
     try {
       await expect(service.loadConfig(tmpPath)).rejects.toThrow('reviewers');
     } finally {
-      await unlink(tmpPath);
+      await rm(dir, { recursive: true });
     }
   });
 
   it('should throw on config with invalid reviewer (missing cliPath)', async () => {
-    const tmpPath = join(process.cwd(), '__test_bad_reviewer__.json');
+    const dir = await mkdtemp(join(tmpdir(), 'crc-test-'));
+    const tmpPath = join(dir, 'config.json');
     await writeFile(
       tmpPath,
       JSON.stringify({
@@ -76,7 +79,7 @@ describe('ConfigService', () => {
     try {
       await expect(service.loadConfig(tmpPath)).rejects.toThrow('cliPath');
     } finally {
-      await unlink(tmpPath);
+      await rm(dir, { recursive: true });
     }
   });
 
@@ -229,7 +232,8 @@ describe('ConfigService', () => {
 
   describe('new field validation', () => {
     it('should reject negative timeoutMs', async () => {
-      const tmpPath = join(process.cwd(), '__test_bad_timeout__.json');
+      const dir = await mkdtemp(join(tmpdir(), 'crc-test-'));
+      const tmpPath = join(dir, 'config.json');
       await writeFile(
         tmpPath,
         JSON.stringify({
@@ -243,12 +247,13 @@ describe('ConfigService', () => {
       try {
         await expect(service.loadConfig(tmpPath)).rejects.toThrow('timeoutMs');
       } finally {
-        await unlink(tmpPath);
+        await rm(dir, { recursive: true });
       }
     });
 
     it('should reject maxRetries > 5', async () => {
-      const tmpPath = join(process.cwd(), '__test_bad_retries__.json');
+      const dir = await mkdtemp(join(tmpdir(), 'crc-test-'));
+      const tmpPath = join(dir, 'config.json');
       await writeFile(
         tmpPath,
         JSON.stringify({
@@ -262,7 +267,7 @@ describe('ConfigService', () => {
       try {
         await expect(service.loadConfig(tmpPath)).rejects.toThrow('maxRetries');
       } finally {
-        await unlink(tmpPath);
+        await rm(dir, { recursive: true });
       }
     });
 
@@ -357,7 +362,12 @@ describe('ConfigService', () => {
     it('should accept protocol "copilot"', async () => {
       process.env.CONFIG_JSON = JSON.stringify({
         reviewers: [
-          { name: 'Copilot', cliPath: 'copilot', cliArgs: [], protocol: 'copilot' },
+          {
+            name: 'Copilot',
+            cliPath: 'copilot',
+            cliArgs: [],
+            protocol: 'copilot',
+          },
         ],
         decisionMaker: { name: 'DM', cliPath: 'echo', cliArgs: [] },
         review: { defaultChecks: ['code-quality'], language: 'en' },
@@ -368,9 +378,7 @@ describe('ConfigService', () => {
 
     it('should accept missing protocol (defaults to undefined)', async () => {
       process.env.CONFIG_JSON = JSON.stringify({
-        reviewers: [
-          { name: 'Test', cliPath: 'echo', cliArgs: [] },
-        ],
+        reviewers: [{ name: 'Test', cliPath: 'echo', cliArgs: [] }],
         decisionMaker: { name: 'DM', cliPath: 'echo', cliArgs: [] },
         review: { defaultChecks: ['code-quality'], language: 'en' },
       });
@@ -449,7 +457,8 @@ describe('ConfigService', () => {
     });
 
     it('should accept valid timeoutMs and maxRetries', async () => {
-      const tmpPath = join(process.cwd(), '__test_valid_new_fields__.json');
+      const dir = await mkdtemp(join(tmpdir(), 'crc-test-'));
+      const tmpPath = join(dir, 'config.json');
       await writeFile(
         tmpPath,
         JSON.stringify({
@@ -487,7 +496,7 @@ describe('ConfigService', () => {
         expect(config.review.maxCodeLength).toBe(100000);
         expect(config.review.maxSummaryLength).toBe(60000);
       } finally {
-        await unlink(tmpPath);
+        await rm(dir, { recursive: true });
       }
     });
   });

@@ -43,17 +43,17 @@ export class ConfigService {
     if (configJson && configJson.trim() !== '') {
       return this.parseConfigJson(configJson);
     }
-    // 3. 專案層級：當前工作目錄下的設定檔
+    // 3. 使用者層級：~/.code-review-council/review-council.config.json (trusted)
+    if (await this.fileExists(USER_CONFIG_PATH)) {
+      return this.loadFromFile(USER_CONFIG_PATH);
+    }
+    // 4. 專案層級：當前工作目錄下的設定檔 (lower trust — may be from untrusted repo)
     if (await this.fileExists(CWD_CONFIG_PATH)) {
       this.logger.warn(
         `Loading config from current working directory: ${CWD_CONFIG_PATH}. ` +
           `Use --config to specify an explicit path if this is unintended.`,
       );
       return this.loadFromFile(CWD_CONFIG_PATH);
-    }
-    // 4. 使用者層級：~/.code-review-council/review-council.config.json
-    if (await this.fileExists(USER_CONFIG_PATH)) {
-      return this.loadFromFile(USER_CONFIG_PATH);
     }
     // 5. 內建預設
     return this.loadFromFile(
@@ -308,6 +308,12 @@ export class ConfigService {
    * Note: This is a heuristic check and cannot catch all possible ReDoS patterns.
    * It covers nested quantifiers and overlapping alternation — the most common
    * and dangerous ReDoS triggers.
+   *
+   * Known limitations:
+   * - Does not detect quantified alternation with partial overlap (e.g. (a|ab)+ on specific inputs)
+   * - Does not detect backreference-based exponential patterns
+   * - Does not analyze character class overlap inside alternation groups
+   * - For stronger protection, consider safe-regex or worker_threads with timeout
    */
   private isReDoSRisk(regex: RegExp): boolean {
     const src = regex.source;

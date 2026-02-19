@@ -270,7 +270,9 @@ export class ReviewService {
       return { id, status: 'failed', individualReviews: allReviews };
     }
 
-    this.logger.log(`Sending ${allReviews.length} reviews to decision maker...`);
+    this.logger.log(
+      `Sending ${allReviews.length} reviews to decision maker...`,
+    );
     const fileSummary = allFileNames.join('\n');
     const decision = await this.decisionMaker.decide(
       fileSummary,
@@ -291,7 +293,8 @@ export class ReviewService {
       return await realpath(toplevel.trim());
     } catch {
       this.logger.warn(
-        'Not inside a git repository, falling back to current working directory',
+        'Not inside a git repository, falling back to current working directory. ' +
+          'Path validation in explore mode will use cwd as the root boundary.',
       );
       return await realpath(resolve('.'));
     }
