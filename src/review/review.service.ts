@@ -12,6 +12,7 @@ import { CouncilService } from './council.service.js';
 import { DecisionMakerService } from './decision-maker.service.js';
 import { ConfigService } from '../config/config.service.js';
 import { IndividualReview, ReviewResult } from './review.types.js';
+import { BATCH_CONCURRENCY } from '../constants.js';
 
 // eslint-disable-next-line no-control-regex
 const CONTROL_CHARS = /[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g;
@@ -249,7 +250,6 @@ export class ReviewService {
     }
 
     // Multi-batch: review batches with limited concurrency, then pass file summary to decision maker
-    const BATCH_CONCURRENCY = 2;
     const allReviews: IndividualReview[] = [];
     const allFileNames: string[] = [];
 

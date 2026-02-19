@@ -93,6 +93,8 @@ export class AcpService implements OnModuleDestroy {
           return `${arg.slice(0, eqIdx + 1)}[REDACTED]`;
         }
       }
+      // Mask standalone positional args that look like secrets (tokens, API keys)
+      if (!arg.startsWith('-') && this.looksLikeSecret(arg)) return '[REDACTED]';
       return arg;
     });
   }

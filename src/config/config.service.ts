@@ -368,6 +368,7 @@ export class ConfigService {
     }
     // eslint-disable-next-line no-control-regex
     const CONTROL_CHAR_REGEX = /[\x00-\x1f\x7f]/;
+    const DANGEROUS_ARGS = new Set(['-c', '-e', '--eval', '--exec']);
     for (const arg of r.cliArgs) {
       if (arg.length > MAX_CLI_ARG_LENGTH) {
         throw new Error(
@@ -377,6 +378,11 @@ export class ConfigService {
       if (CONTROL_CHAR_REGEX.test(arg)) {
         throw new Error(
           `Invalid config (${filePath}): "${path}.cliArgs" element contains control characters`,
+        );
+      }
+      if (DANGEROUS_ARGS.has(arg)) {
+        throw new Error(
+          `Invalid config (${filePath}): "${path}.cliArgs" contains dangerous argument "${arg}"`,
         );
       }
     }

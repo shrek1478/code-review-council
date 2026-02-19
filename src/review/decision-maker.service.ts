@@ -154,14 +154,20 @@ Rules:
       );
 
       const response = await retryWithBackoff(
-        () => this.acpService.sendPrompt(handle!, prompt, timeoutMs),
+        () => {
+          if (!handle) {
+            throw new Error(`No active client for ${dmConfig.name}`);
+          }
+          return this.acpService.sendPrompt(handle, prompt, timeoutMs);
+        },
         {
           maxRetries,
           label: dmConfig.name,
           logger: this.logger,
           onRetry: async () => {
-            const prev = handle!;
+            const prev = handle;
             handle = null;
+            if (!prev) return;
             try {
               await this.acpService.stopClient(prev);
             } catch (stopError) {

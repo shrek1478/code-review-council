@@ -23,16 +23,20 @@ export class CodebaseCommand extends CommandRunner {
         ?.split(',')
         .map((e) => e.trim())
         .filter(Boolean) ?? undefined;
-    const parsedBatchSize = options.batchSize
-      ? Number.parseInt(options.batchSize, 10)
-      : undefined;
-    if (
-      parsedBatchSize !== undefined &&
-      (Number.isNaN(parsedBatchSize) || parsedBatchSize <= 0)
-    ) {
-      throw new Error(
-        `Invalid batch-size: "${options.batchSize}". Must be a positive integer.`,
-      );
+    const MAX_BATCH_SIZE = 500_000;
+    let parsedBatchSize: number | undefined;
+    if (options.batchSize) {
+      if (!/^[1-9]\d*$/.test(options.batchSize)) {
+        throw new Error(
+          `Invalid batch-size: "${sanitize(options.batchSize)}". Must be a positive integer.`,
+        );
+      }
+      parsedBatchSize = Number(options.batchSize);
+      if (parsedBatchSize > MAX_BATCH_SIZE) {
+        throw new Error(
+          `Invalid batch-size: ${parsedBatchSize} exceeds maximum of ${MAX_BATCH_SIZE}.`,
+        );
+      }
     }
     const config = this.configService.getConfig();
     const checks = parseChecksOption(

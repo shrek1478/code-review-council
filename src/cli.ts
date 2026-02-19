@@ -2,7 +2,10 @@
 import { ConsoleLogger } from '@nestjs/common';
 import { CommandFactory } from 'nest-commander';
 import { CliModule } from './cli/cli.module.js';
-import { MAX_REVIEWER_CONCURRENCY } from './constants.js';
+import {
+  MAX_REVIEWER_CONCURRENCY,
+  BATCH_CONCURRENCY,
+} from './constants.js';
 
 const FRAMEWORK_CONTEXTS = new Set([
   'NestFactory',
@@ -20,13 +23,12 @@ class CliLogger extends ConsoleLogger {
 
 // CopilotClient spawns child processes that register exit/signal listeners on `process`.
 // With multiple reviewers in parallel, this exceeds the default 10 listeners limit.
-// Uses MAX_REVIEWER_CONCURRENCY (the hard concurrency cap enforced by council.service chunking)
-// as the upper bound, so this is safe regardless of how many reviewers are configured.
-// Formula: Node.js default (10) + max concurrent clients (reviewers + decision maker) * listeners per client.
+// Peak concurrent clients = BATCH_CONCURRENCY batches × MAX_REVIEWER_CONCURRENCY reviewers + 1 DM.
 const BASE_LISTENERS = 10;
 const LISTENERS_PER_CLIENT = 4;
 process.setMaxListeners(
-  BASE_LISTENERS + (MAX_REVIEWER_CONCURRENCY + 1) * LISTENERS_PER_CLIENT,
+  BASE_LISTENERS +
+    (BATCH_CONCURRENCY * MAX_REVIEWER_CONCURRENCY + 1) * LISTENERS_PER_CLIENT,
 );
 
 async function bootstrap() {

@@ -218,6 +218,7 @@ export class CodeReaderService {
         skippedCount++;
         return null;
       }
+      let reserved = 0;
       try {
         const real = await realpath(resolved);
         if (!this.isWithinRoot(real, rootReal)) {
@@ -249,11 +250,13 @@ export class CodeReaderService {
           return null;
         }
         // Deduct before reading to prevent concurrent over-allocation
-        budget.remaining -= fileStat.size;
+        reserved = fileStat.size;
+        budget.remaining -= reserved;
         const content = await readFile(real, 'utf-8');
         // Use relative path to avoid leaking host directory structure
         return { path: relative(rootReal, real), content };
       } catch (error) {
+        budget.remaining += reserved;
         const msg = error instanceof Error ? error.message : String(error);
         this.logger.warn(`Skipping unreadable file: ${filePath} (${msg})`);
         skippedCount++;
@@ -334,6 +337,7 @@ export class CodeReaderService {
       relativePath: string,
     ): Promise<FileContent | null> => {
       const fullPath = join(directory, relativePath);
+      let reserved = 0;
       try {
         const real = await realpath(fullPath);
         if (!this.isWithinRoot(real, dirReal)) {
@@ -367,10 +371,12 @@ export class CodeReaderService {
           return null;
         }
         // Deduct before reading to prevent concurrent over-allocation
-        budget.remaining -= fileStat.size;
+        reserved = fileStat.size;
+        budget.remaining -= reserved;
         const content = await readFile(real, 'utf-8');
         return { path: relativePath, content };
       } catch (error) {
+        budget.remaining += reserved;
         const msg = error instanceof Error ? error.message : String(error);
         this.logger.warn(`Skipping unreadable file: ${relativePath} (${msg})`);
         skippedCount++;
