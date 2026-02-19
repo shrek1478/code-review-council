@@ -136,7 +136,7 @@ export class AcpService implements OnModuleDestroy {
       cliPath,
       cliArgs: config.cliArgs,
       protocol: config.protocol ?? 'acp',
-    } as ConstructorParameters<typeof CopilotClient>[0]);
+    } as ConstructorParameters<typeof CopilotClient>[0]); // TODO: remove cast when SDK exports protocol in its types
     await client.start();
     const handle: AcpClientHandle = {
       name: config.name,
@@ -149,8 +149,8 @@ export class AcpService implements OnModuleDestroy {
 
   /**
    * Resolve a CLI command name to its absolute path (cached).
-   * - Absolute paths are returned as-is (used internally by SDK; config validator restricts
-   *   user-facing cliPath to bare command names for security).
+   * - Absolute paths: returned as-is (defensive fallback only; createClient's
+   *   SAFE_CLI_NAME guard restricts user-facing cliPath to bare command names).
    * - Bare command names are resolved via `which` (Unix/macOS) or `where` (Windows);
    *   falls back to original on failure.
    * - On Windows, `where` may return multiple matches; the first line is used.
@@ -290,12 +290,11 @@ export class AcpService implements OnModuleDestroy {
     const timeout = new Promise<never>((_, reject) => {
       timer = setTimeout(() => reject(new Error('stop timeout')), timeoutMs);
     });
-    const stopPromise = client.stop();
+    const stopPromise = client.stop().catch((e: unknown) => e);
     try {
-      await Promise.race([stopPromise, timeout]);
+      const result = await Promise.race([stopPromise, timeout]);
+      if (result instanceof Error) throw result;
     } catch {
-      // Prevent unhandled rejection from the dangling stopPromise
-      stopPromise.catch(() => {});
       this.logger.warn(`Graceful stop failed for ${name}, force stopping...`);
       const fc = client as unknown as { forceStop?(): Promise<void> };
       if (typeof fc.forceStop !== 'function') return;

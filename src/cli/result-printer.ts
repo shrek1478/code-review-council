@@ -77,6 +77,9 @@ function printDecision(decision: ReviewDecision): void {
       console.log(
         `  [${sanitizeLine(f.severity)}] ${sanitizeLine(f.category)}: ${sanitizeIndented(f.description, '    ')}`,
       );
+      if (f.file) {
+        console.log(`    File: ${sanitizeLine(f.file)}`);
+      }
       if (f.suggestion)
         console.log(`    Action: ${sanitizeIndented(f.suggestion, '    ')}`);
     }
@@ -134,8 +137,8 @@ export function parseChecksOption(
   });
   if (raw && parsed.length === 0) {
     const valid = [...validChecks].join(', ');
-    console.error(
-      `Error: No valid check categories found. Valid categories: ${valid}`,
+    throw new Error(
+      `No valid check categories found. Valid categories: ${valid}`,
     );
   }
   return parsed;

@@ -248,8 +248,9 @@ export class CodeReaderService {
           skippedCount++;
           return null;
         }
-        const content = await readFile(real, 'utf-8');
+        // Deduct before reading to prevent concurrent over-allocation
         budget.remaining -= fileStat.size;
+        const content = await readFile(real, 'utf-8');
         // Use relative path to avoid leaking host directory structure
         return { path: relative(rootReal, real), content };
       } catch (error) {
@@ -365,8 +366,9 @@ export class CodeReaderService {
           skippedCount++;
           return null;
         }
-        const content = await readFile(real, 'utf-8');
+        // Deduct before reading to prevent concurrent over-allocation
         budget.remaining -= fileStat.size;
+        const content = await readFile(real, 'utf-8');
         return { path: relativePath, content };
       } catch (error) {
         const msg = error instanceof Error ? error.message : String(error);

@@ -306,7 +306,7 @@ export class ReviewService {
     this.logger.log(
       `Sending ${allReviews.length} reviews to decision maker...`,
     );
-    const fileSummary = allFileNames.map(sanitizeFileName).join('\n');
+    const fileSummary = allFileNames.join('\n');
     try {
       const decision = await this.decisionMaker.decide(
         fileSummary,
