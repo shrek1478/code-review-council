@@ -34,11 +34,20 @@ export class CodebaseCommand extends CommandRunner {
         `Invalid batch-size: "${options.batchSize}". Must be a positive integer.`,
       );
     }
-    const checks =
+    const config = this.configService.getConfig();
+    const validChecks = new Set(config.review.defaultChecks);
+    const checks = (
       options.checks
         ?.split(',')
         .map((s) => s.trim())
-        .filter(Boolean) ?? [];
+        .filter(Boolean) ?? []
+    ).filter((c) => {
+      if (!validChecks.has(c)) {
+        console.warn(`Warning: Unknown check category ignored: "${c}"`);
+        return false;
+      }
+      return true;
+    });
     const extra = options.extra;
 
     console.log('\n=== Code Review Council ===\n');

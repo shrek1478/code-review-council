@@ -4,6 +4,7 @@ import { AcpService } from '../acp/acp.service.js';
 import { ConfigService } from '../config/config.service.js';
 import {
   IndividualReview,
+  ReviewCategory,
   ReviewDecision,
   ReviewDecisionItem,
   AdditionalFinding,
@@ -21,6 +22,7 @@ const VALID_CATEGORIES = new Set([
   'readability',
   'code-quality',
   'best-practices',
+  'other',
 ]);
 const VALID_VERDICTS = new Set(['accepted', 'rejected', 'modified']);
 
@@ -366,7 +368,7 @@ Rules:
           : 'medium',
         category:
           typeof d.category === 'string' && VALID_CATEGORIES.has(d.category)
-            ? d.category
+            ? (d.category as ReviewCategory)
             : 'other',
         description: String(d.description),
         file: typeof d.file === 'string' ? d.file : undefined,
@@ -395,7 +397,7 @@ Rules:
           : 'medium',
         category:
           typeof f.category === 'string' && VALID_CATEGORIES.has(f.category)
-            ? f.category
+            ? (f.category as ReviewCategory)
             : 'other',
         description: String(f.description),
         file: typeof f.file === 'string' ? f.file : undefined,

@@ -36,11 +36,24 @@ const RETRYABLE_PATTERNS = [
 /** Mask potential tokens/secrets in error messages. */
 export function sanitizeErrorMessage(error: unknown): string {
   const msg = error instanceof Error ? error.message : String(error);
-  return msg.replace(/[A-Za-z0-9+/=_-]{32,}/g, '[REDACTED]').replace(
-    // Common secret prefixes (even if shorter than 32 chars)
-    /(?:sk-|ghp_|gho_|ghu_|ghs_|ghr_|glpat-|xox[bsrap]-)[A-Za-z0-9+/=_-]+/gi,
-    '[REDACTED]',
-  );
+  return msg
+    .replace(/[A-Za-z0-9+/=_-]{32,}/g, (match) => {
+      // Preserve git SHA hashes (40 hex chars)
+      if (/^[0-9a-f]{40}$/i.test(match)) return match;
+      // Preserve UUIDs (8-4-4-4-12 hex with dashes)
+      if (
+        /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(
+          match,
+        )
+      )
+        return match;
+      return '[REDACTED]';
+    })
+    .replace(
+      // Common secret prefixes (even if shorter than 32 chars)
+      /(?:sk-|ghp_|gho_|ghu_|ghs_|ghr_|glpat-|xox[bsrap]-)[A-Za-z0-9+/=_-]+/gi,
+      '[REDACTED]',
+    );
 }
 
 export function isRetryable(error: unknown): boolean {

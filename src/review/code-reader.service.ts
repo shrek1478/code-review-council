@@ -150,21 +150,11 @@ export class CodeReaderService {
         throw new Error('No diff found');
       }
       return this.truncateDiff(
-        stagedFiles.length > MAX_DIFF_FILE_ARGS
-          ? this.filterDiffOutput(
-              await git.diff(['--staged']),
-              new Set(stagedFiles),
-            )
-          : await git.diff(['--staged', '--', ...stagedFiles]),
+        await this.chunkedDiff(git, ['--staged'], stagedFiles),
       );
     }
     return this.truncateDiff(
-      changedFiles.length > MAX_DIFF_FILE_ARGS
-        ? this.filterDiffOutput(
-            await git.diff([mergeBase]),
-            new Set(changedFiles),
-          )
-        : await git.diff([mergeBase, '--', ...changedFiles]),
+      await this.chunkedDiff(git, [mergeBase], changedFiles),
     );
   }
 
@@ -184,20 +174,19 @@ export class CodeReaderService {
   }
 
   /**
-   * Filter full diff output to only include hunks for allowed files.
-   * Used when changedFiles exceeds MAX_DIFF_FILE_ARGS to avoid ARG_MAX issues.
+   * Run git diff in chunks to avoid ARG_MAX issues with large file lists.
    */
-  private filterDiffOutput(
-    fullDiff: string,
-    allowedFiles: Set<string>,
-  ): string {
-    const hunks = fullDiff.split(/^(?=diff --git )/m);
-    const filtered = hunks.filter((hunk) => {
-      const match = hunk.match(/^diff --git a\/(.+?) b\//);
-      if (!match) return false;
-      return allowedFiles.has(match[1]);
-    });
-    return filtered.join('');
+  private async chunkedDiff(
+    git: ReturnType<typeof simpleGit>,
+    baseArgs: string[],
+    files: string[],
+  ): Promise<string> {
+    const parts: string[] = [];
+    for (let i = 0; i < files.length; i += MAX_DIFF_FILE_ARGS) {
+      const chunk = files.slice(i, i + MAX_DIFF_FILE_ARGS);
+      parts.push(await git.diff([...baseArgs, '--', ...chunk]));
+    }
+    return parts.join('');
   }
 
   private truncateDiff(diff: string): string {

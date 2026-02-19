@@ -7,7 +7,7 @@
         "--experimental-acp"
       ],
       "timeoutMs": 600000,
-      "maxRetries": 0
+      "maxRetries": 1
     },
     {
       "name": "Copilot",
@@ -16,7 +16,7 @@
       "protocol": "copilot",
       "model": "gpt-5.3-codex",
       "timeoutMs": 600000,
-      "maxRetries": 0
+      "maxRetries": 1
     }
   ],
   "decisionMaker": {
@@ -24,7 +24,7 @@
     "cliPath": "claude-code-acp",
     "cliArgs": [],
     "timeoutMs": 600000,
-    "maxRetries": 0
+    "maxRetries": 1
   },
   "review": {
     "defaultChecks": [

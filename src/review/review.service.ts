@@ -240,37 +240,50 @@ export class ReviewService {
       return this.runReview(id, code, checks, extraInstructions);
     }
 
-    // Multi-batch: review each batch, then pass file summary to decision maker
+    // Multi-batch: review batches with limited concurrency, then pass file summary to decision maker
+    const BATCH_CONCURRENCY = 2;
     const allReviews: IndividualReview[] = [];
     const allFileNames: string[] = [];
-    for (let i = 0; i < batches.length; i++) {
-      const batch = batches[i];
-      const code = batch
-        .map((f) => `=== ${f.path} ===\n${f.content}`)
-        .join('\n\n');
 
+    // Collect file names upfront
+    for (const batch of batches) {
       for (const f of batch) {
         const lineCount = f.content.split('\n').length;
         allFileNames.push(`${f.path} (${lineCount} lines)`);
       }
+    }
 
-      const batchExtra = [
-        `[Batch ${i + 1}/${batches.length}]`,
-        extraInstructions,
-      ]
-        .filter(Boolean)
-        .join(' ');
-
-      this.logger.log(
-        `[Batch ${i + 1}/${batches.length}] Dispatching to reviewers (${batch.length} files, ${code.length} chars)...`,
+    for (let i = 0; i < batches.length; i += BATCH_CONCURRENCY) {
+      const chunk = batches.slice(i, i + BATCH_CONCURRENCY);
+      const chunkResults = await Promise.all(
+        chunk.map(async (batch, j) => {
+          const batchIdx = i + j;
+          const code = batch
+            .map((f) => `=== ${f.path} ===\n${f.content}`)
+            .join('\n\n');
+          const batchExtra = [
+            `[Batch ${batchIdx + 1}/${batches.length}]`,
+            extraInstructions,
+          ]
+            .filter(Boolean)
+            .join(' ');
+          this.logger.log(
+            `[Batch ${batchIdx + 1}/${batches.length}] Dispatching to reviewers (${batch.length} files, ${code.length} chars)...`,
+          );
+          const reviews = await this.council.dispatchReviews({
+            code,
+            checks,
+            extraInstructions: batchExtra,
+          });
+          this.logger.log(
+            `[Batch ${batchIdx + 1}/${batches.length}] Complete.`,
+          );
+          return reviews;
+        }),
       );
-      const reviews = await this.council.dispatchReviews({
-        code,
-        checks,
-        extraInstructions: batchExtra,
-      });
-      allReviews.push(...reviews);
-      this.logger.log(`[Batch ${i + 1}/${batches.length}] Complete.`);
+      for (const reviews of chunkResults) {
+        allReviews.push(...reviews);
+      }
     }
 
     this.logger.log(

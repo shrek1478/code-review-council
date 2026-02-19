@@ -5,9 +5,17 @@ export interface IndividualReview {
   durationMs?: number;
 }
 
+export type ReviewCategory =
+  | 'security'
+  | 'performance'
+  | 'readability'
+  | 'code-quality'
+  | 'best-practices'
+  | 'other';
+
 export interface ReviewDecisionItem {
   severity: 'high' | 'medium' | 'low';
-  category: string;
+  category: ReviewCategory;
   description: string;
   file?: string;
   line?: number;
@@ -19,7 +27,7 @@ export interface ReviewDecisionItem {
 
 export interface AdditionalFinding {
   severity: 'high' | 'medium' | 'low';
-  category: string;
+  category: ReviewCategory;
   description: string;
   file?: string;
   suggestion: string;
