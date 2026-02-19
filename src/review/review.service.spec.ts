@@ -22,6 +22,7 @@ describe('ReviewService', () => {
         { path: 'src/main.ts', content: 'const main = 2;' },
       ],
     ]),
+    createBatches: vi.fn((items: any[]) => [items]),
     listCodebaseFiles: vi.fn().mockResolvedValue(['src/app.ts', 'src/main.ts']),
     isSensitiveFile: vi.fn().mockReturnValue(false),
   };
@@ -108,6 +109,28 @@ describe('ReviewService', () => {
     expect(result.status).toBe('completed');
     expect(result.individualReviews.length).toBe(2);
     expect(mockCodeReader.readFiles).toHaveBeenCalledWith(['test.ts']);
+    expect(mockCodeReader.createBatches).toHaveBeenCalled();
+  });
+
+  it('should batch reviewFiles when createBatches returns multiple batches', async () => {
+    mockCodeReader.readFiles.mockResolvedValue([
+      { path: 'a.ts', content: 'aaa' },
+      { path: 'b.ts', content: 'bbb' },
+    ]);
+    mockCodeReader.createBatches.mockReturnValue([
+      [{ path: 'a.ts', content: 'aaa' }],
+      [{ path: 'b.ts', content: 'bbb' }],
+    ]);
+    const result = await service.reviewFiles(['a.ts', 'b.ts']);
+    expect(result.status).toBe('completed');
+    expect(mockCouncil.dispatchReviews).toHaveBeenCalledTimes(2);
+    // 2 batches * 2 reviewers = 4 individual reviews
+    expect(result.individualReviews.length).toBe(4);
+    expect(mockDecisionMaker.decide).toHaveBeenCalledWith(
+      expect.stringContaining('a.ts'),
+      expect.any(Array),
+      'batch',
+    );
   });
 
   describe('reviewCodebase', () => {

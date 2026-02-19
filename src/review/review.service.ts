@@ -3,7 +3,11 @@ import { randomUUID } from 'node:crypto';
 import { resolve, relative, isAbsolute } from 'node:path';
 import { realpath } from 'node:fs/promises';
 import { simpleGit } from 'simple-git';
-import { CodeReaderService, CodebaseOptions } from './code-reader.service.js';
+import {
+  CodeReaderService,
+  CodebaseOptions,
+  FileContent,
+} from './code-reader.service.js';
 import { CouncilService } from './council.service.js';
 import { DecisionMakerService } from './decision-maker.service.js';
 import { ConfigService } from '../config/config.service.js';
@@ -105,10 +109,14 @@ export class ReviewService {
       );
     } else {
       const files = await this.codeReader.readFiles(filePaths);
-      const code = files
-        .map((f) => `=== ${f.path} ===\n${f.content}`)
-        .join('\n\n');
-      result = await this.runReview(id, code, checks, extraInstructions);
+      const batches = this.codeReader.createBatches(files);
+      this.logger.log(`File review split into ${batches.length} batch(es)`);
+      result = await this.runBatchedInlineReview(
+        id,
+        batches,
+        checks,
+        extraInstructions,
+      );
     }
     result.durationMs = Date.now() - startMs;
     this.logger.log(`File review ${id} completed in ${result.durationMs}ms`);
@@ -147,63 +155,12 @@ export class ReviewService {
     } else {
       const batches = await this.codeReader.readCodebase(directory, options);
       this.logger.log(`Codebase split into ${batches.length} batch(es)`);
-
-      if (batches.length === 1) {
-        const code = batches[0]
-          .map((f) => `=== ${f.path} ===\n${f.content}`)
-          .join('\n\n');
-        result = await this.runReview(id, code, checks, extraInstructions);
-      } else {
-        // Multi-batch: review each batch, then pass file summary (not full code) to decision maker
-        const allReviews: IndividualReview[] = [];
-        const allFileNames: string[] = [];
-        for (let i = 0; i < batches.length; i++) {
-          const batch = batches[i];
-          const code = batch
-            .map((f) => `=== ${f.path} ===\n${f.content}`)
-            .join('\n\n');
-
-          for (const f of batch) {
-            const lineCount = f.content.split('\n').length;
-            allFileNames.push(`${f.path} (${lineCount} lines)`);
-          }
-
-          const batchExtra = [
-            `[Batch ${i + 1}/${batches.length}]`,
-            extraInstructions,
-          ]
-            .filter(Boolean)
-            .join(' ');
-
-          this.logger.log(
-            `[Batch ${i + 1}/${batches.length}] Dispatching to reviewers (${batch.length} files, ${code.length} chars)...`,
-          );
-          const reviews = await this.council.dispatchReviews({
-            code,
-            checks,
-            extraInstructions: batchExtra,
-          });
-          allReviews.push(...reviews);
-          this.logger.log(`[Batch ${i + 1}/${batches.length}] Complete.`);
-        }
-
-        // Pass file summary instead of full code to decision maker
-        this.logger.log(
-          `All ${batches.length} batches complete. Sending ${allReviews.length} reviews to decision maker...`,
-        );
-        const fileSummary = allFileNames.join('\n');
-        const decision = await this.decisionMaker.decide(
-          fileSummary,
-          allReviews,
-          'batch',
-        );
-        result = {
-          id,
-          status: 'completed',
-          individualReviews: allReviews,
-          decision,
-        };
-      }
+      result = await this.runBatchedInlineReview(
+        id,
+        batches,
+        checks,
+        extraInstructions,
+      );
     }
 
     result.durationMs = Date.now() - startMs;
@@ -236,12 +193,77 @@ export class ReviewService {
     return { id, status: 'completed', individualReviews, decision };
   }
 
+  private async runBatchedInlineReview(
+    id: string,
+    batches: FileContent[][],
+    checks: string[],
+    extraInstructions?: string,
+  ): Promise<ReviewResult> {
+    if (batches.length === 1) {
+      const code = batches[0]
+        .map((f) => `=== ${f.path} ===\n${f.content}`)
+        .join('\n\n');
+      return this.runReview(id, code, checks, extraInstructions);
+    }
+
+    // Multi-batch: review each batch, then pass file summary to decision maker
+    const allReviews: IndividualReview[] = [];
+    const allFileNames: string[] = [];
+    for (let i = 0; i < batches.length; i++) {
+      const batch = batches[i];
+      const code = batch
+        .map((f) => `=== ${f.path} ===\n${f.content}`)
+        .join('\n\n');
+
+      for (const f of batch) {
+        const lineCount = f.content.split('\n').length;
+        allFileNames.push(`${f.path} (${lineCount} lines)`);
+      }
+
+      const batchExtra = [
+        `[Batch ${i + 1}/${batches.length}]`,
+        extraInstructions,
+      ]
+        .filter(Boolean)
+        .join(' ');
+
+      this.logger.log(
+        `[Batch ${i + 1}/${batches.length}] Dispatching to reviewers (${batch.length} files, ${code.length} chars)...`,
+      );
+      const reviews = await this.council.dispatchReviews({
+        code,
+        checks,
+        extraInstructions: batchExtra,
+      });
+      allReviews.push(...reviews);
+      this.logger.log(`[Batch ${i + 1}/${batches.length}] Complete.`);
+    }
+
+    this.logger.log(
+      `All ${batches.length} batches complete. Sending ${allReviews.length} reviews to decision maker...`,
+    );
+    const fileSummary = allFileNames.join('\n');
+    const decision = await this.decisionMaker.decide(
+      fileSummary,
+      allReviews,
+      'batch',
+    );
+    return {
+      id,
+      status: 'completed',
+      individualReviews: allReviews,
+      decision,
+    };
+  }
+
   private async resolveGitRoot(): Promise<string> {
     try {
       const toplevel = await simpleGit().revparse(['--show-toplevel']);
       return await realpath(toplevel.trim());
     } catch {
-      // Fallback to CWD if not in a git repo
+      this.logger.warn(
+        'Not inside a git repository, falling back to current working directory',
+      );
       return await realpath(resolve('.'));
     }
   }

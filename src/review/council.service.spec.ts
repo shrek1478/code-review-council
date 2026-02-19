@@ -98,6 +98,31 @@ describe('CouncilService', () => {
     expect(mockAcpService.stopClient).toHaveBeenCalledTimes(2);
   });
 
+  it('should abort retries when onRetry callback fails', async () => {
+    mockConfigService.getConfig.mockReturnValue({
+      reviewers: [
+        { name: 'Codex', cliPath: 'codex-acp', cliArgs: [], maxRetries: 2 },
+      ],
+      review: { defaultChecks: ['code-quality'], language: 'zh-tw' },
+    });
+    mockAcpService.sendPrompt.mockRejectedValueOnce(
+      new Error('Codex timed out after 180000ms'),
+    );
+    mockAcpService.stopClient.mockRejectedValueOnce(
+      new Error('client already stopped'),
+    );
+
+    const reviews = await service.dispatchReviews({
+      code: 'const x = 1;',
+      checks: ['code-quality'],
+    });
+
+    expect(reviews.length).toBe(1);
+    expect(reviews[0].review).toContain('Review generation failed');
+    // Should NOT have retried (onRetry aborted the loop)
+    expect(mockAcpService.sendPrompt).toHaveBeenCalledTimes(1);
+  });
+
   it('should not retry on non-retryable errors', async () => {
     mockConfigService.getConfig.mockReturnValue({
       reviewers: [
@@ -280,6 +305,28 @@ describe('CouncilService', () => {
 
     const promptArg = mockAcpService.sendPrompt.mock.calls[0][1] as string;
     expect(promptArg).toContain('Repository Root: /home/user/project');
+  });
+
+  it('should strip control characters from repoPath', async () => {
+    mockConfigService.getConfig.mockReturnValue({
+      reviewers: [{ name: 'Gemini', cliPath: 'gemini', cliArgs: [] }],
+      review: {
+        defaultChecks: ['code-quality'],
+        language: 'zh-tw',
+        mode: 'explore',
+      },
+    });
+
+    await service.dispatchReviews({
+      code: 'const x = 1;',
+      checks: ['code-quality'],
+      repoPath: '/home/\x00user/\x1bproject',
+    });
+
+    const promptArg = mockAcpService.sendPrompt.mock.calls[0][1] as string;
+    expect(promptArg).toContain('Repository Root: /home/user/project');
+    expect(promptArg).not.toContain('\x00');
+    expect(promptArg).not.toContain('\x1b');
   });
 
   it('should not include repoPath in inline mode when mode is inline', async () => {

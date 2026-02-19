@@ -318,6 +318,19 @@ describe('ConfigService', () => {
       }
     });
 
+    it('should reject cliPath "." and ".."', async () => {
+      for (const bad of ['.', '..']) {
+        process.env.CONFIG_JSON = JSON.stringify({
+          reviewers: [{ name: 'Dot', cliPath: bad, cliArgs: [] }],
+          decisionMaker: { name: 'DM', cliPath: 'echo', cliArgs: [] },
+          review: { defaultChecks: ['code-quality'], language: 'en' },
+        });
+        await expect(service.loadConfig()).rejects.toThrow(
+          'is not a valid command name',
+        );
+      }
+    });
+
     it('should reject cliPath starting with dash', async () => {
       process.env.CONFIG_JSON = JSON.stringify({
         reviewers: [{ name: 'Evil', cliPath: '-malicious', cliArgs: [] }],

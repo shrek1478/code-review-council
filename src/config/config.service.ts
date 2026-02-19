@@ -319,7 +319,12 @@ export class ConfigService {
     // Whitelist: only allow simple command names (letters, digits, dots, hyphens, underscores)
     const CLI_PATH_PATTERN = /^[A-Za-z0-9._-]+$/;
     const trimmed = r.cliPath.trim();
-    if (!CLI_PATH_PATTERN.test(trimmed) || trimmed.startsWith('-')) {
+    if (
+      !CLI_PATH_PATTERN.test(trimmed) ||
+      trimmed.startsWith('-') ||
+      trimmed === '.' ||
+      trimmed === '..'
+    ) {
       throw new Error(
         `Invalid config (${filePath}): "${path}.cliPath" value "${r.cliPath}" is not a valid command name. ` +
           `Only simple command names resolvable via PATH are allowed (e.g. "gemini", "copilot", "codex-acp", "claude-code-acp").`,

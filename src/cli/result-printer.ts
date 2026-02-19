@@ -7,7 +7,7 @@ import {
 // CSI sequences: ESC [ ... final_byte
 
 const CSI_REGEX =
-  /[\u001b\u009b][[()#;?]*(?:\d{1,4}(?:;\d{0,4})*)?[\d<=>A-ORZcf-nqry]/g;
+  /[\u001b\u009b][[()#;?]*(?:\d{1,4}(?:;\d{0,4})*)?[@-~]/g;
 // OSC sequences: ESC ] ... (BEL | ESC \)
 const OSC_REGEX = /\u001b\][\s\S]*?(?:\u0007|\u001b\\)/g;
 // DCS, PM, APC sequences: ESC (P|^|_) ... ESC \

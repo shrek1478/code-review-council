@@ -406,9 +406,14 @@ export class CodeReaderService {
     return files;
   }
 
-  private createBatches(
+  /**
+   * Split files into batches by approximate size (chars, not bytes).
+   * Character-based measurement is intentional: prompts are text, and
+   * most LLM token counters correlate better with char count than byte count.
+   */
+  createBatches(
     items: FileContent[],
-    maxBatchSize: number,
+    maxBatchSize: number = 100_000,
   ): FileContent[][] {
     const batches: FileContent[][] = [];
     let currentBatch: FileContent[] = [];

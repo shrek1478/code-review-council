@@ -58,8 +58,7 @@ export class CouncilService {
           durationMs: Date.now() - startMs,
         };
       } catch (error) {
-        const msg =
-          error instanceof Error ? error.message : String(error);
+        const msg = this.sanitizeErrorMessage(error);
         this.logger.error(`Reviewer ${reviewerConfig.name} failed: ${msg}`);
         return {
           reviewer: reviewerConfig.name,
@@ -82,6 +81,17 @@ export class CouncilService {
     }
 
     return results;
+  }
+
+  private sanitizeErrorMessage(error: unknown): string {
+    const msg = error instanceof Error ? error.message : String(error);
+    return msg.replace(/[A-Za-z0-9+/=_-]{16,}/g, '[REDACTED]');
+  }
+
+  /** Strip control characters from paths before embedding in prompts. */
+  private sanitizePath(p: string): string {
+    // eslint-disable-next-line no-control-regex
+    return p.replace(/[\x00-\x1f\x7f]/g, '');
   }
 
   private buildReviewPrompt(request: ReviewRequest): string {
@@ -118,7 +128,7 @@ export class CouncilService {
         ? `\n\n(Showing ${MAX_EXPLORATION_FILE_PATHS} of ${allPaths.length} files. Focus on the listed files.)`
         : '';
       const repoInfo = request.repoPath
-        ? `Repository Root: ${request.repoPath}`
+        ? `Repository Root: ${this.sanitizePath(request.repoPath)}`
         : '';
 
       prompt = `You are a senior code reviewer.
@@ -142,7 +152,7 @@ ${issueFormat}`;
       const delimiter = `CODE-${randomUUID().slice(0, 8)}`;
       const inlineRepoInfo =
         allowExplore && request.repoPath
-          ? `\nRepository Root: ${request.repoPath}\n`
+          ? `\nRepository Root: ${this.sanitizePath(request.repoPath)}\n`
           : '';
       prompt = `You are a senior code reviewer. Please review the following code.
 You MUST reply entirely in ${lang}. All descriptions, suggestions, and explanations must be written in ${lang}.
