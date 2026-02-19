@@ -4,7 +4,7 @@ import {
   ConsoleLogger,
   OnModuleDestroy,
 } from '@nestjs/common';
-import { execFileSync } from 'node:child_process';
+import { execFile } from 'node:child_process';
 import { isAbsolute } from 'node:path';
 import { CopilotClient } from '@shrek1478/copilot-sdk-with-acp';
 import { ReviewerConfig } from '../config/config.types.js';
@@ -123,7 +123,7 @@ export class AcpService implements OnModuleDestroy {
         `Unsafe cliPath rejected: "${config.cliPath}". Only simple command names are allowed.`,
       );
     }
-    const cliPath = this.resolveCliPath(config.cliPath);
+    const cliPath = await this.resolveCliPath(config.cliPath);
     const modelInfo = config.model ? ` [model: ${config.model}]` : '';
     const maskedArgs = this.maskSensitiveArgs(config.cliArgs);
     const argsInfo = maskedArgs.length > 0 ? ` ${maskedArgs.join(' ')}` : '';
@@ -153,28 +153,31 @@ export class AcpService implements OnModuleDestroy {
    *   falls back to original on failure.
    * - On Windows, `where` may return multiple matches; the first line is used.
    */
-  private resolveCliPath(cliPath: string): string {
-    if (isAbsolute(cliPath)) return cliPath;
+  private resolveCliPath(cliPath: string): Promise<string> {
+    if (isAbsolute(cliPath)) return Promise.resolve(cliPath);
     const cached = this.resolvedPaths.get(cliPath);
-    if (cached) return cached;
+    if (cached) return Promise.resolve(cached);
     const lookupCmd = process.platform === 'win32' ? 'where' : 'which';
-    try {
-      const output = execFileSync(lookupCmd, [cliPath], { encoding: 'utf-8' });
-      // `where` may return multiple matches (one per line); use the first non-empty line
-      const resolved =
-        output
-          .split('\n')
-          .map((l) => l.trim())
-          .find((l) => l.length > 0) ?? cliPath;
-      this.resolvedPaths.set(cliPath, resolved);
-      return resolved;
-    } catch {
-      this.logger.debug(
-        `Could not resolve "${cliPath}" via ${lookupCmd}, using as-is`,
-      );
-      this.resolvedPaths.set(cliPath, cliPath);
-      return cliPath;
-    }
+    return new Promise<string>((resolve) => {
+      execFile(lookupCmd, [cliPath], { encoding: 'utf-8' }, (err, stdout) => {
+        if (err) {
+          this.logger.debug(
+            `Could not resolve "${cliPath}" via ${lookupCmd}, using as-is`,
+          );
+          this.resolvedPaths.set(cliPath, cliPath);
+          resolve(cliPath);
+          return;
+        }
+        // `where` may return multiple matches (one per line); use the first non-empty line
+        const resolved =
+          (stdout as string)
+            .split('\n')
+            .map((l) => l.trim())
+            .find((l) => l.length > 0) ?? cliPath;
+        this.resolvedPaths.set(cliPath, resolved);
+        resolve(resolved);
+      });
+    });
   }
 
   private asSessionClient(

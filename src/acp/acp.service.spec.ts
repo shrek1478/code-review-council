@@ -4,15 +4,25 @@ import { AcpService } from './acp.service.js';
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 
 vi.mock('node:child_process', () => ({
-  execFileSync: vi.fn((cmd: string, args: string[]) => {
-    const map: Record<string, string> = {
-      copilot: '/usr/local/bin/copilot',
-      gemini: '/usr/local/bin/gemini',
-    };
-    const resolved = map[args[0]];
-    if (resolved) return resolved + '\n';
-    throw new Error(`not found: ${args[0]}`);
-  }),
+  execFile: vi.fn(
+    (
+      _cmd: string,
+      args: string[],
+      _opts: unknown,
+      cb: (err: Error | null, stdout?: string, stderr?: string) => void,
+    ) => {
+      const map: Record<string, string> = {
+        copilot: '/usr/local/bin/copilot',
+        gemini: '/usr/local/bin/gemini',
+      };
+      const resolved = map[args[0]];
+      if (resolved) {
+        cb(null, resolved + '\n', '');
+      } else {
+        cb(new Error(`not found: ${args[0]}`));
+      }
+    },
+  ),
 }));
 
 vi.mock('@shrek1478/copilot-sdk-with-acp', () => {

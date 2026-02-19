@@ -183,6 +183,10 @@ export class ReviewService {
     return result;
   }
 
+  private allReviewsFailed(reviews: IndividualReview[]): boolean {
+    return reviews.every((r) => r.review.startsWith('[error]'));
+  }
+
   private async runExplorationReview(
     id: string,
     filePaths: string[],
@@ -196,6 +200,11 @@ export class ReviewService {
       repoPath,
       filePaths,
     });
+
+    if (this.allReviewsFailed(individualReviews)) {
+      this.logger.error('All reviewers failed, skipping decision maker');
+      return { id, status: 'failed', individualReviews };
+    }
 
     const fileSummary = filePaths.join('\n');
     const decision = await this.decisionMaker.decide(
@@ -253,8 +262,15 @@ export class ReviewService {
     }
 
     this.logger.log(
-      `All ${batches.length} batches complete. Sending ${allReviews.length} reviews to decision maker...`,
+      `All ${batches.length} batches complete. ${allReviews.length} reviews collected.`,
     );
+
+    if (this.allReviewsFailed(allReviews)) {
+      this.logger.error('All reviewers failed, skipping decision maker');
+      return { id, status: 'failed', individualReviews: allReviews };
+    }
+
+    this.logger.log(`Sending ${allReviews.length} reviews to decision maker...`);
     const fileSummary = allFileNames.join('\n');
     const decision = await this.decisionMaker.decide(
       fileSummary,
@@ -294,6 +310,11 @@ export class ReviewService {
       extraInstructions,
       repoPath,
     });
+
+    if (this.allReviewsFailed(individualReviews)) {
+      this.logger.error('All reviewers failed, skipping decision maker');
+      return { id, status: 'failed', individualReviews };
+    }
 
     const decision = await this.decisionMaker.decide(code, individualReviews);
 

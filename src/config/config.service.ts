@@ -21,9 +21,12 @@ export class ConfigService {
 
   async loadConfig(configPath?: string): Promise<CouncilConfig> {
     const { parsed, source } = await this.resolveBaseConfig(configPath);
+    if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
+      throw new Error(`Invalid config (${source}): expected a JSON object`);
+    }
     const config = parsed as CouncilConfig;
     this.applyEnvOverrides(config);
-    this.validateConfig(config, source);
+    this.validateConfig(config as Record<string, any>, source);
     this.config = config;
     return this.config;
   }
@@ -157,7 +160,11 @@ export class ConfigService {
     return this.config;
   }
 
-  private validateConfig(config: any, filePath: string): void {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- validation function checks arbitrary JSON shape
+  private validateConfig(
+    config: Record<string, any>,
+    filePath: string,
+  ): void {
     if (!Array.isArray(config.reviewers) || config.reviewers.length === 0) {
       throw new Error(
         `Invalid config (${filePath}): "reviewers" must be a non-empty array`,
@@ -311,7 +318,12 @@ export class ConfigService {
     return false;
   }
 
-  private validateReviewerConfig(r: any, path: string, filePath: string): void {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- validation function checks arbitrary JSON shape
+  private validateReviewerConfig(
+    r: Record<string, any>,
+    path: string,
+    filePath: string,
+  ): void {
     if (!r.name || typeof r.name !== 'string') {
       throw new Error(
         `Invalid config (${filePath}): "${path}.name" is required`,

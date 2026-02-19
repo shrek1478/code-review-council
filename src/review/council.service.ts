@@ -42,14 +42,20 @@ export class CouncilService {
       try {
         handle = await this.acpService.createClient(reviewerConfig);
         const review = await retryWithBackoff(
-          () => this.acpService.sendPrompt(handle!, prompt, timeoutMs),
+          () => {
+            if (!handle) {
+              throw new Error(`No active client for ${reviewerConfig.name}`);
+            }
+            return this.acpService.sendPrompt(handle, prompt, timeoutMs);
+          },
           {
             maxRetries,
             label: reviewerConfig.name,
             logger: this.logger,
             onRetry: async () => {
-              const prev = handle!;
+              const prev = handle;
               handle = null;
+              if (!prev) return;
               try {
                 await this.acpService.stopClient(prev);
               } catch (stopError) {

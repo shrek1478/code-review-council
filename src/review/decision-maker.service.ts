@@ -56,7 +56,8 @@ export class DecisionMakerService {
       `Decision maker ${dmConfig.name} reviewing code and ${reviews.length} reviewer opinions...`,
     );
 
-    let handle = await this.acpService.createClient(dmConfig);
+    let handle: Awaited<ReturnType<typeof this.acpService.createClient>> | null =
+      await this.acpService.createClient(dmConfig);
 
     try {
       const delimiter = `DELIM-${randomUUID().slice(0, 8)}`;
@@ -150,15 +151,21 @@ Rules:
       );
 
       const response = await retryWithBackoff(
-        () => this.acpService.sendPrompt(handle, prompt, timeoutMs),
+        () => this.acpService.sendPrompt(handle!, prompt, timeoutMs),
         {
           maxRetries,
           label: dmConfig.name,
           logger: this.logger,
           onRetry: async () => {
-            const prev = handle;
-            handle = null as any;
-            await this.acpService.stopClient(prev);
+            const prev = handle!;
+            handle = null;
+            try {
+              await this.acpService.stopClient(prev);
+            } catch (stopError) {
+              this.logger.warn(
+                `Failed to stop client during retry for ${dmConfig.name}: ${sanitizeErrorMessage(stopError)}`,
+              );
+            }
             handle = await this.acpService.createClient(dmConfig);
           },
         },
