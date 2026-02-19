@@ -366,15 +366,17 @@ export class ConfigService {
         `Invalid config (${filePath}): "${path}.cliArgs" exceeds maximum of ${MAX_CLI_ARGS} arguments`,
       );
     }
+    // eslint-disable-next-line no-control-regex
+    const CONTROL_CHAR_REGEX = /[\x00-\x1f\x7f]/;
     for (const arg of r.cliArgs) {
       if (arg.length > MAX_CLI_ARG_LENGTH) {
         throw new Error(
           `Invalid config (${filePath}): "${path}.cliArgs" element exceeds maximum length of ${MAX_CLI_ARG_LENGTH} characters`,
         );
       }
-      if (arg.includes('\0')) {
+      if (CONTROL_CHAR_REGEX.test(arg)) {
         throw new Error(
-          `Invalid config (${filePath}): "${path}.cliArgs" element contains null byte`,
+          `Invalid config (${filePath}): "${path}.cliArgs" element contains control characters`,
         );
       }
     }

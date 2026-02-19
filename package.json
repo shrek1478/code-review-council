@@ -12,6 +12,9 @@
     "registry": "https://npm.pkg.github.com"
   },
   "type": "module",
+  "engines": {
+    "node": ">=20"
+  },
   "bin": {
     "code-review-council": "./dist/cli.js"
   },

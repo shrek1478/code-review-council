@@ -118,16 +118,25 @@ export function parseChecksOption(
   raw: string | undefined,
   validChecks: Set<string>,
 ): string[] {
-  return (
+  const parsed = (
     raw
       ?.split(',')
       .map((s) => s.trim())
       .filter(Boolean) ?? []
   ).filter((c) => {
     if (!validChecks.has(c)) {
-      console.warn(`Warning: Unknown check category ignored: "${c}"`);
+      console.warn(
+        `Warning: Unknown check category ignored: "${sanitize(c)}"`,
+      );
       return false;
     }
     return true;
   });
+  if (raw && parsed.length === 0) {
+    const valid = [...validChecks].join(', ');
+    console.error(
+      `Error: No valid check categories found. Valid categories: ${valid}`,
+    );
+  }
+  return parsed;
 }

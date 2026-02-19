@@ -98,7 +98,7 @@ export class AcpService implements OnModuleDestroy {
   }
 
   private looksLikeSecret(value: string): boolean {
-    if (value.length < 8) return false;
+    if (value.length < 8 || value.length > 200) return value.length > 200;
     // Common secret prefixes
     if (/^(sk-|ghp_|gho_|ghu_|ghs_|ghr_|glpat-|xox[bsrap]-)/i.test(value))
       return true;

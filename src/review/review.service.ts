@@ -243,7 +243,7 @@ export class ReviewService {
   ): Promise<ReviewResult> {
     if (batches.length === 1) {
       const code = batches[0]
-        .map((f) => `=== ${f.path} ===\n${f.content}`)
+        .map((f) => `=== ${sanitizeFileName(f.path)} ===\n${f.content}`)
         .join('\n\n');
       return this.runReview(id, code, checks, extraInstructions);
     }
@@ -257,7 +257,7 @@ export class ReviewService {
     for (const batch of batches) {
       for (const f of batch) {
         const lineCount = f.content.split('\n').length;
-        allFileNames.push(`${f.path} (${lineCount} lines)`);
+        allFileNames.push(`${sanitizeFileName(f.path)} (${lineCount} lines)`);
       }
     }
 
@@ -267,7 +267,7 @@ export class ReviewService {
         chunk.map(async (batch, j) => {
           const batchIdx = i + j;
           const code = batch
-            .map((f) => `=== ${f.path} ===\n${f.content}`)
+            .map((f) => `=== ${sanitizeFileName(f.path)} ===\n${f.content}`)
             .join('\n\n');
           const batchExtra = [
             `[Batch ${batchIdx + 1}/${batches.length}]`,
