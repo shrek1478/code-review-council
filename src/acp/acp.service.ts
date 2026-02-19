@@ -161,8 +161,8 @@ export class AcpService implements OnModuleDestroy {
     return new Promise<string>((resolve) => {
       execFile(lookupCmd, [cliPath], { encoding: 'utf-8' }, (err, stdout) => {
         if (err) {
-          this.logger.debug(
-            `Could not resolve "${cliPath}" via ${lookupCmd}, using as-is`,
+          this.logger.warn(
+            `Could not resolve "${cliPath}" via ${lookupCmd}, using as-is. Ensure the CLI tool is installed and in your PATH.`,
           );
           this.resolvedPaths.set(cliPath, cliPath);
           resolve(cliPath);
@@ -170,7 +170,7 @@ export class AcpService implements OnModuleDestroy {
         }
         // `where` may return multiple matches (one per line); use the first non-empty line
         const resolved =
-          (stdout as string)
+          stdout
             .split('\n')
             .map((l) => l.trim())
             .find((l) => l.length > 0) ?? cliPath;
@@ -294,9 +294,7 @@ export class AcpService implements OnModuleDestroy {
     } catch {
       // Prevent unhandled rejection from the dangling stopPromise
       stopPromise.catch(() => {});
-      this.logger.warn(
-        `Graceful stop failed for ${name}, force stopping...`,
-      );
+      this.logger.warn(`Graceful stop failed for ${name}, force stopping...`);
       const fc = client as unknown as { forceStop?(): Promise<void> };
       if (typeof fc.forceStop !== 'function') return;
       try {
@@ -325,9 +323,7 @@ export class AcpService implements OnModuleDestroy {
     const handles = [...this.clients];
     this.clients.clear();
     await Promise.allSettled(
-      handles.map((handle) =>
-        this.stopWithForce(handle.client, handle.name),
-      ),
+      handles.map((handle) => this.stopWithForce(handle.client, handle.name)),
     );
   }
 }

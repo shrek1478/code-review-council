@@ -236,38 +236,47 @@ Rules:
   }
 
   private extractBalancedJson(text: string): string | null {
-    const start = text.indexOf('{');
-    if (start === -1) return null;
-    let depth = 0;
-    let inString = false;
-    let escape = false;
-    for (let i = start; i < text.length; i++) {
-      const ch = text[i];
-      if (escape) {
-        // Previous char was an unescaped backslash; skip this char unconditionally
-        escape = false;
-        continue;
-      }
-      if (inString) {
-        if (ch === '\\') {
-          // Toggle escape: handles \\, \", \n etc. correctly
-          escape = true;
+    let searchFrom = 0;
+    while (searchFrom < text.length) {
+      const start = text.indexOf('{', searchFrom);
+      if (start === -1) return null;
+      let depth = 0;
+      let inString = false;
+      let escape = false;
+      let found = false;
+      for (let i = start; i < text.length; i++) {
+        const ch = text[i];
+        if (escape) {
+          escape = false;
           continue;
         }
-        if (ch === '"') {
-          inString = false;
+        if (inString) {
+          if (ch === '\\') {
+            escape = true;
+            continue;
+          }
+          if (ch === '"') {
+            inString = false;
+          }
+          continue;
         }
-        continue;
+        // Outside string
+        if (ch === '"') {
+          inString = true;
+          continue;
+        }
+        if (ch === '{') depth++;
+        else if (ch === '}') {
+          depth--;
+          if (depth === 0) {
+            found = true;
+            return text.slice(start, i + 1);
+          }
+        }
       }
-      // Outside string
-      if (ch === '"') {
-        inString = true;
-        continue;
-      }
-      if (ch === '{') depth++;
-      else if (ch === '}') {
-        depth--;
-        if (depth === 0) return text.slice(start, i + 1);
+      if (!found) {
+        // Unbalanced from this '{'; try next occurrence
+        searchFrom = start + 1;
       }
     }
     return null;
@@ -276,7 +285,8 @@ Rules:
   private stripJsonArtifacts(text: string): string {
     // Remove single-line comments (// ...) outside of strings
     // Remove multi-line comments (/* ... */) outside of strings
-    // Remove trailing commas before } or ]
+    // Remove trailing commas before } or ] (integrated into char loop to avoid
+    // corrupting string content that happens to contain ", }" or ", ]" patterns)
     // Note: escape handling mirrors extractBalancedJson for consistency.
     let result = '';
     let inString = false;
@@ -318,10 +328,18 @@ Rules:
         i = end === -1 ? text.length - 1 : end + 1;
         continue;
       }
+      // Trailing comma removal: when we see } or ], backtrack to remove last comma
+      if (ch === '}' || ch === ']') {
+        // Find last non-whitespace char in result; if it's a comma, remove it
+        let trimIdx = result.length - 1;
+        while (trimIdx >= 0 && /\s/.test(result[trimIdx])) trimIdx--;
+        if (trimIdx >= 0 && result[trimIdx] === ',') {
+          result = result.slice(0, trimIdx) + result.slice(trimIdx + 1);
+        }
+      }
       result += ch;
     }
-    // Remove trailing commas: , followed by optional whitespace then } or ]
-    return result.replace(/,(\s*[}\]])/g, '$1');
+    return result;
   }
 
   private toDecision(

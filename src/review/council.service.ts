@@ -138,6 +138,11 @@ export class CouncilService {
       const delimiter = `FILES-${randomUUID().slice(0, 8)}`;
       const allPaths = request.filePaths ?? [];
       const truncated = allPaths.length > MAX_EXPLORATION_FILE_PATHS;
+      if (truncated) {
+        this.logger.warn(
+          `Explore mode: truncating file list from ${allPaths.length} to ${MAX_EXPLORATION_FILE_PATHS} files`,
+        );
+      }
       const paths = truncated
         ? allPaths.slice(0, MAX_EXPLORATION_FILE_PATHS)
         : allPaths;

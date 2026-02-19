@@ -45,6 +45,10 @@ export class ConfigService {
     }
     // 3. 專案層級：當前工作目錄下的設定檔
     if (await this.fileExists(CWD_CONFIG_PATH)) {
+      this.logger.warn(
+        `Loading config from current working directory: ${CWD_CONFIG_PATH}. ` +
+          `Use --config to specify an explicit path if this is unintended.`,
+      );
       return this.loadFromFile(CWD_CONFIG_PATH);
     }
     // 4. 使用者層級：~/.code-review-council/review-council.config.json
