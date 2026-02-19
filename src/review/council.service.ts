@@ -70,6 +70,7 @@ export class CouncilService {
         return {
           reviewer: reviewerConfig.name,
           review,
+          status: 'success' as const,
           durationMs: Date.now() - startMs,
         };
       } catch (error) {
@@ -78,6 +79,7 @@ export class CouncilService {
         return {
           reviewer: reviewerConfig.name,
           review: `[error] Review generation failed for ${reviewerConfig.name}`,
+          status: 'error' as const,
           durationMs: Date.now() - startMs,
         };
       } finally {
@@ -188,7 +190,9 @@ ${delimiter}`;
 
     if (request.extraInstructions) {
       const MAX_EXTRA_LENGTH = 4096;
-      let extra = request.extraInstructions;
+      // Strip control characters (same as sanitizePath) before embedding in prompt
+      // eslint-disable-next-line no-control-regex
+      let extra = request.extraInstructions.replace(/[\x00-\x1f\x7f]/g, '');
       if (extra.length > MAX_EXTRA_LENGTH) {
         this.logger.warn(
           `extraInstructions too long (${extra.length} chars), truncating to ${MAX_EXTRA_LENGTH}`,

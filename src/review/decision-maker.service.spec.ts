@@ -86,8 +86,8 @@ describe('DecisionMakerService', () => {
 
   it('should decide based on code and reviewer opinions', async () => {
     const decision = await service.decide('const x = 1;', [
-      { reviewer: 'Gemini', review: 'Variable naming could be improved.' },
-      { reviewer: 'Codex', review: 'Consider renaming variables for clarity.' },
+      { reviewer: 'Gemini', review: 'Variable naming could be improved.', status: 'success' as const },
+      { reviewer: 'Codex', review: 'Consider renaming variables for clarity.', status: 'success' as const },
     ]);
     expect(decision.reviewer).toContain('Claude');
     expect(decision.reviewer).toContain('Decision Maker');
@@ -106,7 +106,7 @@ describe('DecisionMakerService', () => {
       'This is just plain text, not JSON.',
     );
     const decision = await service.decide('const x = 1;', [
-      { reviewer: 'Gemini', review: 'Looks good.' },
+      { reviewer: 'Gemini', review: 'Looks good.', status: 'success' as const },
     ]);
     expect(decision.overallAssessment).toBe(
       '[PARSE_FAILED] This is just plain text, not JSON.',
@@ -127,7 +127,7 @@ describe('DecisionMakerService', () => {
         '\n```\nEnd.',
     );
     const decision = await service.decide('const x = 1;', [
-      { reviewer: 'Test', review: 'OK' },
+      { reviewer: 'Test', review: 'OK', status: 'success' as const },
     ]);
     expect(decision.overallAssessment).toBe('Good code.');
   });
@@ -135,7 +135,7 @@ describe('DecisionMakerService', () => {
   it('should use batch mode prompt when reviewMode is batch', async () => {
     await service.decide(
       'file1.ts (10 lines)\nfile2.ts (20 lines)',
-      [{ reviewer: 'Test', review: 'OK' }],
+      [{ reviewer: 'Test', review: 'OK', status: 'success' as const }],
       'batch',
     );
     const sentPrompt = mockAcpService.sendPrompt.mock.calls[0][1];
@@ -147,7 +147,7 @@ describe('DecisionMakerService', () => {
   it('should use explore mode prompt when reviewMode is explore', async () => {
     await service.decide(
       'file1.ts\nfile2.ts',
-      [{ reviewer: 'Test', review: 'OK' }],
+      [{ reviewer: 'Test', review: 'OK', status: 'success' as const }],
       'explore',
     );
     const sentPrompt = mockAcpService.sendPrompt.mock.calls[0][1];
@@ -166,7 +166,7 @@ describe('DecisionMakerService', () => {
     });
     const longReview = 'x'.repeat(500);
     await service.decide('const x = 1;', [
-      { reviewer: 'Test', review: longReview },
+      { reviewer: 'Test', review: longReview, status: 'success' as const },
     ]);
     const sentPrompt = mockAcpService.sendPrompt.mock.calls[0][1];
     expect(sentPrompt).toContain('truncated');
@@ -182,7 +182,7 @@ describe('DecisionMakerService', () => {
       },
       review: { language: 'zh-tw' },
     });
-    await service.decide('const x = 1;', [{ reviewer: 'Test', review: 'OK' }]);
+    await service.decide('const x = 1;', [{ reviewer: 'Test', review: 'OK', status: 'success' as const }]);
     expect(mockAcpService.sendPrompt).toHaveBeenCalledWith(
       expect.anything(),
       expect.any(String),
@@ -237,7 +237,7 @@ describe('DecisionMakerService', () => {
       }),
     );
     const decision = await service.decide('const x = 1;', [
-      { reviewer: 'Test', review: 'OK' },
+      { reviewer: 'Test', review: 'OK', status: 'success' as const },
     ]);
     expect(decision.decisions[0].category).toBe('other');
     expect(decision.decisions[0].line).toBeUndefined();
@@ -271,7 +271,7 @@ describe('DecisionMakerService', () => {
       .mockResolvedValueOnce({ name: 'Claude', client: {} });
 
     const decision = await service.decide('const x = 1;', [
-      { reviewer: 'Test', review: 'OK' },
+      { reviewer: 'Test', review: 'OK', status: 'success' as const },
     ]);
     expect(decision.overallAssessment).toBe('OK after retry');
     expect(mockAcpService.createClient).toHaveBeenCalledTimes(2);
@@ -282,7 +282,7 @@ describe('DecisionMakerService', () => {
     const jsonWithEscapes = `{"key": "value with \\\\\\"end", "overallAssessment": "OK", "decisions": [], "additionalFindings": []}`;
     mockAcpService.sendPrompt.mockResolvedValueOnce(jsonWithEscapes);
     const decision = await service.decide('const x = 1;', [
-      { reviewer: 'Test', review: 'OK' },
+      { reviewer: 'Test', review: 'OK', status: 'success' as const },
     ]);
     expect(decision.overallAssessment).toBe('OK');
   });

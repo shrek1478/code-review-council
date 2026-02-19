@@ -90,5 +90,6 @@ export async function retryWithBackoff<T>(
       throw error;
     }
   }
+  // Unreachable: the loop always returns or throws. This satisfies TypeScript's control-flow analysis.
   throw new Error(`${label} exhausted all retries`);
 }

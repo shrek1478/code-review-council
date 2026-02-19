@@ -28,8 +28,8 @@ describe('ReviewService', () => {
   };
   const mockCouncil = {
     dispatchReviews: vi.fn().mockResolvedValue([
-      { reviewer: 'Gemini', review: 'Looks good' },
-      { reviewer: 'Codex', review: 'LGTM' },
+      { reviewer: 'Gemini', review: 'Looks good', status: 'success' },
+      { reviewer: 'Codex', review: 'LGTM', status: 'success' },
     ]),
   };
   const mockDecisionMaker = {
@@ -63,8 +63,8 @@ describe('ReviewService', () => {
       'src/main.ts',
     ]);
     mockCouncil.dispatchReviews.mockResolvedValue([
-      { reviewer: 'Gemini', review: 'Looks good' },
-      { reviewer: 'Codex', review: 'LGTM' },
+      { reviewer: 'Gemini', review: 'Looks good', status: 'success' },
+      { reviewer: 'Codex', review: 'LGTM', status: 'success' },
     ]);
     mockDecisionMaker.decide.mockResolvedValue({
       reviewer: 'Claude (Decision Maker)',

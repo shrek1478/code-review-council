@@ -184,7 +184,7 @@ export class ReviewService {
   }
 
   private allReviewsFailed(reviews: IndividualReview[]): boolean {
-    return reviews.every((r) => r.review.startsWith('[error]'));
+    return reviews.length > 0 && reviews.every((r) => r.status === 'error');
   }
 
   private async runExplorationReview(

@@ -1,6 +1,7 @@
 export interface IndividualReview {
   reviewer: string;
   review: string;
+  status: 'success' | 'error';
   durationMs?: number;
 }
 
@@ -33,7 +34,7 @@ export interface ReviewDecision {
 
 export interface ReviewResult {
   id: string;
-  status: 'pending' | 'reviewing' | 'completed' | 'failed';
+  status: 'completed' | 'failed';
   individualReviews: IndividualReview[];
   decision?: ReviewDecision;
   durationMs?: number;

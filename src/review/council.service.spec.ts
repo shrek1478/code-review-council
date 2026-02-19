@@ -70,6 +70,8 @@ describe('CouncilService', () => {
       checks: ['code-quality'],
     });
     expect(reviews.length).toBe(2);
+    expect(reviews[0].status).toBe('success');
+    expect(reviews[1].status).toBe('error');
     expect(reviews[1].review).toContain('Review generation failed');
   });
 
@@ -407,6 +409,8 @@ describe('CouncilService', () => {
     });
 
     expect(reviews.length).toBe(2);
+    expect(reviews[0].status).toBe('success');
+    expect(reviews[1].status).toBe('error');
     expect(reviews[1].review).toContain('Review generation failed');
     expect(mockAcpService.createClient).toHaveBeenCalledTimes(2);
   });
