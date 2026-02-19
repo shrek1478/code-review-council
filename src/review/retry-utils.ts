@@ -33,6 +33,12 @@ const RETRYABLE_PATTERNS = [
   'socket hang up',
 ];
 
+/** Mask potential tokens/secrets (16+ alphanumeric chars) in error messages. */
+export function sanitizeErrorMessage(error: unknown): string {
+  const msg = error instanceof Error ? error.message : String(error);
+  return msg.replace(/[A-Za-z0-9+/=_-]{16,}/g, '[REDACTED]');
+}
+
 export function isRetryable(error: unknown): boolean {
   if (!(error instanceof Error)) return false;
   // Prefer structured error code if available

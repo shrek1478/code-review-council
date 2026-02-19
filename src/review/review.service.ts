@@ -137,7 +137,12 @@ export class ReviewService {
 
     if (this.allowExplore) {
       // Exploration mode: only list files, no content reading, no batching
-      const absoluteDir = resolve(directory);
+      let absoluteDir: string;
+      try {
+        absoluteDir = await realpath(resolve(directory));
+      } catch {
+        absoluteDir = resolve(directory);
+      }
       const filePaths = await this.codeReader.listCodebaseFiles(
         directory,
         options,

@@ -8,6 +8,7 @@ import { execFileSync } from 'node:child_process';
 import { isAbsolute } from 'node:path';
 import { CopilotClient } from '@shrek1478/copilot-sdk-with-acp';
 import { ReviewerConfig } from '../config/config.types.js';
+import { sanitizeErrorMessage } from '../review/retry-utils.js';
 
 export interface AcpSessionOptions {
   streaming: boolean;
@@ -94,12 +95,6 @@ export class AcpService implements OnModuleDestroy {
       }
       return arg;
     });
-  }
-
-  private sanitizeErrorMessage(error: unknown): string {
-    const msg = error instanceof Error ? error.message : String(error);
-    // Remove potential tokens/secrets from error messages
-    return msg.replace(/[A-Za-z0-9+/=_-]{16,}/g, '[REDACTED]');
   }
 
   private looksLikeSecret(value: string): boolean {
@@ -275,7 +270,7 @@ export class AcpService implements OnModuleDestroy {
         await session.destroy();
       } catch (error) {
         this.logger.warn(
-          `Failed to destroy session for ${handle.name}: ${this.sanitizeErrorMessage(error)}`,
+          `Failed to destroy session for ${handle.name}: ${sanitizeErrorMessage(error)}`,
         );
       }
     }
@@ -302,7 +297,7 @@ export class AcpService implements OnModuleDestroy {
         await fc.forceStop();
       } catch (error) {
         this.logger.warn(
-          `Force stop failed for ${name}: ${this.sanitizeErrorMessage(error)}`,
+          `Force stop failed for ${name}: ${sanitizeErrorMessage(error)}`,
         );
       }
     } finally {

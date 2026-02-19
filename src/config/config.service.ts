@@ -93,14 +93,31 @@ export class ConfigService {
     return { parsed, source: 'CONFIG_JSON env' };
   }
 
+  private static readonly SAFE_LANGUAGE = /^[a-zA-Z-]{2,10}$/;
+  private static readonly SAFE_MODEL = /^[^\n\r]{1,100}$/;
+
   private applyEnvOverrides(config: CouncilConfig): void {
     const model = process.env.DECISION_MAKER_MODEL;
     if (model && model.trim() !== '' && config.decisionMaker) {
-      config.decisionMaker.model = model.trim();
+      const trimmed = model.trim();
+      if (ConfigService.SAFE_MODEL.test(trimmed)) {
+        config.decisionMaker.model = trimmed;
+      } else {
+        this.logger.warn(
+          'Ignoring invalid DECISION_MAKER_MODEL env (must be 1-100 chars, no newlines)',
+        );
+      }
     }
     const language = process.env.REVIEW_LANGUAGE;
     if (language && language.trim() !== '' && config.review) {
-      config.review.language = language.trim();
+      const trimmed = language.trim();
+      if (ConfigService.SAFE_LANGUAGE.test(trimmed)) {
+        config.review.language = trimmed;
+      } else {
+        this.logger.warn(
+          'Ignoring invalid REVIEW_LANGUAGE env (must be 2-10 alpha/dash chars)',
+        );
+      }
     }
     const dmTimeout = process.env.DECISION_MAKER_TIMEOUT_MS;
     if (dmTimeout && dmTimeout.trim() !== '' && config.decisionMaker) {

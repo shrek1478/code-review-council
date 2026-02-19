@@ -3,7 +3,7 @@ import { randomUUID } from 'node:crypto';
 import { AcpService } from '../acp/acp.service.js';
 import { ConfigService } from '../config/config.service.js';
 import { IndividualReview, ReviewRequest } from './review.types.js';
-import { retryWithBackoff } from './retry-utils.js';
+import { retryWithBackoff, sanitizeErrorMessage } from './retry-utils.js';
 import {
   MAX_REVIEWER_CONCURRENCY,
   MAX_EXPLORATION_FILE_PATHS,
@@ -58,7 +58,7 @@ export class CouncilService {
           durationMs: Date.now() - startMs,
         };
       } catch (error) {
-        const msg = this.sanitizeErrorMessage(error);
+        const msg = sanitizeErrorMessage(error);
         this.logger.error(`Reviewer ${reviewerConfig.name} failed: ${msg}`);
         return {
           reviewer: reviewerConfig.name,
@@ -81,11 +81,6 @@ export class CouncilService {
     }
 
     return results;
-  }
-
-  private sanitizeErrorMessage(error: unknown): string {
-    const msg = error instanceof Error ? error.message : String(error);
-    return msg.replace(/[A-Za-z0-9+/=_-]{16,}/g, '[REDACTED]');
   }
 
   /** Strip control characters from paths before embedding in prompts. */
