@@ -47,10 +47,10 @@ export class DiffCommand extends CommandRunner {
   })
   parseRepo(val: string) {
     if (!existsSync(val)) {
-      throw new Error(`Repository path not found: "${val}"`);
+      throw new Error(`Repository path not found: "${sanitize(val)}"`);
     }
     if (!statSync(val).isDirectory()) {
-      throw new Error(`Repository path is not a directory: "${val}"`);
+      throw new Error(`Repository path is not a directory: "${sanitize(val)}"`);
     }
     return val;
   }

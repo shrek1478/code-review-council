@@ -38,8 +38,6 @@ export function sanitizeErrorMessage(error: unknown): string {
   const msg = error instanceof Error ? error.message : String(error);
   return msg
     .replace(/[A-Za-z0-9+/=_-]{32,}/g, (match) => {
-      // Preserve git SHA hashes (40 hex chars)
-      if (/^[0-9a-f]{40}$/i.test(match)) return match;
       // Preserve UUIDs (8-4-4-4-12 hex with dashes)
       if (
         /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(

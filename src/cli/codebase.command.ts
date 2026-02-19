@@ -67,10 +67,10 @@ export class CodebaseCommand extends CommandRunner {
   })
   parseDir(val: string) {
     if (!existsSync(val)) {
-      throw new Error(`Directory not found: "${val}"`);
+      throw new Error(`Directory not found: "${sanitize(val)}"`);
     }
     if (!statSync(val).isDirectory()) {
-      throw new Error(`Not a directory: "${val}"`);
+      throw new Error(`Not a directory: "${sanitize(val)}"`);
     }
     return val;
   }

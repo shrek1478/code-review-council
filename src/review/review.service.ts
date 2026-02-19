@@ -201,6 +201,10 @@ export class ReviewService {
     return reviews.length > 0 && reviews.every((r) => r.status === 'error');
   }
 
+  private hasAnyReviewerFailure(reviews: IndividualReview[]): boolean {
+    return reviews.some((r) => r.status === 'error');
+  }
+
   private async runExplorationReview(
     id: string,
     filePaths: string[],
@@ -227,7 +231,10 @@ export class ReviewService {
         individualReviews,
         'explore',
       );
-      return { id, status: 'completed', individualReviews, decision };
+      const status = this.hasAnyReviewerFailure(individualReviews)
+        ? 'partial'
+        : 'completed';
+      return { id, status, individualReviews, decision };
     } catch (error) {
       this.logger.error(
         `Decision maker failed, returning partial result: ${sanitizeErrorMessage(error)}`,
@@ -313,9 +320,12 @@ export class ReviewService {
         allReviews,
         'batch',
       );
+      const status = this.hasAnyReviewerFailure(allReviews)
+        ? 'partial'
+        : 'completed';
       return {
         id,
-        status: 'completed',
+        status,
         individualReviews: allReviews,
         decision,
       };
@@ -361,9 +371,12 @@ export class ReviewService {
 
     try {
       const decision = await this.decisionMaker.decide(code, individualReviews);
+      const status = this.hasAnyReviewerFailure(individualReviews)
+        ? 'partial'
+        : 'completed';
       return {
         id,
-        status: 'completed',
+        status,
         individualReviews,
         decision,
       };
