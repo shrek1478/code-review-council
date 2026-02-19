@@ -50,7 +50,13 @@ export class CouncilService {
             onRetry: async () => {
               const prev = handle!;
               handle = null;
-              await this.acpService.stopClient(prev);
+              try {
+                await this.acpService.stopClient(prev);
+              } catch (stopError) {
+                this.logger.warn(
+                  `Failed to stop client during retry for ${reviewerConfig.name}: ${sanitizeErrorMessage(stopError)}`,
+                );
+              }
               handle = await this.acpService.createClient(reviewerConfig);
             },
           },
@@ -70,7 +76,13 @@ export class CouncilService {
         };
       } finally {
         if (handle) {
-          await this.acpService.stopClient(handle);
+          try {
+            await this.acpService.stopClient(handle);
+          } catch (stopError) {
+            this.logger.warn(
+              `Failed to stop client for ${reviewerConfig.name}: ${sanitizeErrorMessage(stopError)}`,
+            );
+          }
         }
       }
     };

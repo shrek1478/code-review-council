@@ -98,19 +98,22 @@ describe('CouncilService', () => {
     expect(mockAcpService.stopClient).toHaveBeenCalledTimes(2);
   });
 
-  it('should abort retries when onRetry callback fails', async () => {
+  it('should continue retry even when onRetry stopClient fails', async () => {
     mockConfigService.getConfig.mockReturnValue({
       reviewers: [
         { name: 'Codex', cliPath: 'codex-acp', cliArgs: [], maxRetries: 2 },
       ],
       review: { defaultChecks: ['code-quality'], language: 'zh-tw' },
     });
-    mockAcpService.sendPrompt.mockRejectedValueOnce(
-      new Error('Codex timed out after 180000ms'),
-    );
+    mockAcpService.sendPrompt
+      .mockRejectedValueOnce(new Error('Codex timed out after 180000ms'))
+      .mockResolvedValueOnce('Review OK after retry');
     mockAcpService.stopClient.mockRejectedValueOnce(
       new Error('client already stopped'),
     );
+    mockAcpService.createClient
+      .mockResolvedValueOnce({ name: 'Codex', client: {} })
+      .mockResolvedValueOnce({ name: 'Codex', client: {} });
 
     const reviews = await service.dispatchReviews({
       code: 'const x = 1;',
@@ -118,9 +121,9 @@ describe('CouncilService', () => {
     });
 
     expect(reviews.length).toBe(1);
-    expect(reviews[0].review).toContain('Review generation failed');
-    // Should NOT have retried (onRetry aborted the loop)
-    expect(mockAcpService.sendPrompt).toHaveBeenCalledTimes(1);
+    expect(reviews[0].review).toBe('Review OK after retry');
+    // Should have retried despite stopClient failure
+    expect(mockAcpService.sendPrompt).toHaveBeenCalledTimes(2);
   });
 
   it('should not retry on non-retryable errors', async () => {

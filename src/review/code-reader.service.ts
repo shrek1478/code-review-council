@@ -60,6 +60,8 @@ const MAX_TOTAL_SIZE = 200 * 1_048_576; // 200MB cumulative limit
 const MAX_DIFF_SIZE = 5 * 1_048_576; // 5MB diff size limit
 const BRANCH_PATTERN = /^[A-Za-z0-9._\-/]+$/;
 const CONCURRENCY = 16;
+/** When changed files exceed this threshold, avoid expanding file list in git diff args (ARG_MAX risk). */
+const MAX_DIFF_FILE_ARGS = 100;
 
 @Injectable()
 export class CodeReaderService {
@@ -148,11 +150,21 @@ export class CodeReaderService {
         throw new Error('No diff found');
       }
       return this.truncateDiff(
-        await git.diff(['--staged', '--', ...stagedFiles]),
+        stagedFiles.length > MAX_DIFF_FILE_ARGS
+          ? this.filterDiffOutput(
+              await git.diff(['--staged']),
+              new Set(stagedFiles),
+            )
+          : await git.diff(['--staged', '--', ...stagedFiles]),
       );
     }
     return this.truncateDiff(
-      await git.diff([mergeBase, '--', ...changedFiles]),
+      changedFiles.length > MAX_DIFF_FILE_ARGS
+        ? this.filterDiffOutput(
+            await git.diff([mergeBase]),
+            new Set(changedFiles),
+          )
+        : await git.diff([mergeBase, '--', ...changedFiles]),
     );
   }
 
@@ -169,6 +181,20 @@ export class CodeReaderService {
       this.logger.warn(`Filtered ${skipped} sensitive file(s) from diff`);
     }
     return filtered;
+  }
+
+  /**
+   * Filter full diff output to only include hunks for allowed files.
+   * Used when changedFiles exceeds MAX_DIFF_FILE_ARGS to avoid ARG_MAX issues.
+   */
+  private filterDiffOutput(fullDiff: string, allowedFiles: Set<string>): string {
+    const hunks = fullDiff.split(/^(?=diff --git )/m);
+    const filtered = hunks.filter((hunk) => {
+      const match = hunk.match(/^diff --git a\/(.+?) b\//);
+      if (!match) return false;
+      return allowedFiles.has(match[1]);
+    });
+    return filtered.join('');
   }
 
   private truncateDiff(diff: string): string {

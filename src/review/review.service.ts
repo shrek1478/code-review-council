@@ -152,7 +152,7 @@ export class ReviewService {
         absoluteDir = resolve(directory);
       }
       const filePaths = await this.codeReader.listCodebaseFiles(
-        directory,
+        absoluteDir,
         options,
       );
       this.logger.log(
