@@ -9,7 +9,7 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 const PROJECT_ROOT = resolve(__dirname, '..', '..');
 const USER_CONFIG_DIR = join(homedir(), '.code-review-council');
 const USER_CONFIG_PATH = join(USER_CONFIG_DIR, 'review-council.config.json');
-const CWD_CONFIG_PATH = resolve('review-council.config.json');
+const CWD_CONFIG_NAME = 'review-council.config.json';
 
 @Injectable()
 export class ConfigService {
@@ -48,12 +48,13 @@ export class ConfigService {
       return this.loadFromFile(USER_CONFIG_PATH);
     }
     // 4. 專案層級：當前工作目錄下的設定檔 (lower trust — may be from untrusted repo)
-    if (await this.fileExists(CWD_CONFIG_PATH)) {
+    const cwdConfigPath = resolve(process.cwd(), CWD_CONFIG_NAME);
+    if (await this.fileExists(cwdConfigPath)) {
       this.logger.warn(
-        `Loading config from current working directory: ${CWD_CONFIG_PATH}. ` +
+        `Loading config from current working directory: ${cwdConfigPath}. ` +
           `Use --config to specify an explicit path if this is unintended.`,
       );
-      return this.loadFromFile(CWD_CONFIG_PATH);
+      return this.loadFromFile(cwdConfigPath);
     }
     // 5. 內建預設
     return this.loadFromFile(
@@ -368,7 +369,8 @@ export class ConfigService {
     }
     // eslint-disable-next-line no-control-regex
     const CONTROL_CHAR_REGEX = /[\x00-\x1f\x7f]/;
-    const DANGEROUS_ARGS = new Set(['-c', '-e', '--eval', '--exec']);
+    const DANGEROUS_LONG_FLAGS = ['--eval', '--exec'];
+    const DANGEROUS_SHORT_FLAGS = ['-c', '-e'];
     for (const arg of r.cliArgs) {
       if (arg.length > MAX_CLI_ARG_LENGTH) {
         throw new Error(
@@ -380,7 +382,14 @@ export class ConfigService {
           `Invalid config (${filePath}): "${path}.cliArgs" element contains control characters`,
         );
       }
-      if (DANGEROUS_ARGS.has(arg)) {
+      const isDangerous =
+        DANGEROUS_LONG_FLAGS.some(
+          (f) => arg === f || arg.startsWith(`${f}=`),
+        ) ||
+        DANGEROUS_SHORT_FLAGS.some(
+          (f) => arg === f || (arg.startsWith(f) && arg.length > f.length),
+        );
+      if (isDangerous) {
         throw new Error(
           `Invalid config (${filePath}): "${path}.cliArgs" contains dangerous argument "${arg}"`,
         );

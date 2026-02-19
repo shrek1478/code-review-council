@@ -15,6 +15,11 @@
   "engines": {
     "node": ">=20"
   },
+  "files": [
+    "dist",
+    "README.md",
+    "review-council.config.sample.json"
+  ],
   "bin": {
     "code-review-council": "./dist/cli.js"
   },

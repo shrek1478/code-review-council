@@ -292,7 +292,11 @@ export class AcpService implements OnModuleDestroy {
     const timeout = new Promise<never>((_, reject) => {
       timer = setTimeout(() => reject(new Error('stop timeout')), timeoutMs);
     });
-    const stopPromise = client.stop().catch((e: unknown) => e);
+    const stopPromise = client
+      .stop()
+      .catch((e: unknown) =>
+        e instanceof Error ? e : new Error(String(e)),
+      );
     try {
       const result = await Promise.race([stopPromise, timeout]);
       if (result instanceof Error) throw result;
