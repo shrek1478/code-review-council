@@ -56,8 +56,9 @@ export class DecisionMakerService {
       `Decision maker ${dmConfig.name} reviewing code and ${reviews.length} reviewer opinions...`,
     );
 
-    let handle: Awaited<ReturnType<typeof this.acpService.createClient>> | null =
-      await this.acpService.createClient(dmConfig);
+    let handle: Awaited<
+      ReturnType<typeof this.acpService.createClient>
+    > | null = await this.acpService.createClient(dmConfig);
 
     try {
       const delimiter = `DELIM-${randomUUID().slice(0, 8)}`;
@@ -276,6 +277,7 @@ Rules:
     // Remove single-line comments (// ...) outside of strings
     // Remove multi-line comments (/* ... */) outside of strings
     // Remove trailing commas before } or ]
+    // Note: escape handling mirrors extractBalancedJson for consistency.
     let result = '';
     let inString = false;
     let escape = false;
@@ -286,17 +288,21 @@ Rules:
         result += ch;
         continue;
       }
-      if (ch === '\\' && inString) {
-        escape = true;
-        result += ch;
-        continue;
-      }
-      if (ch === '"') {
-        inString = !inString;
-        result += ch;
-        continue;
-      }
       if (inString) {
+        if (ch === '\\') {
+          escape = true;
+          result += ch;
+          continue;
+        }
+        if (ch === '"') {
+          inString = false;
+        }
+        result += ch;
+        continue;
+      }
+      // Outside string
+      if (ch === '"') {
+        inString = true;
         result += ch;
         continue;
       }
@@ -340,23 +346,22 @@ Rules:
         severity: VALID_SEVERITIES.has(String(d.severity))
           ? (d.severity as ReviewDecisionItem['severity'])
           : 'medium',
-        category: VALID_CATEGORIES.has(String(d.category ?? ''))
-          ? String(d.category)
-          : 'other',
+        category:
+          typeof d.category === 'string' && VALID_CATEGORIES.has(d.category)
+            ? d.category
+            : 'other',
         description: String(d.description),
-        file: d.file ? String(d.file) : undefined,
+        file: typeof d.file === 'string' ? d.file : undefined,
         line:
-          typeof d.line === 'number' &&
-          Number.isInteger(d.line) &&
-          d.line > 0
+          typeof d.line === 'number' && Number.isInteger(d.line) && d.line > 0
             ? d.line
             : undefined,
         raisedBy: Array.isArray(d.raisedBy) ? d.raisedBy.map(String) : [],
         verdict: VALID_VERDICTS.has(String(d.verdict))
           ? (d.verdict as ReviewDecisionItem['verdict'])
           : 'modified',
-        reasoning: String(d.reasoning ?? ''),
-        suggestion: String(d.suggestion ?? ''),
+        reasoning: typeof d.reasoning === 'string' ? d.reasoning : '',
+        suggestion: typeof d.suggestion === 'string' ? d.suggestion : '',
       }));
 
     const additionalFindings: AdditionalFinding[] = rawFindings
@@ -370,12 +375,13 @@ Rules:
         severity: VALID_SEVERITIES.has(String(f.severity))
           ? (f.severity as AdditionalFinding['severity'])
           : 'medium',
-        category: VALID_CATEGORIES.has(String(f.category ?? ''))
-          ? String(f.category)
-          : 'other',
+        category:
+          typeof f.category === 'string' && VALID_CATEGORIES.has(f.category)
+            ? f.category
+            : 'other',
         description: String(f.description),
-        file: f.file ? String(f.file) : undefined,
-        suggestion: String(f.suggestion ?? ''),
+        file: typeof f.file === 'string' ? f.file : undefined,
+        suggestion: typeof f.suggestion === 'string' ? f.suggestion : '',
       }));
 
     return {

@@ -5,12 +5,13 @@ import {
 } from '../review/review.types.js';
 
 // CSI sequences: ESC [ ... final_byte
-
-const CSI_REGEX =
-  /[\u001b\u009b][[()#;?]*(?:\d{1,4}(?:;\d{0,4})*)?[@-~]/g;
+// eslint-disable-next-line no-control-regex
+const CSI_REGEX = /[\u001b\u009b][[()#;?]*(?:\d{1,4}(?:;\d{0,4})*)?[@-~]/g;
 // OSC sequences: ESC ] ... (BEL | ESC \)
+// eslint-disable-next-line no-control-regex
 const OSC_REGEX = /\u001b\][\s\S]*?(?:\u0007|\u001b\\)/g;
 // DCS, PM, APC sequences: ESC (P|^|_) ... ESC \
+// eslint-disable-next-line no-control-regex
 const DCS_PM_APC_REGEX = /\u001b[P^_][\s\S]*?\u001b\\/g;
 // eslint-disable-next-line no-control-regex
 const C0_CONTROL_REGEX = /[\x00-\x08\x0B\x0C\x0E-\x1F]/g;

@@ -187,7 +187,10 @@ export class CodeReaderService {
    * Filter full diff output to only include hunks for allowed files.
    * Used when changedFiles exceeds MAX_DIFF_FILE_ARGS to avoid ARG_MAX issues.
    */
-  private filterDiffOutput(fullDiff: string, allowedFiles: Set<string>): string {
+  private filterDiffOutput(
+    fullDiff: string,
+    allowedFiles: Set<string>,
+  ): string {
     const hunks = fullDiff.split(/^(?=diff --git )/m);
     const filtered = hunks.filter((hunk) => {
       const match = hunk.match(/^diff --git a\/(.+?) b\//);
@@ -213,6 +216,9 @@ export class CodeReaderService {
     const rootReal = await realpath(resolve(allowedRoot));
     const results: FileContent[] = [];
     let totalSize = 0;
+    let skippedCount = 0;
+    // Best-effort cumulative budget based on stat.size (not atomic across concurrent reads)
+    const budget = { remaining: MAX_TOTAL_SIZE };
 
     const readOne = async (filePath: string): Promise<FileContent | null> => {
       const resolved = isAbsolute(filePath)
@@ -220,18 +226,21 @@ export class CodeReaderService {
         : resolve(rootReal, filePath);
       if (this.isSensitiveFile(resolved)) {
         this.logger.warn(`Skipping sensitive file: ${filePath}`);
+        skippedCount++;
         return null;
       }
       try {
         const real = await realpath(resolved);
         if (!this.isWithinRoot(real, rootReal)) {
           this.logger.warn(`Skipping file outside allowed root: ${filePath}`);
+          skippedCount++;
           return null;
         }
         if (this.isSensitiveFile(real)) {
           this.logger.warn(
             `Skipping sensitive file (symlink target): ${filePath}`,
           );
+          skippedCount++;
           return null;
         }
         const fileStat = await stat(real);
@@ -239,14 +248,25 @@ export class CodeReaderService {
           this.logger.warn(
             `Skipping large file (${(fileStat.size / 1024 / 1024).toFixed(1)}MB): ${filePath}`,
           );
+          skippedCount++;
           return null;
         }
+        // Pre-check: skip reading if stat.size would exceed remaining budget
+        if (fileStat.size > budget.remaining) {
+          this.logger.warn(
+            `Skipping file (cumulative size limit): ${filePath}`,
+          );
+          skippedCount++;
+          return null;
+        }
+        budget.remaining -= fileStat.size;
         const content = await readFile(real, 'utf-8');
         // Use relative path to avoid leaking host directory structure
         return { path: relative(rootReal, real), content };
       } catch (error) {
         const msg = error instanceof Error ? error.message : String(error);
         this.logger.warn(`Skipping unreadable file: ${filePath} (${msg})`);
+        skippedCount++;
         return null;
       }
     };
@@ -267,6 +287,12 @@ export class CodeReaderService {
         }
       }
       if (totalSize > MAX_TOTAL_SIZE) break;
+    }
+
+    if (skippedCount > 0) {
+      this.logger.log(
+        `Read ${results.length} file(s), skipped ${skippedCount} file(s)`,
+      );
     }
 
     if (results.length === 0) {
@@ -308,6 +334,9 @@ export class CodeReaderService {
     this.logger.log(`Found ${allFiles.length} files matching extensions`);
 
     let totalSize = 0;
+    let skippedCount = 0;
+    // Best-effort cumulative budget based on stat.size (not atomic across concurrent reads)
+    const budget = { remaining: MAX_TOTAL_SIZE };
 
     const dirReal = await realpath(resolve(directory));
 
@@ -321,12 +350,14 @@ export class CodeReaderService {
           this.logger.warn(
             `Skipping symlink pointing outside repo: ${relativePath}`,
           );
+          skippedCount++;
           return null;
         }
         if (this.isSensitiveFile(real)) {
           this.logger.warn(
             `Skipping sensitive file (symlink target): ${relativePath}`,
           );
+          skippedCount++;
           return null;
         }
         const fileStat = await stat(real);
@@ -334,13 +365,24 @@ export class CodeReaderService {
           this.logger.warn(
             `Skipping large file (${(fileStat.size / 1024 / 1024).toFixed(1)}MB): ${relativePath}`,
           );
+          skippedCount++;
           return null;
         }
+        // Pre-check: skip reading if stat.size would exceed remaining budget
+        if (fileStat.size > budget.remaining) {
+          this.logger.warn(
+            `Skipping file (cumulative size limit): ${relativePath}`,
+          );
+          skippedCount++;
+          return null;
+        }
+        budget.remaining -= fileStat.size;
         const content = await readFile(real, 'utf-8');
         return { path: relativePath, content };
       } catch (error) {
         const msg = error instanceof Error ? error.message : String(error);
         this.logger.warn(`Skipping unreadable file: ${relativePath} (${msg})`);
+        skippedCount++;
         return null;
       }
     };
@@ -362,6 +404,12 @@ export class CodeReaderService {
         }
         allItems.push(item);
       }
+    }
+
+    if (skippedCount > 0) {
+      this.logger.log(
+        `Read ${allItems.length} file(s), skipped ${skippedCount} file(s)`,
+      );
     }
 
     if (allItems.length === 0) {

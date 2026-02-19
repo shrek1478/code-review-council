@@ -160,11 +160,7 @@ export class ConfigService {
     return this.config;
   }
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- validation function checks arbitrary JSON shape
-  private validateConfig(
-    config: Record<string, any>,
-    filePath: string,
-  ): void {
+  private validateConfig(config: Record<string, any>, filePath: string): void {
     if (!Array.isArray(config.reviewers) || config.reviewers.length === 0) {
       throw new Error(
         `Invalid config (${filePath}): "reviewers" must be a non-empty array`,
@@ -306,19 +302,20 @@ export class ConfigService {
   /**
    * Detect patterns that can cause catastrophic backtracking (ReDoS).
    * Note: This is a heuristic check and cannot catch all possible ReDoS patterns.
-   * It covers nested quantifiers — the most common and dangerous ReDoS trigger.
-   * Simple quantified alternation like (foo|bar)+ is NOT flagged because it
-   * rarely causes backtracking in practice (branches with distinct prefixes).
+   * It covers nested quantifiers and overlapping alternation — the most common
+   * and dangerous ReDoS triggers.
    */
   private isReDoSRisk(regex: RegExp): boolean {
     const src = regex.source;
     // Nested quantifiers: (...)+ followed by +, *, or {n,}
     // e.g. (a+)+, (a*)+, (a+)*, ([^x]+)+, (a+|b)+
     if (/\([^)]*[+*][^)]*\)[+*{]/.test(src)) return true;
+    // Overlapping alternation inside a quantified group: (x+|x+)+, (a|a)*
+    // Only flags when both branches are identical (exact overlap)
+    if (/\(([^|)]+)\|\1\)[+*{]/.test(src)) return true;
     return false;
   }
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- validation function checks arbitrary JSON shape
   private validateReviewerConfig(
     r: Record<string, any>,
     path: string,
