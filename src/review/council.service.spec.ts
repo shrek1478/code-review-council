@@ -163,7 +163,31 @@ describe('CouncilService', () => {
     );
   });
 
-  it('should double timeoutMs when mode is explore', async () => {
+  it('should double timeoutMs when mode is explore and no code provided', async () => {
+    mockConfigService.getConfig.mockReturnValue({
+      reviewers: [
+        { name: 'Codex', cliPath: 'codex-acp', cliArgs: [], timeoutMs: 300000 },
+      ],
+      review: {
+        defaultChecks: ['code-quality'],
+        language: 'zh-tw',
+        mode: 'explore',
+      },
+    });
+
+    await service.dispatchReviews({
+      checks: ['code-quality'],
+      filePaths: ['src/app.ts'],
+    });
+
+    expect(mockAcpService.sendPrompt).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.any(String),
+      600000,
+    );
+  });
+
+  it('should not double timeoutMs when mode is explore but code is provided', async () => {
     mockConfigService.getConfig.mockReturnValue({
       reviewers: [
         { name: 'Codex', cliPath: 'codex-acp', cliArgs: [], timeoutMs: 300000 },
@@ -183,7 +207,7 @@ describe('CouncilService', () => {
     expect(mockAcpService.sendPrompt).toHaveBeenCalledWith(
       expect.anything(),
       expect.any(String),
-      600000,
+      300000,
     );
   });
 

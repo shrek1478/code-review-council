@@ -80,7 +80,7 @@ export async function retryWithBackoff<T>(
             await onRetry();
           } catch (retryError) {
             logger.warn(
-              `${label} onRetry callback failed, aborting retries: ${retryError instanceof Error ? retryError.message : retryError}`,
+              `${label} onRetry callback failed, aborting retries: ${sanitizeErrorMessage(retryError)}`,
             );
             throw retryError;
           }

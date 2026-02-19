@@ -31,9 +31,10 @@ export class CouncilService {
       reviewerConfig: (typeof reviewers)[number],
     ): Promise<IndividualReview> => {
       const startMs = Date.now();
-      const allowExplore = config.review.mode === 'explore';
+      const actuallyExploring =
+        config.review.mode === 'explore' && !request.code;
       const baseTimeout = reviewerConfig.timeoutMs ?? 180_000;
-      const timeoutMs = allowExplore ? baseTimeout * 2 : baseTimeout;
+      const timeoutMs = actuallyExploring ? baseTimeout * 2 : baseTimeout;
       const maxRetries = reviewerConfig.maxRetries ?? 0;
       let handle: Awaited<
         ReturnType<typeof this.acpService.createClient>
@@ -47,7 +48,9 @@ export class CouncilService {
             label: reviewerConfig.name,
             logger: this.logger,
             onRetry: async () => {
-              await this.acpService.stopClient(handle!);
+              const prev = handle!;
+              handle = null;
+              await this.acpService.stopClient(prev);
               handle = await this.acpService.createClient(reviewerConfig);
             },
           },
