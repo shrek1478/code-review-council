@@ -131,6 +131,10 @@ export class ConfigService {
       const parsed = Number(dmTimeout.trim());
       if (Number.isInteger(parsed) && parsed > 0) {
         config.decisionMaker.timeoutMs = parsed;
+      } else {
+        this.logger.warn(
+          'Ignoring invalid DECISION_MAKER_TIMEOUT_MS env (must be a positive integer)',
+        );
       }
     }
     const reviewerTimeout = process.env.REVIEWER_TIMEOUT_MS;
@@ -144,6 +148,10 @@ export class ConfigService {
         for (const r of config.reviewers) {
           r.timeoutMs = parsed;
         }
+      } else {
+        this.logger.warn(
+          'Ignoring invalid REVIEWER_TIMEOUT_MS env (must be a positive integer)',
+        );
       }
     }
     const exploreLocal = process.env.REVIEWER_EXPLORE_LOCAL;

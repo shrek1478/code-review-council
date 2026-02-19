@@ -45,6 +45,10 @@ function printDecisionItem(d: ReviewDecisionItem): void {
   console.log(
     `  ${icon} [${sanitizeLine(d.severity)}] ${sanitizeLine(d.category)}: ${sanitizeIndented(d.description, '    ')}`,
   );
+  if (d.file) {
+    const loc = d.line ? `${sanitizeLine(d.file)}:${d.line}` : sanitizeLine(d.file);
+    console.log(`    File: ${loc}`);
+  }
   if (d.reasoning)
     console.log(`    Reasoning: ${sanitizeIndented(d.reasoning, '    ')}`);
   if (d.suggestion)

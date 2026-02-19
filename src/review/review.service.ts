@@ -13,6 +13,12 @@ import { DecisionMakerService } from './decision-maker.service.js';
 import { ConfigService } from '../config/config.service.js';
 import { IndividualReview, ReviewResult } from './review.types.js';
 
+// eslint-disable-next-line no-control-regex
+const CONTROL_CHARS = /[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g;
+function sanitizeFileName(name: string): string {
+  return name.replace(CONTROL_CHARS, '').replace(/[\r\n]+/g, ' ');
+}
+
 @Injectable()
 export class ReviewService {
   constructor(
@@ -212,7 +218,7 @@ export class ReviewService {
       return { id, status: 'failed', individualReviews };
     }
 
-    const fileSummary = filePaths.join('\n');
+    const fileSummary = filePaths.map(sanitizeFileName).join('\n');
     try {
       const decision = await this.decisionMaker.decide(
         fileSummary,
@@ -298,7 +304,7 @@ export class ReviewService {
     this.logger.log(
       `Sending ${allReviews.length} reviews to decision maker...`,
     );
-    const fileSummary = allFileNames.join('\n');
+    const fileSummary = allFileNames.map(sanitizeFileName).join('\n');
     try {
       const decision = await this.decisionMaker.decide(
         fileSummary,

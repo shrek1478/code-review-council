@@ -404,14 +404,16 @@ Rules:
         suggestion: typeof f.suggestion === 'string' ? f.suggestion : '',
       }));
 
+    const MAX_DECISIONS = 15;
+    const MAX_ADDITIONAL = 5;
     return {
       reviewer: `${dmName} (Decision Maker)`,
       overallAssessment:
         typeof parsed.overallAssessment === 'string'
           ? parsed.overallAssessment
           : '',
-      decisions,
-      additionalFindings,
+      decisions: decisions.slice(0, MAX_DECISIONS),
+      additionalFindings: additionalFindings.slice(0, MAX_ADDITIONAL),
     };
   }
 
