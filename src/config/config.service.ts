@@ -399,56 +399,8 @@ export class ConfigService {
         `Invalid config (${filePath}): "${path}.cliArgs" elements must be strings`,
       );
     }
-    const MAX_CLI_ARGS = 30;
-    const MAX_CLI_ARG_LENGTH = 500;
-    if (r.cliArgs.length > MAX_CLI_ARGS) {
-      throw new Error(
-        `Invalid config (${filePath}): "${path}.cliArgs" exceeds maximum of ${MAX_CLI_ARGS} arguments`,
-      );
-    }
-    // eslint-disable-next-line no-control-regex
-    const CONTROL_CHAR_REGEX = /[\x00-\x1f\x7f]/;
-    const DANGEROUS_LONG_FLAGS = ['--eval', '--exec', '--import', '--require'];
-    const DANGEROUS_SHORT_FLAGS = ['-c', '-e', '-r'];
-    for (const arg of r.cliArgs) {
-      if (arg.length > MAX_CLI_ARG_LENGTH) {
-        throw new Error(
-          `Invalid config (${filePath}): "${path}.cliArgs" element exceeds maximum length of ${MAX_CLI_ARG_LENGTH} characters`,
-        );
-      }
-      if (CONTROL_CHAR_REGEX.test(arg)) {
-        throw new Error(
-          `Invalid config (${filePath}): "${path}.cliArgs" element contains control characters`,
-        );
-      }
-      const isDangerous =
-        DANGEROUS_LONG_FLAGS.some(
-          (f) => arg === f || arg.startsWith(`${f}=`),
-        ) ||
-        DANGEROUS_SHORT_FLAGS.some(
-          (f) => arg === f || (arg.startsWith(f) && arg.length > f.length),
-        );
-      if (isDangerous) {
-        throw new Error(
-          `Invalid config (${filePath}): "${path}.cliArgs" contains dangerous argument "${arg}"`,
-        );
-      }
-    }
-    // Whitelist: only allow simple command names (letters, digits, dots, hyphens, underscores)
-    const CLI_PATH_PATTERN = /^[A-Za-z0-9._-]+$/;
-    const trimmed = r.cliPath.trim();
-    if (
-      !CLI_PATH_PATTERN.test(trimmed) ||
-      trimmed.startsWith('-') ||
-      trimmed === '.' ||
-      trimmed === '..'
-    ) {
-      throw new Error(
-        `Invalid config (${filePath}): "${path}.cliPath" value "${r.cliPath}" is not a valid command name. ` +
-          `Only simple command names resolvable via PATH are allowed (e.g. "gemini", "copilot", "codex-acp", "claude-code-acp").`,
-      );
-    }
-    r.cliPath = trimmed;
+    this.validateCliArgs(r.cliArgs, path, filePath);
+    this.validateCliPath(r, path, filePath);
     if (r.protocol !== undefined) {
       if (r.protocol !== 'acp' && r.protocol !== 'copilot') {
         throw new Error(
@@ -484,5 +436,68 @@ export class ConfigService {
         );
       }
     }
+  }
+
+  private validateCliArgs(
+    cliArgs: string[],
+    path: string,
+    filePath: string,
+  ): void {
+    const MAX_CLI_ARGS = 30;
+    const MAX_CLI_ARG_LENGTH = 500;
+    if (cliArgs.length > MAX_CLI_ARGS) {
+      throw new Error(
+        `Invalid config (${filePath}): "${path}.cliArgs" exceeds maximum of ${MAX_CLI_ARGS} arguments`,
+      );
+    }
+    // eslint-disable-next-line no-control-regex
+    const CONTROL_CHAR_REGEX = /[\x00-\x1f\x7f]/;
+    const DANGEROUS_LONG_FLAGS = ['--eval', '--exec', '--import', '--require'];
+    const DANGEROUS_SHORT_FLAGS = ['-c', '-e', '-r'];
+    for (const arg of cliArgs) {
+      if (arg.length > MAX_CLI_ARG_LENGTH) {
+        throw new Error(
+          `Invalid config (${filePath}): "${path}.cliArgs" element exceeds maximum length of ${MAX_CLI_ARG_LENGTH} characters`,
+        );
+      }
+      if (CONTROL_CHAR_REGEX.test(arg)) {
+        throw new Error(
+          `Invalid config (${filePath}): "${path}.cliArgs" element contains control characters`,
+        );
+      }
+      const isDangerous =
+        DANGEROUS_LONG_FLAGS.some(
+          (f) => arg === f || arg.startsWith(`${f}=`),
+        ) ||
+        DANGEROUS_SHORT_FLAGS.some(
+          (f) => arg === f || (arg.startsWith(f) && arg.length > f.length),
+        );
+      if (isDangerous) {
+        throw new Error(
+          `Invalid config (${filePath}): "${path}.cliArgs" contains dangerous argument "${arg}"`,
+        );
+      }
+    }
+  }
+
+  private validateCliPath(
+    r: Record<string, any>,
+    path: string,
+    filePath: string,
+  ): void {
+    const CLI_PATH_PATTERN = /^[A-Za-z0-9._-]+$/;
+    const trimmed = r.cliPath.trim();
+    if (
+      !CLI_PATH_PATTERN.test(trimmed) ||
+      trimmed.startsWith('-') ||
+      trimmed === '.' ||
+      trimmed === '..'
+    ) {
+      throw new Error(
+        `Invalid config (${filePath}): "${path}.cliPath" value "${r.cliPath}" is not a valid command name. ` +
+          `Only simple command names resolvable via PATH are allowed (e.g. "gemini", "copilot", "codex-acp", "claude-code-acp").`,
+      );
+    }
+    r.cliPath = trimmed;
   }
 }

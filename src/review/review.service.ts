@@ -367,6 +367,8 @@ export class ReviewService {
       repoPath,
     });
 
+    // All reviewers failed → no usable data for the decision maker, return 'failed'.
+    // If only some reviewers failed, proceed to the DM — partial data is still valuable.
     if (this.allReviewsFailed(individualReviews)) {
       this.logger.error('All reviewers failed, skipping decision maker');
       return { id, status: 'failed', individualReviews };

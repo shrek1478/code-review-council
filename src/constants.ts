@@ -29,3 +29,7 @@ export const VALID_CHECK_CATEGORIES = new Set([
 
 /** Maximum characters per batch for codebase review (--batch-size upper bound). */
 export const MAX_BATCH_SIZE = 500_000;
+
+/** Regex to match control characters (NUL–US + DEL). Used to sanitize user-facing strings. */
+// eslint-disable-next-line no-control-regex
+export const CONTROL_CHARS_REGEX = /[\x00-\x1f\x7f]/g;

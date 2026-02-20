@@ -8,6 +8,7 @@ import {
   MAX_REVIEWER_CONCURRENCY,
   MAX_EXPLORATION_FILE_PATHS,
   MAX_FILE_LIST_CHARS,
+  CONTROL_CHARS_REGEX,
 } from '../constants.js';
 
 @Injectable()
@@ -109,8 +110,7 @@ export class CouncilService {
 
   /** Strip control characters from paths before embedding in prompts. */
   private sanitizePath(p: string): string {
-    // eslint-disable-next-line no-control-regex
-    return p.replace(/[\x00-\x1f\x7f]/g, '');
+    return p.replace(CONTROL_CHARS_REGEX, '');
   }
 
   private buildReviewPrompt(request: ReviewRequest): string {
@@ -119,10 +119,9 @@ export class CouncilService {
     const MAX_CHECK_LENGTH = 50;
     const rawChecks =
       request.checks.length > 0 ? request.checks : config.review.defaultChecks;
-    // eslint-disable-next-line no-control-regex
     const checks = rawChecks
       .filter((c) => c.trim().length > 0)
-      .map((c) => c.slice(0, MAX_CHECK_LENGTH).replace(/[\x00-\x1f\x7f]/g, ''));
+      .map((c) => c.slice(0, MAX_CHECK_LENGTH).replace(CONTROL_CHARS_REGEX, ''));
 
     const allowExplore = config.review.mode === 'explore';
     const toolInstruction = allowExplore
@@ -220,8 +219,7 @@ ${delimiter}`;
     if (request.extraInstructions) {
       const MAX_EXTRA_LENGTH = 4096;
       // Strip control characters (same as sanitizePath) before embedding in prompt
-      // eslint-disable-next-line no-control-regex
-      let extra = request.extraInstructions.replace(/[\x00-\x1f\x7f]/g, '');
+      let extra = request.extraInstructions.replace(CONTROL_CHARS_REGEX, '');
       if (extra.length > MAX_EXTRA_LENGTH) {
         this.logger.warn(
           `extraInstructions too long (${extra.length} chars), truncating to ${MAX_EXTRA_LENGTH}`,
