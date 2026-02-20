@@ -166,7 +166,7 @@ export class AcpService implements OnModuleDestroy {
     if (cached) return Promise.resolve(cached);
     const lookupCmd = process.platform === 'win32' ? 'where' : 'which';
     return new Promise<string>((resolve) => {
-      execFile(lookupCmd, [cliPath], { encoding: 'utf-8' }, (err, stdout) => {
+      execFile(lookupCmd, [cliPath], { encoding: 'utf-8', timeout: 5_000 }, (err, stdout) => {
         if (err) {
           this.logger.warn(
             `Could not resolve "${cliPath}" via ${lookupCmd}, using as-is. Ensure the CLI tool is installed and in your PATH.`,

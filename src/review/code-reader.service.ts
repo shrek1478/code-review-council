@@ -109,6 +109,7 @@ export class CodeReaderService {
     return result;
   }
 
+  /** User-configured patterns are assumed to have passed validateConfig (including isReDoSRisk check). */
   private get sensitivePatterns(): RegExp[] {
     if (this.cachedSensitivePatterns) return this.cachedSensitivePatterns;
     let configured: string[] | undefined;

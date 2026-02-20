@@ -49,7 +49,10 @@ export class ReviewService {
     const startMs = Date.now();
     this.logger.log(`Starting diff review ${id}`);
 
-    // Always send diff — agent cannot reproduce git diff on its own
+    // Always send diff content inline, even in explore mode.
+    // Unlike reviewFiles/reviewCodebase (which send only file paths in explore mode
+    // and let the agent read files itself), diff content must be provided because
+    // the agent cannot reproduce `git diff` on its own.
     const code = await this.codeReader.readGitDiff(repoPath, baseBranch);
 
     let result: ReviewResult;
