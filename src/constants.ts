@@ -18,3 +18,6 @@ export const VALID_CHECK_CATEGORIES = new Set([
   'code-quality',
   'best-practices',
 ]);
+
+/** Maximum characters per batch for codebase review (--batch-size upper bound). */
+export const MAX_BATCH_SIZE = 500_000;

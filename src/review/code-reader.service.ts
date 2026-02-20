@@ -3,6 +3,7 @@ import { simpleGit } from 'simple-git';
 import { readFile, stat, realpath } from 'node:fs/promises';
 import { join, extname, resolve, relative, isAbsolute } from 'node:path';
 import { ConfigService } from '../config/config.service.js';
+import { isWithinRoot } from './path-utils.js';
 
 export interface FileContent {
   path: string;
@@ -235,7 +236,7 @@ export class CodeReaderService {
       let reserved = 0;
       try {
         const real = await realpath(resolved);
-        if (!this.isWithinRoot(real, rootReal)) {
+        if (!isWithinRoot(real, rootReal)) {
           this.logger.warn(`Skipping file outside allowed root: ${filePath}`);
           skippedCount++;
           return null;
@@ -354,7 +355,7 @@ export class CodeReaderService {
       let reserved = 0;
       try {
         const real = await realpath(fullPath);
-        if (!this.isWithinRoot(real, dirReal)) {
+        if (!isWithinRoot(real, dirReal)) {
           this.logger.warn(
             `Skipping symlink pointing outside repo: ${relativePath}`,
           );
@@ -461,7 +462,7 @@ export class CodeReaderService {
     const validateOne = async (f: string): Promise<string | null> => {
       try {
         const real = await realpath(join(directory, f));
-        if (!this.isWithinRoot(real, dirReal)) {
+        if (!isWithinRoot(real, dirReal)) {
           this.logger.warn(`Skipping symlink pointing outside repo: ${f}`);
           return null;
         }
@@ -543,12 +544,6 @@ export class CodeReaderService {
     }
 
     return batches;
-  }
-
-  /** Cross-platform check: is `target` inside `root`? Uses path.relative to avoid separator issues. */
-  private isWithinRoot(target: string, root: string): boolean {
-    const rel = relative(root, target);
-    return !rel.startsWith('..') && !isAbsolute(rel);
   }
 
   // Note: Path handling assumes POSIX separators. Windows backslashes are normalized to forward slashes.

@@ -1,6 +1,6 @@
 import { Injectable, ConsoleLogger, Inject } from '@nestjs/common';
 import { randomUUID } from 'node:crypto';
-import { resolve, relative, isAbsolute } from 'node:path';
+import { resolve, relative } from 'node:path';
 import { realpath } from 'node:fs/promises';
 import { simpleGit } from 'simple-git';
 import {
@@ -13,6 +13,7 @@ import { DecisionMakerService } from './decision-maker.service.js';
 import { ConfigService } from '../config/config.service.js';
 import { IndividualReview, ReviewResult } from './review.types.js';
 import { sanitizeErrorMessage } from './retry-utils.js';
+import { isWithinRoot } from './path-utils.js';
 import { BATCH_CONCURRENCY } from '../constants.js';
 
 // eslint-disable-next-line no-control-regex
@@ -96,8 +97,7 @@ export class ReviewService {
             const abs = resolve(p);
             try {
               const real = await realpath(abs);
-              const rel = relative(repoRoot, real);
-              if (rel.startsWith('..') || isAbsolute(rel)) {
+              if (!isWithinRoot(real, repoRoot)) {
                 this.logger.warn(`Skipping file outside repo root: ${p}`);
                 return null;
               }

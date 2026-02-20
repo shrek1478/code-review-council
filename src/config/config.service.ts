@@ -237,6 +237,11 @@ export class ConfigService {
         `Invalid config (${filePath}): "review.language" must be a non-empty string`,
       );
     }
+    if (!ConfigService.SAFE_LANGUAGE.test(config.review.language)) {
+      throw new Error(
+        `Invalid config (${filePath}): "review.language" must be 2-10 alpha/dash chars (e.g. "en", "zh-tw")`,
+      );
+    }
     const MAX_LENGTH_LIMIT = 500_000;
     for (const field of [
       'maxReviewsLength',

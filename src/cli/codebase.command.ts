@@ -4,7 +4,7 @@ import { existsSync, statSync } from 'node:fs';
 import { ReviewService } from '../review/review.service.js';
 import { ConfigService } from '../config/config.service.js';
 import { printResult, sanitize, parseChecksOption } from './result-printer.js';
-import { VALID_CHECK_CATEGORIES } from '../constants.js';
+import { VALID_CHECK_CATEGORIES, MAX_BATCH_SIZE } from '../constants.js';
 
 @Command({ name: 'codebase', description: 'Review entire codebase' })
 export class CodebaseCommand extends CommandRunner {
@@ -24,7 +24,6 @@ export class CodebaseCommand extends CommandRunner {
         ?.split(',')
         .map((e) => e.trim())
         .filter(Boolean) ?? undefined;
-    const MAX_BATCH_SIZE = 500_000;
     let parsedBatchSize: number | undefined;
     if (options.batchSize) {
       if (!/^[1-9]\d*$/.test(options.batchSize)) {
@@ -87,7 +86,7 @@ export class CodebaseCommand extends CommandRunner {
 
   @Option({
     flags: '--batch-size <chars>',
-    description: 'Max characters per batch (default: 100000)',
+    description: `Max characters per batch (default: 100000, max: ${MAX_BATCH_SIZE})`,
   })
   parseBatchSize(val: string) {
     return val;

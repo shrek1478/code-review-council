@@ -197,7 +197,15 @@ Rules:
   private parseResponse(response: string, dmName: string): ReviewDecision {
     for (const candidate of this.buildParseCandidates(response)) {
       try {
-        return this.toDecision(JSON.parse(candidate), dmName);
+        const parsed: unknown = JSON.parse(candidate);
+        if (
+          typeof parsed !== 'object' ||
+          parsed === null ||
+          Array.isArray(parsed)
+        ) {
+          continue;
+        }
+        return this.toDecision(parsed as Record<string, unknown>, dmName);
       } catch {
         continue;
       }
