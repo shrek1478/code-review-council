@@ -332,8 +332,14 @@ export class AcpService implements OnModuleDestroy {
     this.stopping = true;
     const handles = [...this.clients];
     this.clients.clear();
-    await Promise.allSettled(
+    const results = await Promise.allSettled(
       handles.map((handle) => this.stopWithForce(handle.client, handle.name)),
     );
+    const failed = results.filter((r) => r.status === 'rejected');
+    if (failed.length > 0) {
+      this.logger.warn(
+        `${failed.length} client(s) failed to stop during cleanup`,
+      );
+    }
   }
 }

@@ -4,6 +4,7 @@ import { readFile, stat, realpath } from 'node:fs/promises';
 import { join, extname, resolve, relative, isAbsolute } from 'node:path';
 import { ConfigService } from '../config/config.service.js';
 import { isWithinRoot } from './path-utils.js';
+import { sanitizeErrorMessage } from './retry-utils.js';
 
 export interface FileContent {
   path: string;
@@ -97,7 +98,7 @@ export class CodeReaderService {
         configLoaded = false;
       } else {
         this.logger.warn(
-          `Unexpected config error, using defaults: ${error instanceof Error ? error.message : error}`,
+          `Unexpected config error, using defaults: ${sanitizeErrorMessage(error)}`,
         );
       }
     }
@@ -121,7 +122,7 @@ export class CodeReaderService {
         configLoaded = false;
       } else {
         this.logger.warn(
-          `Unexpected config error, using defaults: ${error instanceof Error ? error.message : error}`,
+          `Unexpected config error, using defaults: ${sanitizeErrorMessage(error)}`,
         );
       }
     }
@@ -272,7 +273,7 @@ export class CodeReaderService {
         return { path: relative(rootReal, real), content };
       } catch (error) {
         budget.remaining += reserved;
-        const msg = error instanceof Error ? error.message : String(error);
+        const msg = sanitizeErrorMessage(error);
         this.logger.warn(`Skipping unreadable file: ${filePath} (${msg})`);
         skippedCount++;
         return null;
@@ -392,7 +393,7 @@ export class CodeReaderService {
         return { path: relativePath, content };
       } catch (error) {
         budget.remaining += reserved;
-        const msg = error instanceof Error ? error.message : String(error);
+        const msg = sanitizeErrorMessage(error);
         this.logger.warn(`Skipping unreadable file: ${relativePath} (${msg})`);
         skippedCount++;
         return null;

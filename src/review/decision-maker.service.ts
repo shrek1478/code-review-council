@@ -60,7 +60,7 @@ export class DecisionMakerService {
 
     let handle: Awaited<
       ReturnType<typeof this.acpService.createClient>
-    > | null = await this.acpService.createClient(dmConfig);
+    > | null = null;
 
     try {
       const delimiter = `DELIM-${randomUUID()}`;
@@ -154,9 +154,9 @@ Rules:
       );
 
       const response = await retryWithBackoff(
-        () => {
+        async () => {
           if (!handle) {
-            throw new Error(`No active client for ${dmConfig.name}`);
+            handle = await this.acpService.createClient(dmConfig);
           }
           return this.acpService.sendPrompt(handle, prompt, timeoutMs);
         },
@@ -175,7 +175,6 @@ Rules:
                 `Failed to stop client during retry for ${dmConfig.name}: ${sanitizeErrorMessage(stopError)}`,
               );
             }
-            handle = await this.acpService.createClient(dmConfig);
           },
         },
       );
@@ -217,13 +216,16 @@ Rules:
   private buildParseCandidates(response: string): string[] {
     const candidates: string[] = [];
     // Strategy 1: direct parse
-    candidates.push(response.trim());
-    // Strategy 2: strip markdown fences
+    const trimmed = response.trim();
+    candidates.push(trimmed);
+    // Strategy 2: strip markdown fences (skip if identical to Strategy 1)
     const stripped = response
       .replace(/```json\s*/g, '')
       .replace(/```\s*/g, '')
       .trim();
-    candidates.push(stripped);
+    if (stripped !== trimmed) {
+      candidates.push(stripped);
+    }
     // Strategy 3: balanced JSON extraction
     const jsonStr = this.extractBalancedJson(stripped);
     if (jsonStr) {
@@ -452,9 +454,11 @@ Rules:
       `Reviews too large (${full.length} chars), truncating each review proportionally`,
     );
 
+    const MIN_REVIEW_CHARS_PER_REVIEWER = 200;
+    const REVIEW_HEADER_OVERHEAD = 50;
     const perReview = Math.max(
-      200,
-      Math.floor(maxReviewsLength / reviews.length) - 50,
+      MIN_REVIEW_CHARS_PER_REVIEWER,
+      Math.floor(maxReviewsLength / reviews.length) - REVIEW_HEADER_OVERHEAD,
     );
     const truncated = reviews
       .map((r) => {
