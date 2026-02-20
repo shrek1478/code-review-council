@@ -21,6 +21,7 @@ export class ConfigService {
 
   async loadConfig(configPath?: string): Promise<CouncilConfig> {
     const { parsed, source } = await this.resolveBaseConfig(configPath);
+    this.logger.log(`Config loaded from: ${source}`);
     if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
       throw new Error(`Invalid config (${source}): expected a JSON object`);
     }
