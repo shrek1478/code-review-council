@@ -49,7 +49,7 @@ export function sanitizeErrorMessage(error: unknown): string {
     })
     .replace(
       // Common secret prefixes (even if shorter than 32 chars)
-      /(?:sk-|ghp_|gho_|ghu_|ghs_|ghr_|glpat-|xox[bsrap]-)[A-Za-z0-9+/=_-]+/gi,
+      /(?:sk-|ghp_|gho_|ghu_|ghs_|ghr_|glpat-|xox[bsrap]-|eyJ|AKIA)[A-Za-z0-9+/=_.-]+/g,
       '[REDACTED]',
     );
 }

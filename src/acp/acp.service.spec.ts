@@ -343,6 +343,97 @@ describe('AcpService', () => {
     );
   });
 
+  describe('maskSensitiveArgs (via createClient log output)', () => {
+    let logSpy: ReturnType<typeof vi.fn>;
+
+    beforeEach(() => {
+      logSpy = vi.fn();
+      (service as any).logger.log = logSpy;
+    });
+
+    it('should mask values after sensitive flags', async () => {
+      await service.createClient({
+        name: 'Test',
+        cliPath: 'test-cli',
+        cliArgs: ['--api-key', 'super-secret-key-12345', '--verbose'],
+      });
+      const logMsg = logSpy.mock.calls[0][0] as string;
+      expect(logMsg).toContain('[REDACTED]');
+      expect(logMsg).not.toContain('super-secret-key-12345');
+      expect(logMsg).toContain('--verbose');
+    });
+
+    it('should mask flag=value style sensitive args', async () => {
+      await service.createClient({
+        name: 'Test',
+        cliPath: 'test-cli',
+        cliArgs: ['--token=ghp_abcdef1234567890abcdef1234567890ab'],
+      });
+      const logMsg = logSpy.mock.calls[0][0] as string;
+      expect(logMsg).toContain('--token=[REDACTED]');
+      expect(logMsg).not.toContain('ghp_');
+    });
+
+    it('should mask standalone positional args that look like secrets', async () => {
+      const base64Token = 'A'.repeat(40);
+      await service.createClient({
+        name: 'Test',
+        cliPath: 'test-cli',
+        cliArgs: [base64Token],
+      });
+      const logMsg = logSpy.mock.calls[0][0] as string;
+      expect(logMsg).toContain('[REDACTED]');
+      expect(logMsg).not.toContain(base64Token);
+    });
+
+    it('should mask common secret prefixes (sk-, ghp_, glpat-)', async () => {
+      await service.createClient({
+        name: 'Test',
+        cliPath: 'test-cli',
+        cliArgs: ['key=sk-abc12345678'],
+      });
+      const logMsg = logSpy.mock.calls[0][0] as string;
+      expect(logMsg).toContain('[REDACTED]');
+      expect(logMsg).not.toContain('sk-abc');
+    });
+
+    it('should leave short safe args untouched', async () => {
+      await service.createClient({
+        name: 'Test',
+        cliPath: 'test-cli',
+        cliArgs: ['--verbose', '--format', 'json'],
+      });
+      const logMsg = logSpy.mock.calls[0][0] as string;
+      expect(logMsg).toContain('--verbose');
+      expect(logMsg).toContain('--format');
+      expect(logMsg).toContain('json');
+      expect(logMsg).not.toContain('[REDACTED]');
+    });
+
+    it('should tag overly long values with [REDACTED:length]', async () => {
+      const longValue = 'A'.repeat(250);
+      await service.createClient({
+        name: 'Test',
+        cliPath: 'test-cli',
+        cliArgs: [longValue],
+      });
+      const logMsg = logSpy.mock.calls[0][0] as string;
+      expect(logMsg).toContain('[REDACTED:length]');
+    });
+
+    it('should mask multiple sensitive flags in the same args list', async () => {
+      await service.createClient({
+        name: 'Test',
+        cliPath: 'test-cli',
+        cliArgs: ['--api-key', 'key123', '--token', 'tok456', '--debug'],
+      });
+      const logMsg = logSpy.mock.calls[0][0] as string;
+      expect(logMsg).not.toContain('key123');
+      expect(logMsg).not.toContain('tok456');
+      expect(logMsg).toContain('--debug');
+    });
+  });
+
   it('should reject createClient after stopAll', async () => {
     await service.stopAll();
     await expect(

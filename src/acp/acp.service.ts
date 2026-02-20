@@ -181,6 +181,14 @@ export class AcpService implements OnModuleDestroy {
             .split('\n')
             .map((l) => l.trim())
             .find((l) => l.length > 0) ?? cliPath;
+        if (resolved.includes('\0')) {
+          this.logger.warn(
+            `Resolved path for "${cliPath}" contains null bytes, using original`,
+          );
+          this.resolvedPaths.set(cliPath, cliPath);
+          resolve(cliPath);
+          return;
+        }
         this.resolvedPaths.set(cliPath, resolved);
         resolve(resolved);
       });

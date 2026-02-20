@@ -199,9 +199,18 @@ export class CodeReaderService {
     files: string[],
   ): Promise<string> {
     const parts: string[] = [];
+    let totalLength = 0;
     for (let i = 0; i < files.length; i += MAX_DIFF_FILE_ARGS) {
       const chunk = files.slice(i, i + MAX_DIFF_FILE_ARGS);
-      parts.push(await git.diff([...baseArgs, '--', ...chunk]));
+      const part = await git.diff([...baseArgs, '--', ...chunk]);
+      parts.push(part);
+      totalLength += part.length;
+      if (totalLength >= MAX_DIFF_SIZE) {
+        this.logger.warn(
+          `Diff size exceeded ${MAX_DIFF_SIZE / 1_048_576}MB during chunked read, stopping early`,
+        );
+        break;
+      }
     }
     return parts.join('');
   }

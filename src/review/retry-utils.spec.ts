@@ -28,6 +28,12 @@ describe('sanitizeErrorMessage', () => {
     expect(sanitizeErrorMessage(new Error('pat=glpat-abcdef'))).toBe(
       'pat=[REDACTED]',
     );
+    expect(sanitizeErrorMessage(new Error('jwt=eyJhbGciOiJIUzI1NiJ9.test'))).toBe(
+      'jwt=[REDACTED]',
+    );
+    expect(sanitizeErrorMessage(new Error('aws=AKIAIOSFODNN7EXAMPLE'))).toBe(
+      'aws=[REDACTED]',
+    );
   });
 
   it('should handle non-Error values', () => {
