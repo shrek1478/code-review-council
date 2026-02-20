@@ -215,6 +215,14 @@ export class ConfigService {
       'decisionMaker',
       filePath,
     );
+    this.validateReviewSettings(config, filePath);
+    this.validateSensitivePatterns(config, filePath);
+  }
+
+  private validateReviewSettings(
+    config: Record<string, any>,
+    filePath: string,
+  ): void {
     if (!config.review || !Array.isArray(config.review.defaultChecks)) {
       throw new Error(
         `Invalid config (${filePath}): "review.defaultChecks" must be an array`,
@@ -296,39 +304,44 @@ export class ConfigService {
         );
       }
     }
-    if (config.review.sensitivePatterns !== undefined) {
-      if (
-        !Array.isArray(config.review.sensitivePatterns) ||
-        !config.review.sensitivePatterns.every(
-          (p: unknown) => typeof p === 'string',
-        )
-      ) {
+  }
+
+  private validateSensitivePatterns(
+    config: Record<string, any>,
+    filePath: string,
+  ): void {
+    if (config.review?.sensitivePatterns === undefined) return;
+    if (
+      !Array.isArray(config.review.sensitivePatterns) ||
+      !config.review.sensitivePatterns.every(
+        (p: unknown) => typeof p === 'string',
+      )
+    ) {
+      throw new Error(
+        `Invalid config (${filePath}): "review.sensitivePatterns" must be an array of strings`,
+      );
+    }
+    const MAX_SENSITIVE_PATTERNS = 20;
+    if (config.review.sensitivePatterns.length > MAX_SENSITIVE_PATTERNS) {
+      throw new Error(
+        `Invalid config (${filePath}): "review.sensitivePatterns" exceeds maximum of ${MAX_SENSITIVE_PATTERNS} entries`,
+      );
+    }
+    for (const p of config.review.sensitivePatterns) {
+      let regex: RegExp;
+      try {
+        regex = new RegExp(p);
+      } catch {
         throw new Error(
-          `Invalid config (${filePath}): "review.sensitivePatterns" must be an array of strings`,
+          `Invalid config (${filePath}): "review.sensitivePatterns" contains invalid regex: "${p}"`,
         );
       }
-      const MAX_SENSITIVE_PATTERNS = 20;
-      if (config.review.sensitivePatterns.length > MAX_SENSITIVE_PATTERNS) {
+      // ReDoS safety: test each pattern against a worst-case string with time limit
+      if (this.isReDoSRisk(regex)) {
         throw new Error(
-          `Invalid config (${filePath}): "review.sensitivePatterns" exceeds maximum of ${MAX_SENSITIVE_PATTERNS} entries`,
+          `Invalid config (${filePath}): "review.sensitivePatterns" regex "${p}" is potentially unsafe (ReDoS risk). ` +
+            `Avoid nested quantifiers like (a+)+ or (a|a)*b.`,
         );
-      }
-      for (const p of config.review.sensitivePatterns) {
-        let regex: RegExp;
-        try {
-          regex = new RegExp(p);
-        } catch {
-          throw new Error(
-            `Invalid config (${filePath}): "review.sensitivePatterns" contains invalid regex: "${p}"`,
-          );
-        }
-        // ReDoS safety: test each pattern against a worst-case string with time limit
-        if (this.isReDoSRisk(regex)) {
-          throw new Error(
-            `Invalid config (${filePath}): "review.sensitivePatterns" regex "${p}" is potentially unsafe (ReDoS risk). ` +
-              `Avoid nested quantifiers like (a+)+ or (a|a)*b.`,
-          );
-        }
       }
     }
   }

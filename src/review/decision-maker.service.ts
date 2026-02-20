@@ -254,6 +254,16 @@ Rules:
     };
   }
 
+  /**
+   * Extract a balanced JSON object from text by tracking brace depth.
+   *
+   * State machine:
+   *   outside-string: track { (depth++) and } (depth--); " → enter string
+   *   inside-string:  \ → enter escape; " → exit string; other chars ignored
+   *   escape:         consume one char unconditionally → back to inside-string
+   *
+   * Returns the first balanced {...} substring, or null if none found.
+   */
   private extractBalancedJson(text: string): string | null {
     let searchFrom = 0;
     while (searchFrom < text.length) {
