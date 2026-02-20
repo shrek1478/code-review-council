@@ -237,6 +237,7 @@ export class AcpService implements OnModuleDestroy {
     prompt: string,
     timeoutMs = 180_000,
   ): Promise<string> {
+    const sendStartMs = Date.now();
     this.logger.log(`[SEND] ${handle.name} reviewing...`);
 
     const sessionOpts: AcpSessionOptions = { streaming: true };
@@ -305,7 +306,9 @@ export class AcpService implements OnModuleDestroy {
         });
       });
 
-      this.logger.log(`[DONE] ${handle.name} done.`);
+      const elapsedMs = Date.now() - sendStartMs;
+      const elapsedSec = (elapsedMs / 1000).toFixed(1);
+      this.logger.log(`[DONE] ${handle.name} done. (${elapsedSec}s)`);
       return result;
     } finally {
       try {
