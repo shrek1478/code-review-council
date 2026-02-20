@@ -30,8 +30,24 @@ export interface AcpSession {
   destroy(): Promise<void>;
 }
 
+/**
+ * Local type augmentations for CopilotClient capabilities not yet exported by the SDK.
+ * These interfaces document the expected runtime API surface and should be updated
+ * when the SDK publishes proper type definitions.
+ */
 interface CopilotClientWithSession {
   createSession(opts: AcpSessionOptions): Promise<AcpSession>;
+}
+
+interface ForceStoppable {
+  forceStop?(): Promise<void>;
+}
+
+/** Constructor options for CopilotClient (SDK doesn't export protocol in its types yet). */
+interface CopilotClientConstructorOptions {
+  cliPath: string;
+  cliArgs: string[];
+  protocol?: 'acp' | 'copilot';
 }
 
 interface AcpUsageEvent extends AcpEvent {
@@ -138,11 +154,12 @@ export class AcpService implements OnModuleDestroy {
     this.logger.log(
       `Creating ACP client: ${config.name} (${cliPath}${argsInfo})${modelInfo}`,
     );
-    const client = new CopilotClient({
+    const opts: CopilotClientConstructorOptions = {
       cliPath,
       cliArgs: config.cliArgs,
       protocol: config.protocol ?? 'acp',
-    } as ConstructorParameters<typeof CopilotClient>[0]); // TODO: remove cast when SDK exports protocol in its types
+    };
+    const client = new CopilotClient(opts as ConstructorParameters<typeof CopilotClient>[0]);
     await client.start();
     const handle: AcpClientHandle = {
       name: config.name,
@@ -320,7 +337,7 @@ export class AcpService implements OnModuleDestroy {
       if (result instanceof Error) throw result;
     } catch {
       this.logger.warn(`Graceful stop failed for ${name}, force stopping...`);
-      const fc = client as unknown as { forceStop?(): Promise<void> };
+      const fc = client as unknown as ForceStoppable;
       if (typeof fc.forceStop !== 'function') return;
       try {
         await fc.forceStop();
