@@ -344,11 +344,9 @@ export class ReviewService {
       const toplevel = await simpleGit().revparse(['--show-toplevel']);
       return await realpath(toplevel.trim());
     } catch {
-      this.logger.warn(
-        'Not inside a git repository, falling back to current working directory. ' +
-          'Path validation in explore mode will use cwd as the root boundary.',
+      throw new Error(
+        'Not inside a git repository. Explore mode requires a git repo for file listing and path validation.',
       );
-      return await realpath(resolve('.'));
     }
   }
 

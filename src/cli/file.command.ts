@@ -3,6 +3,7 @@ import { Inject } from '@nestjs/common';
 import { ReviewService } from '../review/review.service.js';
 import { ConfigService } from '../config/config.service.js';
 import { printResult, sanitize, parseChecksOption } from './result-printer.js';
+import { VALID_CHECK_CATEGORIES } from '../constants.js';
 
 @Command({ name: 'file', description: 'Review specific files' })
 export class FileCommand extends CommandRunner {
@@ -23,7 +24,8 @@ export class FileCommand extends CommandRunner {
     const config = this.configService.getConfig();
     const checks = parseChecksOption(
       options.checks,
-      new Set(config.review.defaultChecks),
+      VALID_CHECK_CATEGORIES,
+      config.review.defaultChecks,
     );
     const extra = options.extra;
 

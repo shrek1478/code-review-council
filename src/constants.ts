@@ -9,3 +9,12 @@ export const MAX_EXPLORATION_FILE_PATHS = 1000;
 
 /** Maximum total characters for exploration mode file list in prompt. */
 export const MAX_FILE_LIST_CHARS = 80_000;
+
+/** All valid check categories for --checks CLI option. */
+export const VALID_CHECK_CATEGORIES = new Set([
+  'security',
+  'performance',
+  'readability',
+  'code-quality',
+  'best-practices',
+]);

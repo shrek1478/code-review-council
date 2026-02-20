@@ -120,22 +120,23 @@ export function printResult(result: ReviewResult): void {
 export function parseChecksOption(
   raw: string | undefined,
   validChecks: Set<string>,
+  defaultChecks: string[],
 ): string[] {
-  const parsed = (
-    raw
-      ?.split(',')
-      .map((s) => s.trim())
-      .filter(Boolean) ?? []
-  ).filter((c) => {
-    if (!validChecks.has(c)) {
-      console.warn(
-        `Warning: Unknown check category ignored: "${sanitize(c)}"`,
-      );
-      return false;
-    }
-    return true;
-  });
-  if (raw && parsed.length === 0) {
+  if (!raw) return defaultChecks;
+  const parsed = raw
+    .split(',')
+    .map((s) => s.trim())
+    .filter(Boolean)
+    .filter((c) => {
+      if (!validChecks.has(c)) {
+        console.warn(
+          `Warning: Unknown check category ignored: "${sanitize(c)}"`,
+        );
+        return false;
+      }
+      return true;
+    });
+  if (parsed.length === 0) {
     const valid = [...validChecks].join(', ');
     throw new Error(
       `No valid check categories found. Valid categories: ${valid}`,

@@ -4,6 +4,7 @@ import { existsSync, statSync } from 'node:fs';
 import { ReviewService } from '../review/review.service.js';
 import { ConfigService } from '../config/config.service.js';
 import { printResult, sanitize, parseChecksOption } from './result-printer.js';
+import { VALID_CHECK_CATEGORIES } from '../constants.js';
 
 @Command({ name: 'diff', description: 'Review git diff' })
 export class DiffCommand extends CommandRunner {
@@ -22,7 +23,8 @@ export class DiffCommand extends CommandRunner {
     const config = this.configService.getConfig();
     const checks = parseChecksOption(
       options.checks,
-      new Set(config.review.defaultChecks),
+      VALID_CHECK_CATEGORIES,
+      config.review.defaultChecks,
     );
     const extra = options.extra;
 

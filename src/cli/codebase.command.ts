@@ -4,6 +4,7 @@ import { existsSync, statSync } from 'node:fs';
 import { ReviewService } from '../review/review.service.js';
 import { ConfigService } from '../config/config.service.js';
 import { printResult, sanitize, parseChecksOption } from './result-printer.js';
+import { VALID_CHECK_CATEGORIES } from '../constants.js';
 
 @Command({ name: 'codebase', description: 'Review entire codebase' })
 export class CodebaseCommand extends CommandRunner {
@@ -41,13 +42,14 @@ export class CodebaseCommand extends CommandRunner {
     const config = this.configService.getConfig();
     const checks = parseChecksOption(
       options.checks,
-      new Set(config.review.defaultChecks),
+      VALID_CHECK_CATEGORIES,
+      config.review.defaultChecks,
     );
     const extra = options.extra;
 
     console.log('\n=== Code Review Council ===\n');
     console.log(`Directory: ${sanitize(directory)}`);
-    if (extensions) console.log(`Extensions: ${extensions.join(', ')}`);
+    if (extensions) console.log(`Extensions: ${extensions.map(sanitize).join(', ')}`);
     if (parsedBatchSize) console.log(`Batch size: ${parsedBatchSize}`);
     console.log('Reviewing...\n');
 
