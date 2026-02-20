@@ -57,8 +57,14 @@ export class ConfigService {
       return this.loadFromFile(cwdConfigPath);
     }
     // 5. 內建預設
-    return this.loadFromFile(
-      resolve(PROJECT_ROOT, 'review-council.config.json'),
+    const builtinPath = resolve(PROJECT_ROOT, 'review-council.config.json');
+    if (await this.fileExists(builtinPath)) {
+      return this.loadFromFile(builtinPath);
+    }
+    throw new Error(
+      'No configuration file found. Create one by:\n' +
+        `  1. Copy the sample config: cp ${resolve(PROJECT_ROOT, 'review-council.config.sample.json')} ~/.code-review-council/review-council.config.json\n` +
+        '  2. Or specify a config file: code-review-council --config <path>',
     );
   }
 
@@ -127,14 +133,20 @@ export class ConfigService {
         );
       }
     }
+    const MIN_TIMEOUT_MS = 1_000;
+    const MAX_TIMEOUT_MS = 600_000;
     const dmTimeout = process.env.DECISION_MAKER_TIMEOUT_MS;
     if (dmTimeout && dmTimeout.trim() !== '' && config.decisionMaker) {
       const parsed = Number(dmTimeout.trim());
-      if (Number.isInteger(parsed) && parsed > 0) {
+      if (
+        Number.isInteger(parsed) &&
+        parsed >= MIN_TIMEOUT_MS &&
+        parsed <= MAX_TIMEOUT_MS
+      ) {
         config.decisionMaker.timeoutMs = parsed;
       } else {
         this.logger.warn(
-          'Ignoring invalid DECISION_MAKER_TIMEOUT_MS env (must be a positive integer)',
+          `Ignoring invalid DECISION_MAKER_TIMEOUT_MS env (must be an integer between ${MIN_TIMEOUT_MS} and ${MAX_TIMEOUT_MS})`,
         );
       }
     }
@@ -145,13 +157,17 @@ export class ConfigService {
       Array.isArray(config.reviewers)
     ) {
       const parsed = Number(reviewerTimeout.trim());
-      if (Number.isInteger(parsed) && parsed > 0) {
+      if (
+        Number.isInteger(parsed) &&
+        parsed >= MIN_TIMEOUT_MS &&
+        parsed <= MAX_TIMEOUT_MS
+      ) {
         for (const r of config.reviewers) {
           r.timeoutMs = parsed;
         }
       } else {
         this.logger.warn(
-          'Ignoring invalid REVIEWER_TIMEOUT_MS env (must be a positive integer)',
+          `Ignoring invalid REVIEWER_TIMEOUT_MS env (must be an integer between ${MIN_TIMEOUT_MS} and ${MAX_TIMEOUT_MS})`,
         );
       }
     }
@@ -343,6 +359,11 @@ export class ConfigService {
     if (!r.name || typeof r.name !== 'string') {
       throw new Error(
         `Invalid config (${filePath}): "${path}.name" is required`,
+      );
+    }
+    if (!/^[A-Za-z0-9 _.-]{1,50}$/.test(r.name)) {
+      throw new Error(
+        `Invalid config (${filePath}): "${path}.name" must be 1-50 chars of letters, digits, spaces, underscores, dots, or hyphens`,
       );
     }
     if (!r.cliPath || typeof r.cliPath !== 'string') {

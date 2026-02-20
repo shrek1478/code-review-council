@@ -63,7 +63,7 @@ export class DecisionMakerService {
     > | null = await this.acpService.createClient(dmConfig);
 
     try {
-      const delimiter = `DELIM-${randomUUID().slice(0, 8)}`;
+      const delimiter = `DELIM-${randomUUID()}`;
       const reviewsText = this.buildReviewsSection(
         reviews,
         delimiter,

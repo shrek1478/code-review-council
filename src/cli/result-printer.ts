@@ -14,7 +14,7 @@ const OSC_REGEX = /\u001b\][\s\S]*?(?:\u0007|\u001b\\)/g;
 // eslint-disable-next-line no-control-regex
 const DCS_PM_APC_REGEX = /\u001b[P^_][\s\S]*?\u001b\\/g;
 // eslint-disable-next-line no-control-regex
-const C0_CONTROL_REGEX = /[\x00-\x08\x0B\x0C\x0E-\x1F]/g;
+const C0_CONTROL_REGEX = /[\x00-\x08\x0B-\x0C\x0E-\x1F\r]/g;
 
 export function sanitize(text: string): string {
   return text
