@@ -1,6 +1,6 @@
 # Code Review Council
 
-多模型 AI Code Review 工具，同時派遣多個 AI 模型（Gemini、Claude、Copilot）審查程式碼，再由決策模型統整所有意見，產出完整的 review 報告。
+多模型 AI Code Review 工具，同時派遣多個 AI 模型（Gemini、Copilot、Codex、Claude）審查程式碼，再由決策模型統整所有意見，產出完整的 review 報告。
 
 ## 功能
 
@@ -25,8 +25,9 @@ npm install -g @shrek1478/code-review-council
 | 工具 | 安裝方式 | Protocol | 設定方式 |
 |------|---------|----------|---------|
 | [Gemini CLI](https://github.com/google-gemini/gemini-cli) | `npm install -g @google/gemini-cli` | ACP | `"cliArgs": ["--experimental-acp"]` |
-| [Claude Code ACP](https://github.com/zed-industries/claude-code-acp) | `npm install -g @zed-industries/claude-code-acp` | ACP | （預設 ACP 模式） |
 | [GitHub Copilot CLI](https://github.com/github/copilot-cli) | `npm install -g @github/copilot` | Copilot | `"protocol": "copilot"` |
+| [Codex CLI](https://github.com/openai/codex) | `npm install -g @openai/codex` | ACP | （預設 ACP 模式） |
+| [Claude Code ACP](https://github.com/zed-industries/claude-code-acp) | `npm install -g @zed-industries/claude-code-acp` | ACP | （預設 ACP 模式） |
 
 > Copilot CLI 支援原生 Copilot SDK protocol，透過設定 `"protocol": "copilot"` 啟用，不需要 `--acp` 參數。其他 CLI 預設使用 ACP protocol。
 
@@ -47,25 +48,51 @@ mkdir -p ~/.code-review-council
       "name": "Gemini",
       "cliPath": "gemini",
       "cliArgs": ["--experimental-acp"],
-      "timeoutMs": 120000,
-      "maxRetries": 2
+      "timeoutMs": 600000,
+      "maxRetries": 0
+    },
+    {
+      "name": "Copilot",
+      "cliPath": "copilot",
+      "cliArgs": [],
+      "protocol": "copilot",
+      "model": "claude-sonnet-4.5",
+      "timeoutMs": 600000,
+      "maxRetries": 0
+    },
+    {
+      "name": "Codex",
+      "cliPath": "codex-acp",
+      "cliArgs": [],
+      "timeoutMs": 240000,
+      "maxRetries": 0
+    },
+    {
+      "name": "Claude",
+      "cliPath": "claude-code-acp",
+      "cliArgs": [],
+      "timeoutMs": 600000,
+      "maxRetries": 0
     }
   ],
   "decisionMaker": {
-    "name": "Claude",
-    "cliPath": "claude-code-acp",
+    "name": "Copilot",
+    "cliPath": "copilot",
     "cliArgs": [],
+    "protocol": "copilot",
+    "model": "gpt-5-mini",
     "timeoutMs": 600000,
-    "maxRetries": 2
+    "maxRetries": 0
   },
   "review": {
     "defaultChecks": ["code-quality", "security", "performance", "readability", "best-practices"],
-    "language": "zh-tw"
+    "language": "zh-tw",
+    "mode": "explore"
   }
 }
 ```
 
-> **Note**: `cliPath` 填寫安裝後的 CLI 命令名稱（如 `gemini`、`claude-code-acp`、`copilot`），`cliArgs` 填寫啟動 ACP 模式所需的參數。
+> **Note**: `cliPath` 填寫安裝後的 CLI 命令名稱（如 `gemini`、`copilot`、`codex-acp`、`claude-code-acp`），`cliArgs` 填寫啟動 ACP 模式所需的參數。Copilot CLI 使用原生 protocol 時設定 `"protocol": "copilot"`，可透過 `"model"` 指定模型。
 
 ### 2. 執行審查
 
@@ -124,8 +151,8 @@ code-review-council codebase --dir ./src --config ./my-config.json
 
 1. `--config <path>` — CLI 指定的路徑
 2. `CONFIG_JSON` 環境變數 — JSON 字串形式的完整設定
-3. `./review-council.config.json` — 當前工作目錄（專案層級）
-4. `~/.code-review-council/review-council.config.json` — 使用者家目錄（使用者層級）
+3. `~/.code-review-council/review-council.config.json` — 使用者家目錄（使用者層級，推薦）
+4. `./review-council.config.json` — 當前工作目錄（專案層級）
 5. 內建預設設定 — package 附帶的設定
 
 ### 設定檔放置位置
@@ -138,11 +165,11 @@ cp review-council.config.json ~/.code-review-council/
 # 或自行建立設定檔
 ```
 
-**專案層級** — 放在專案根目錄，優先於使用者層級設定：
+**專案層級** — 放在專案根目錄，當使用者層級設定不存在時使用：
 
 ```bash
 my-project/
-├── review-council.config.json   # 專案專屬設定（優先）
+├── review-council.config.json   # 專案專屬設定
 ├── src/
 ├── package.json
 └── ...
@@ -157,25 +184,41 @@ my-project/
       "name": "Gemini",
       "cliPath": "gemini",
       "cliArgs": ["--experimental-acp"],
-      "timeoutMs": 120000,
-      "maxRetries": 2
+      "timeoutMs": 600000,
+      "maxRetries": 0
     },
     {
       "name": "Copilot",
       "cliPath": "copilot",
       "cliArgs": [],
       "protocol": "copilot",
-      "model": "gpt-5-mini",
-      "timeoutMs": 120000,
-      "maxRetries": 2
+      "model": "claude-sonnet-4.5",
+      "timeoutMs": 600000,
+      "maxRetries": 0
+    },
+    {
+      "name": "Codex",
+      "cliPath": "codex-acp",
+      "cliArgs": [],
+      "timeoutMs": 240000,
+      "maxRetries": 0
+    },
+    {
+      "name": "Claude",
+      "cliPath": "claude-code-acp",
+      "cliArgs": [],
+      "timeoutMs": 600000,
+      "maxRetries": 0
     }
   ],
   "decisionMaker": {
-    "name": "Claude",
-    "cliPath": "claude-code-acp",
+    "name": "Copilot",
+    "cliPath": "copilot",
     "cliArgs": [],
+    "protocol": "copilot",
+    "model": "gpt-5-mini",
     "timeoutMs": 600000,
-    "maxRetries": 2
+    "maxRetries": 0
   },
   "review": {
     "defaultChecks": ["code-quality", "security", "performance", "readability", "best-practices"],
@@ -183,7 +226,7 @@ my-project/
     "maxReviewsLength": 60000,
     "maxCodeLength": 100000,
     "maxSummaryLength": 60000,
-    "mode": "inline"
+    "mode": "explore"
   }
 }
 ```
@@ -262,7 +305,7 @@ code-review-council codebase \
 ### 使用環境變數（適合 CI/CD）
 
 ```bash
-CONFIG_JSON='{"reviewers":[{"name":"Gemini","cliPath":"gemini","cliArgs":["--experimental-acp"]}],"decisionMaker":{"name":"Claude","cliPath":"claude-code-acp","cliArgs":[]},"review":{"defaultChecks":["security"],"language":"en"}}' \
+CONFIG_JSON='{"reviewers":[{"name":"Gemini","cliPath":"gemini","cliArgs":["--experimental-acp"]},{"name":"Copilot","cliPath":"copilot","cliArgs":[],"protocol":"copilot","model":"claude-sonnet-4.5"}],"decisionMaker":{"name":"Copilot","cliPath":"copilot","cliArgs":[],"protocol":"copilot","model":"gpt-5-mini"},"review":{"defaultChecks":["security"],"language":"en","mode":"explore"}}' \
   code-review-council diff --repo .
 ```
 
@@ -272,7 +315,8 @@ CONFIG_JSON='{"reviewers":[{"name":"Gemini","cliPath":"gemini","cliArgs":["--exp
 程式碼 ──→ 並行派遣給多個 Reviewers ──→ 決策模型統整 ──→ 最終報告
               │                              │
               ├─ Gemini ────┐                │
-              ├─ Copilot ───┼─→ 收集意見 ───→ Claude (Decision Maker)
+              ├─ Copilot ───┤                │
+              ├─ Codex ─────┼─→ 收集意見 ───→ Decision Maker
               └─ Claude ────┘                │
                                              ↓
                                      ┌─────────────┐

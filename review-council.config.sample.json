@@ -6,32 +6,41 @@
       "cliArgs": [
         "--experimental-acp"
       ],
-      "timeoutMs": 120000,
-      "maxRetries": 2
+      "timeoutMs": 600000,
+      "maxRetries": 0
     },
     {
       "name": "Copilot",
       "cliPath": "copilot",
       "cliArgs": [],
       "protocol": "copilot",
-      "model": "gpt-5-mini",
-      "timeoutMs": 120000,
-      "maxRetries": 2
+      "model": "claude-sonnet-4.5",
+      "timeoutMs": 600000,
+      "maxRetries": 0
     },
     {
       "name": "Codex",
       "cliPath": "codex-acp",
       "cliArgs": [],
-      "timeoutMs": 120000,
-      "maxRetries": 2
+      "timeoutMs": 240000,
+      "maxRetries": 0
+    },
+    {
+      "name": "Claude",
+      "cliPath": "claude-code-acp",
+      "cliArgs": [],
+      "timeoutMs": 600000,
+      "maxRetries": 0
     }
   ],
   "decisionMaker": {
-    "name": "Claude",
-    "cliPath": "claude-code-acp",
+    "name": "Copilot",
+    "cliPath": "copilot",
     "cliArgs": [],
+    "protocol": "copilot",
+    "model": "gpt-5-mini",
     "timeoutMs": 600000,
-    "maxRetries": 2
+    "maxRetries": 0
   },
   "review": {
     "defaultChecks": [

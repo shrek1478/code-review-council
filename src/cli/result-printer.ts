@@ -40,23 +40,47 @@ export function getVerdictIcon(verdict: ReviewDecisionItem['verdict']): string {
   return '\u270F\uFE0F';
 }
 
-function printDecisionItem(d: ReviewDecisionItem): void {
-  const icon = getVerdictIcon(d.verdict);
+/** Escape pipe characters and collapse newlines for markdown table cells. */
+function tableCell(text: string): string {
+  return sanitizeLine(text).replace(/\|/g, '\\|');
+}
+
+function printDecisionsTable(decisions: ReviewDecisionItem[]): void {
+  console.log('\nDecisions:\n');
   console.log(
-    `  ${icon} [${sanitizeLine(d.severity)}] ${sanitizeLine(d.category)}: ${sanitizeIndented(d.description, '    ')}`,
+    '| | Severity | Category | Description | File | Reasoning | Action | Raised by |',
   );
-  if (d.file) {
-    const loc = d.line
-      ? `${sanitizeLine(d.file)}:${d.line}`
-      : sanitizeLine(d.file);
-    console.log(`    File: ${loc}`);
+  console.log(
+    '|---|---|---|---|---|---|---|---|',
+  );
+  for (const d of decisions) {
+    const icon = getVerdictIcon(d.verdict);
+    const file = d.file
+      ? d.line
+        ? `${tableCell(d.file)}:${d.line}`
+        : tableCell(d.file)
+      : '';
+    const raisedBy =
+      d.raisedBy?.length > 0
+        ? d.raisedBy.map((r) => tableCell(r)).join(', ')
+        : '';
+    console.log(
+      `| ${icon} | ${tableCell(d.severity)} | ${tableCell(d.category)} | ${tableCell(d.description)} | ${file} | ${tableCell(d.reasoning)} | ${tableCell(d.suggestion)} | ${raisedBy} |`,
+    );
   }
-  if (d.reasoning)
-    console.log(`    Reasoning: ${sanitizeIndented(d.reasoning, '    ')}`);
-  if (d.suggestion)
-    console.log(`    Action: ${sanitizeIndented(d.suggestion, '    ')}`);
-  if (d.raisedBy?.length > 0) {
-    console.log(`    Raised by: ${d.raisedBy.map(sanitizeLine).join(', ')}`);
+}
+
+function printAdditionalFindingsTable(
+  findings: ReviewDecision['additionalFindings'],
+): void {
+  console.log('\nAdditional Findings (by Decision Maker):\n');
+  console.log('| Severity | Category | Description | File | Action |');
+  console.log('|---|---|---|---|---|');
+  for (const f of findings) {
+    const file = f.file ? tableCell(f.file) : '';
+    console.log(
+      `| ${tableCell(f.severity)} | ${tableCell(f.category)} | ${tableCell(f.description)} | ${file} | ${tableCell(f.suggestion)} |`,
+    );
   }
 }
 
@@ -66,23 +90,10 @@ function printDecision(decision: ReviewDecision): void {
   );
   console.log(sanitize(decision.overallAssessment));
   if (decision.decisions.length > 0) {
-    console.log('\nDecisions:');
-    for (const d of decision.decisions) {
-      printDecisionItem(d);
-    }
+    printDecisionsTable(decision.decisions);
   }
   if (decision.additionalFindings.length > 0) {
-    console.log('\nAdditional Findings (by Decision Maker):');
-    for (const f of decision.additionalFindings) {
-      console.log(
-        `  [${sanitizeLine(f.severity)}] ${sanitizeLine(f.category)}: ${sanitizeIndented(f.description, '    ')}`,
-      );
-      if (f.file) {
-        console.log(`    File: ${sanitizeLine(f.file)}`);
-      }
-      if (f.suggestion)
-        console.log(`    Action: ${sanitizeIndented(f.suggestion, '    ')}`);
-    }
+    printAdditionalFindingsTable(decision.additionalFindings);
   }
 }
 
