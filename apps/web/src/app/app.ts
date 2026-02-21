@@ -1,13 +1,10 @@
 import { Component } from '@angular/core';
-import { RouterModule } from '@angular/router';
-import { NxWelcome } from './nx-welcome';
+import { ReviewPageComponent } from './features/review/review-page.component';
 
 @Component({
-  imports: [NxWelcome, RouterModule],
   selector: 'app-root',
-  templateUrl: './app.html',
-  styleUrl: './app.css',
+  standalone: true,
+  imports: [ReviewPageComponent],
+  template: `<app-review-page />`,
 })
-export class App {
-  protected title = 'web';
-}
+export class App {}

@@ -1,12 +1,12 @@
 import { Component, input } from '@angular/core';
-import { Table } from 'primeng/table';
+import { TableModule } from 'primeng/table';
 import { Tag } from 'primeng/tag';
 import { ReviewDecisionItem } from '../../core/services/review-store.service';
 
 @Component({
   selector: 'app-decision-table',
   standalone: true,
-  imports: [Table, Tag],
+  imports: [TableModule, Tag],
   template: `
     <p-table [value]="decisions()" [scrollable]="true" styleClass="p-datatable-sm">
       <ng-template #header>
