@@ -35,6 +35,7 @@
   "dependencies": {
     "@nestjs/common": "^11.0.1",
     "@nestjs/core": "^11.0.1",
+    "@nestjs/platform-express": "^11.1.14",
     "@shrek1478/copilot-sdk-with-acp": "^0.1.24",
     "nest-commander": "^3.20.1",
     "reflect-metadata": "^0.2.2",
