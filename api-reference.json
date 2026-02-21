@@ -1,0 +1,484 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "Code Review Council API",
+    "description": "AI-powered code review council using multiple LLM reviewers. Supports diff-based, file-based, and full codebase reviews with SSE streaming for real-time progress.",
+    "version": "0.1.3",
+    "license": {
+      "name": "MIT"
+    }
+  },
+  "servers": [
+    {
+      "url": "http://localhost:3100",
+      "description": "Local development server"
+    }
+  ],
+  "paths": {
+    "/api/reviews/diff": {
+      "post": {
+        "summary": "Start a diff review",
+        "description": "Starts a code review based on the git diff between the current branch and a base branch. Returns a reviewId that can be used to subscribe to SSE events for progress and results.",
+        "operationId": "startDiffReview",
+        "tags": ["Reviews"],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReviewDiffRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Review started successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReviewStartedResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid request body"
+          }
+        }
+      }
+    },
+    "/api/reviews/file": {
+      "post": {
+        "summary": "Start a file review",
+        "description": "Starts a code review for one or more specific files. Returns a reviewId that can be used to subscribe to SSE events for progress and results.",
+        "operationId": "startFileReview",
+        "tags": ["Reviews"],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReviewFileRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Review started successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReviewStartedResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid request body"
+          }
+        }
+      }
+    },
+    "/api/reviews/codebase": {
+      "post": {
+        "summary": "Start a codebase review",
+        "description": "Starts a full codebase review for all matching files in a directory. Files are batched by size for processing. Returns a reviewId that can be used to subscribe to SSE events for progress and results.",
+        "operationId": "startCodebaseReview",
+        "tags": ["Reviews"],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReviewCodebaseRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Review started successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReviewStartedResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid request body"
+          }
+        }
+      }
+    },
+    "/api/reviews/{reviewId}/events": {
+      "get": {
+        "summary": "SSE stream for review progress and result",
+        "description": "Opens a Server-Sent Events (SSE) stream that emits real-time progress updates and the final review result. Event types include: 'progress' (reviewer progress), 'dm-progress' (decision-maker progress), 'result' (final review result), and 'error' (error details).",
+        "operationId": "getReviewEvents",
+        "tags": ["Reviews"],
+        "parameters": [
+          {
+            "name": "reviewId",
+            "in": "path",
+            "required": true,
+            "description": "The review identifier returned by a review start endpoint",
+            "schema": {
+              "type": "string",
+              "example": "review-a1b2c3d4"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "SSE event stream opened successfully",
+            "content": {
+              "text/event-stream": {
+                "schema": {
+                  "type": "string",
+                  "description": "Server-Sent Events stream. Each event has a type (progress, dm-progress, result, error) and JSON data payload."
+                },
+                "examples": {
+                  "progress": {
+                    "summary": "Reviewer progress event",
+                    "value": "event: progress\ndata: {\"reviewer\":\"Gemini\",\"status\":\"reviewing\"}\n\n"
+                  },
+                  "dm-progress": {
+                    "summary": "Decision-maker progress event",
+                    "value": "event: dm-progress\ndata: {\"status\":\"analyzing\"}\n\n"
+                  },
+                  "result": {
+                    "summary": "Final result event",
+                    "value": "event: result\ndata: {\"id\":\"review-a1b2c3d4\",\"status\":\"completed\",\"individualReviews\":[],\"decision\":{}}\n\n"
+                  },
+                  "error": {
+                    "summary": "Error event",
+                    "value": "event: error\ndata: {\"message\":\"Review failed\"}\n\n"
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Review not found"
+          }
+        }
+      }
+    },
+    "/api/config": {
+      "get": {
+        "summary": "Get current effective config",
+        "description": "Returns the currently loaded and effective council configuration, including any environment variable overrides that have been applied.",
+        "operationId": "getConfig",
+        "tags": ["Config"],
+        "responses": {
+          "200": {
+            "description": "Current effective configuration",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CouncilConfig"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/config/validate": {
+      "post": {
+        "summary": "Validate a config JSON",
+        "description": "Validates a council configuration object without applying it. Returns whether the config is valid and any validation error details.",
+        "operationId": "validateConfig",
+        "tags": ["Config"],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CouncilConfig"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Validation result",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ValidationResult"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "ReviewDiffRequest": {
+        "type": "object",
+        "required": ["repoPath"],
+        "properties": {
+          "repoPath": {
+            "type": "string",
+            "description": "Path to the git repository to diff",
+            "example": "/home/user/my-project"
+          },
+          "baseBranch": {
+            "type": "string",
+            "default": "main",
+            "description": "Base branch to diff against",
+            "example": "main"
+          },
+          "checks": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "Review check categories to focus on (e.g. security, performance, readability, code-quality, best-practices)",
+            "example": ["security", "code-quality"]
+          },
+          "extra": {
+            "type": "string",
+            "description": "Extra instructions for reviewers",
+            "example": "Focus on error handling patterns"
+          }
+        }
+      },
+      "ReviewFileRequest": {
+        "type": "object",
+        "required": ["filePaths"],
+        "properties": {
+          "filePaths": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "Array of file paths to review",
+            "example": ["src/auth/auth.service.ts", "src/auth/auth.controller.ts"]
+          },
+          "checks": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "Review check categories to focus on",
+            "example": ["security", "best-practices"]
+          },
+          "extra": {
+            "type": "string",
+            "description": "Extra instructions for reviewers"
+          }
+        }
+      },
+      "ReviewCodebaseRequest": {
+        "type": "object",
+        "required": ["directory"],
+        "properties": {
+          "directory": {
+            "type": "string",
+            "description": "Root directory of the codebase to review",
+            "example": "/home/user/my-project/src"
+          },
+          "extensions": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "File extensions to include (e.g. .ts, .js). Uses config defaults if not specified.",
+            "example": [".ts", ".js"]
+          },
+          "batchSize": {
+            "type": "integer",
+            "default": 100000,
+            "description": "Maximum characters per batch for processing",
+            "example": 100000
+          },
+          "checks": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "Review check categories to focus on",
+            "example": ["performance", "readability"]
+          },
+          "extra": {
+            "type": "string",
+            "description": "Extra instructions for reviewers"
+          }
+        }
+      },
+      "ReviewStartedResponse": {
+        "type": "object",
+        "required": ["reviewId"],
+        "properties": {
+          "reviewId": {
+            "type": "string",
+            "description": "Unique identifier for the started review, used to subscribe to SSE events",
+            "example": "review-a1b2c3d4"
+          }
+        }
+      },
+      "CouncilConfig": {
+        "type": "object",
+        "required": ["reviewers", "decisionMaker", "review"],
+        "description": "Full council configuration including reviewers, decision maker, and review settings",
+        "properties": {
+          "reviewers": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ReviewerConfig"
+            },
+            "description": "List of LLM reviewer configurations (at least one required)",
+            "minItems": 1
+          },
+          "decisionMaker": {
+            "$ref": "#/components/schemas/ReviewerConfig",
+            "description": "LLM configuration for the decision maker that synthesizes individual reviews"
+          },
+          "review": {
+            "$ref": "#/components/schemas/ReviewConfig",
+            "description": "Review behavior settings"
+          }
+        }
+      },
+      "ReviewerConfig": {
+        "type": "object",
+        "required": ["name", "cliPath", "cliArgs"],
+        "description": "Configuration for a single LLM reviewer or decision maker",
+        "properties": {
+          "name": {
+            "type": "string",
+            "description": "Display name for the reviewer (1-50 chars, alphanumeric/spaces/underscores/dots/hyphens)",
+            "pattern": "^[A-Za-z0-9 _.-]{1,50}$",
+            "example": "Gemini"
+          },
+          "cliPath": {
+            "type": "string",
+            "description": "CLI command name (simple command resolvable via PATH)",
+            "example": "gemini"
+          },
+          "cliArgs": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "CLI arguments to pass to the reviewer command",
+            "example": ["--experimental-acp"]
+          },
+          "protocol": {
+            "type": "string",
+            "enum": ["acp", "copilot"],
+            "description": "Communication protocol to use with the CLI tool",
+            "default": "acp"
+          },
+          "model": {
+            "type": "string",
+            "description": "Model identifier to use (1-100 chars, alphanumeric/._:/-)",
+            "pattern": "^[A-Za-z0-9._:/-]{1,100}$",
+            "example": "claude-sonnet-4.5"
+          },
+          "timeoutMs": {
+            "type": "integer",
+            "description": "Timeout in milliseconds for the reviewer",
+            "minimum": 1,
+            "example": 600000
+          },
+          "maxRetries": {
+            "type": "integer",
+            "description": "Maximum number of retries on failure (0-5)",
+            "minimum": 0,
+            "maximum": 5,
+            "example": 0
+          }
+        }
+      },
+      "ReviewConfig": {
+        "type": "object",
+        "required": ["defaultChecks", "language"],
+        "description": "Settings that control review behavior",
+        "properties": {
+          "defaultChecks": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "Default check categories applied when none are specified in the request",
+            "example": ["code-quality", "security", "performance", "readability", "best-practices"]
+          },
+          "language": {
+            "type": "string",
+            "description": "Language for review output (2-10 alpha/dash chars, e.g. 'en', 'zh-tw')",
+            "pattern": "^[a-zA-Z-]{2,10}$",
+            "example": "en"
+          },
+          "maxReviewsLength": {
+            "type": "integer",
+            "description": "Maximum character length for combined reviews sent to the decision maker",
+            "minimum": 1,
+            "maximum": 500000,
+            "example": 60000
+          },
+          "maxCodeLength": {
+            "type": "integer",
+            "description": "Maximum character length for code content sent to reviewers",
+            "minimum": 1,
+            "maximum": 500000,
+            "example": 100000
+          },
+          "maxSummaryLength": {
+            "type": "integer",
+            "description": "Maximum character length for the summary sent to the decision maker",
+            "minimum": 1,
+            "maximum": 500000,
+            "example": 60000
+          },
+          "mode": {
+            "type": "string",
+            "enum": ["inline", "explore"],
+            "description": "Review mode: 'inline' sends code content to reviewers, 'explore' sends only file paths and lets agents read files themselves",
+            "example": "inline"
+          },
+          "extensions": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "File extensions to include in codebase reviews",
+            "example": [".ts", ".js", ".py"]
+          },
+          "sensitivePatterns": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "Regex patterns for files to exclude from reviews (max 20 patterns)",
+            "maxItems": 20,
+            "example": ["\\.env$", "credentials\\.json$"]
+          }
+        }
+      },
+      "ValidationResult": {
+        "type": "object",
+        "required": ["valid"],
+        "description": "Result of a configuration validation check",
+        "properties": {
+          "valid": {
+            "type": "boolean",
+            "description": "Whether the configuration is valid"
+          },
+          "error": {
+            "type": "string",
+            "description": "Error message if validation failed (only present when valid is false)"
+          }
+        }
+      }
+    }
+  }
+}
