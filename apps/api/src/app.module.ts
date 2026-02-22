@@ -2,8 +2,9 @@ import { Module } from '@nestjs/common';
 import { AcpModule } from '../../../src/acp/acp.module.js';
 import { ReviewApiModule } from './review/review-api.module.js';
 import { ConfigApiModule } from './config/config-api.module.js';
+import { FilesystemApiModule } from './filesystem/filesystem-api.module.js';
 
 @Module({
-  imports: [AcpModule, ReviewApiModule, ConfigApiModule],
+  imports: [AcpModule, ReviewApiModule, ConfigApiModule, FilesystemApiModule],
 })
 export class AppModule {}

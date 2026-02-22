@@ -35,8 +35,12 @@ export class ConfigService {
   private async resolveBaseConfig(
     configPath?: string,
   ): Promise<{ parsed: unknown; source: string }> {
-    // 1. CLI --config 指定路徑
+    // 1. CLI --config 指定路徑或 JSON 字串
     if (configPath) {
+      const trimmed = configPath.trim();
+      if (trimmed.startsWith('{')) {
+        return this.parseInlineJson(trimmed);
+      }
       return this.loadFromFile(resolve(configPath));
     }
     // 2. CONFIG_JSON 環境變數
@@ -90,6 +94,20 @@ export class ConfigService {
       throw new Error(`Failed to parse config file "${filePath}": ${msg}`);
     }
     return { parsed, source: filePath };
+  }
+
+  private parseInlineJson(jsonStr: string): {
+    parsed: unknown;
+    source: string;
+  } {
+    let parsed: unknown;
+    try {
+      parsed = JSON.parse(jsonStr);
+    } catch (error) {
+      const msg = error instanceof SyntaxError ? error.message : String(error);
+      throw new Error(`Failed to parse --config JSON string: ${msg}`);
+    }
+    return { parsed, source: '--config inline JSON' };
   }
 
   private parseConfigJson(configJson: string): {
@@ -289,10 +307,11 @@ export class ConfigService {
     if (
       config.review.mode !== undefined &&
       config.review.mode !== 'inline' &&
+      config.review.mode !== 'batch' &&
       config.review.mode !== 'explore'
     ) {
       throw new Error(
-        `Invalid config (${filePath}): "review.mode" must be "inline" or "explore"`,
+        `Invalid config (${filePath}): "review.mode" must be "inline", "batch", or "explore"`,
       );
     }
     if (config.review.extensions !== undefined) {
@@ -434,6 +453,13 @@ export class ConfigService {
       ) {
         throw new Error(
           `Invalid config (${filePath}): "${path}.maxRetries" must be an integer between 0 and 5`,
+        );
+      }
+    }
+    if (r.streaming !== undefined) {
+      if (typeof r.streaming !== 'boolean') {
+        throw new Error(
+          `Invalid config (${filePath}): "${path}.streaming" must be a boolean`,
         );
       }
     }

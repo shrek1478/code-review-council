@@ -1,4 +1,4 @@
-import { Component, inject, signal, OnInit } from '@angular/core';
+import { Component, inject, signal, effect } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { Textarea } from 'primeng/textarea';
 import { Button } from 'primeng/button';
@@ -13,7 +13,7 @@ import { ApiService } from '../../core/services/api.service';
   template: `
     <div class="space-y-3">
       <div class="flex items-center gap-2">
-        <h3 class="text-sm font-semibold text-gray-600 uppercase">Config</h3>
+        <h3 class="text-sm font-semibold uppercase" style="color: var(--p-text-muted-color)">Config</h3>
         <p-button
           label="Load Server Config"
           icon="pi pi-cloud-download"
@@ -48,7 +48,7 @@ import { ApiService } from '../../core/services/api.service';
     </div>
   `,
 })
-export class ConfigEditorComponent implements OnInit {
+export class ConfigEditorComponent {
   private readonly store = inject(ReviewStore);
   private readonly api = inject(ApiService);
 
@@ -56,8 +56,17 @@ export class ConfigEditorComponent implements OnInit {
   validationStatus = signal<'none' | 'valid' | 'invalid'>('none');
   validationError = signal('');
 
-  async ngOnInit(): Promise<void> {
-    await this.loadConfig();
+  constructor() {
+    effect(() => {
+      const cfg = this.store.config();
+      if (cfg) {
+        this.configJson = JSON.stringify(cfg, null, 2);
+        this.validationStatus.set('valid');
+      } else {
+        this.configJson = '';
+        this.validationStatus.set('none');
+      }
+    });
   }
 
   async loadConfig(): Promise<void> {

@@ -10,8 +10,25 @@ import {
 
 const API_BASE = '/api';
 
-interface ReviewStartedResponse {
-  reviewId: string;
+export interface DirectoryEntry {
+  name: string;
+  path: string;
+  isDirectory: boolean;
+}
+
+export interface AgentDetectionResult {
+  name: string;
+  cliPath: string;
+  cliArgs: string[];
+  protocol?: 'acp' | 'copilot';
+  description: string;
+  installed: boolean;
+  version?: string;
+}
+
+interface WsMessage {
+  event: string;
+  data: unknown;
 }
 
 @Injectable({ providedIn: 'root' })
@@ -19,12 +36,33 @@ export class ApiService {
   private readonly http = inject(HttpClient);
   private readonly store = inject(ReviewStore);
 
+  async listDirectory(path: string): Promise<DirectoryEntry[]> {
+    return firstValueFrom(
+      this.http.get<DirectoryEntry[]>(`${API_BASE}/filesystem/list`, {
+        params: { path },
+      }),
+    );
+  }
+
+  async detectAgents(): Promise<AgentDetectionResult[]> {
+    return firstValueFrom(
+      this.http.get<AgentDetectionResult[]>(`${API_BASE}/filesystem/agents`),
+    );
+  }
+
+  async saveConfig(config: CouncilConfig): Promise<{ success: boolean }> {
+    return firstValueFrom(
+      this.http.post<{ success: boolean }>(
+        `${API_BASE}/filesystem/config/save`,
+        config,
+      ),
+    );
+  }
+
   async getConfig(): Promise<CouncilConfig> {
-    const config = await firstValueFrom(
+    return firstValueFrom(
       this.http.get<CouncilConfig>(`${API_BASE}/config`),
     );
-    this.store.config.set(config);
-    return config;
   }
 
   async validateConfig(
@@ -38,96 +76,105 @@ export class ApiService {
     );
   }
 
-  async startCodebaseReview(params: {
+  startCodebaseReview(params: {
     directory: string;
     extensions?: string[];
     batchSize?: number;
     checks?: string[];
     extra?: string;
+    analysisMode?: 'inline' | 'batch' | 'explore';
     config?: CouncilConfig;
-  }): Promise<void> {
+  }): void {
     this.store.reset();
     this.store.isReviewing.set(true);
-
-    const { reviewId } = await firstValueFrom(
-      this.http.post<ReviewStartedResponse>(
-        `${API_BASE}/reviews/codebase`,
-        params,
-      ),
-    );
-
-    this.connectSse(reviewId);
+    this.connectWs('start:codebase', params);
   }
 
-  async startDiffReview(params: {
+  startDiffReview(params: {
     repoPath: string;
     baseBranch?: string;
     checks?: string[];
     extra?: string;
+    analysisMode?: 'inline' | 'batch' | 'explore';
     config?: CouncilConfig;
-  }): Promise<void> {
+  }): void {
     this.store.reset();
     this.store.isReviewing.set(true);
-
-    const { reviewId } = await firstValueFrom(
-      this.http.post<ReviewStartedResponse>(
-        `${API_BASE}/reviews/diff`,
-        params,
-      ),
-    );
-
-    this.connectSse(reviewId);
+    this.connectWs('start:diff', params);
   }
 
-  async startFileReview(params: {
+  startFileReview(params: {
     filePaths: string[];
     checks?: string[];
     extra?: string;
+    analysisMode?: 'inline' | 'batch' | 'explore';
     config?: CouncilConfig;
-  }): Promise<void> {
+  }): void {
     this.store.reset();
     this.store.isReviewing.set(true);
-
-    const { reviewId } = await firstValueFrom(
-      this.http.post<ReviewStartedResponse>(
-        `${API_BASE}/reviews/file`,
-        params,
-      ),
-    );
-
-    this.connectSse(reviewId);
+    this.connectWs('start:file', params);
   }
 
-  private connectSse(reviewId: string): void {
-    const eventSource = new EventSource(
-      `${API_BASE}/reviews/${reviewId}/events`,
-    );
+  private connectWs(event: string, data: Record<string, unknown>): void {
+    const protocol = location.protocol === 'https:' ? 'wss:' : 'ws:';
+    const ws = new WebSocket(`${protocol}//${location.host}/ws/reviews`);
+    let completed = false;
 
-    eventSource.addEventListener('progress', (event: MessageEvent) => {
-      const data: ReviewProgressEvent = JSON.parse(event.data);
-      this.store.updateProgress(data);
-    });
+    ws.onopen = () => {
+      ws.send(JSON.stringify({ event, data }));
+    };
 
-    eventSource.addEventListener('result', (event: MessageEvent) => {
-      const result: ReviewResult = JSON.parse(event.data);
-      this.store.result.set(result);
-      this.store.isReviewing.set(false);
-      eventSource.close();
-    });
-
-    eventSource.addEventListener('error', (event: MessageEvent) => {
-      if (event.data) {
-        const data = JSON.parse(event.data);
-        this.store.error.set(data.message);
+    ws.onmessage = (ev: MessageEvent) => {
+      let msg: WsMessage;
+      try {
+        msg = JSON.parse(ev.data);
+      } catch {
+        return;
       }
-      this.store.isReviewing.set(false);
-      eventSource.close();
-    });
 
-    eventSource.onerror = () => {
-      this.store.error.set('SSE connection lost');
-      this.store.isReviewing.set(false);
-      eventSource.close();
+      switch (msg.event) {
+        case 'progress':
+          this.store.updateProgress(msg.data as ReviewProgressEvent);
+          break;
+        case 'delta': {
+          const delta = msg.data as { reviewer: string; content: string };
+          this.store.appendDelta(delta.reviewer, delta.content);
+          break;
+        }
+        case 'tool-activity': {
+          const activity = msg.data as { reviewer: string; toolName: string; args?: unknown };
+          this.store.updateToolActivity(activity.reviewer, activity.toolName, activity.args);
+          break;
+        }
+        case 'result':
+          completed = true;
+          this.store.result.set(msg.data as ReviewResult);
+          this.store.isReviewing.set(false);
+          ws.close();
+          break;
+        case 'error':
+          completed = true;
+          this.store.error.set(
+            (msg.data as { message: string }).message,
+          );
+          this.store.isReviewing.set(false);
+          ws.close();
+          break;
+      }
+    };
+
+    ws.onerror = () => {
+      if (!completed) {
+        this.store.error.set('WebSocket connection error');
+        this.store.isReviewing.set(false);
+      }
+    };
+
+    ws.onclose = () => {
+      if (!completed) {
+        this.store.error.set('WebSocket connection closed unexpectedly');
+        this.store.isReviewing.set(false);
+      }
     };
   }
 }

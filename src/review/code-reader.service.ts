@@ -14,7 +14,36 @@ export interface FileContent {
 export interface CodebaseOptions {
   extensions?: string[];
   maxBatchSize?: number;
+  excludePatterns?: string[];
 }
+
+export const DEFAULT_EXCLUDE_PATTERNS = [
+  // Test files
+  '**/*.spec.ts',
+  '**/*.spec.js',
+  '**/*.spec.tsx',
+  '**/*.spec.jsx',
+  '**/*.test.ts',
+  '**/*.test.js',
+  '**/*.test.tsx',
+  '**/*.test.jsx',
+  '**/*.e2e.ts',
+  '**/*.e2e-spec.ts',
+  '**/test/**',
+  '**/tests/**',
+  '**/__tests__/**',
+  '**/fixtures/**',
+  '**/mocks/**',
+  // Lock files (auto-generated, not useful for review)
+  '**/pnpm-lock.yaml',
+  '**/package-lock.json',
+  '**/yarn.lock',
+  '**/bun.lockb',
+  // Minified / generated files
+  '**/*.min.js',
+  '**/*.min.css',
+  '**/*.d.ts',
+];
 
 export const DEFAULT_EXTENSIONS = [
   '.ts',
@@ -326,12 +355,40 @@ export class CodeReaderService {
       : this.extensions;
   }
 
+  private resolveExcludePatterns(options: CodebaseOptions): string[] {
+    if (options.excludePatterns !== undefined) return options.excludePatterns;
+    return this.configService?.getConfig()?.review?.excludePatterns ?? DEFAULT_EXCLUDE_PATTERNS;
+  }
+
+  /** Minimal glob matcher supporting `*`, `**`, `?` and path-based patterns. */
+  private matchesGlob(filePath: string, pattern: string): boolean {
+    const normalized = filePath.replace(/\\/g, '/');
+    // Use placeholders to avoid later replacements clobbering inserted regex syntax
+    const regexStr = pattern
+      .replace(/\\/g, '/')
+      .replace(/[.+^${}()|[\]]/g, '\\$&')   // escape regex special chars
+      .replace(/\?/g, '[^/]')                // ? → one non-slash char
+      .replace(/\*\*\//g, '\x00GLOBSTAR\x00')// placeholder for **/
+      .replace(/\*\*/g, '\x00STAR2\x00')     // placeholder for **
+      .replace(/\*/g, '[^/]*')               // * → zero+ non-slash chars
+      .replace(/\x00GLOBSTAR\x00/g, '(?:[^/]+/)*') // **/ → zero+ dir segments
+      .replace(/\x00STAR2\x00/g, '.*');      // ** → anything
+    return new RegExp(`^${regexStr}$`).test(normalized);
+  }
+
+  isExcludedFile(filePath: string, patterns: string[]): boolean {
+    if (patterns.length === 0) return false;
+    const normalized = filePath.replace(/\\/g, '/');
+    return patterns.some((p) => this.matchesGlob(normalized, p));
+  }
+
   async readCodebase(
     directory: string,
     options: CodebaseOptions = {},
   ): Promise<FileContent[][]> {
     const extensions = this.resolveExtensions(options);
     const maxBatchSize = options.maxBatchSize ?? 100_000;
+    const excludePatterns = this.resolveExcludePatterns(options);
 
     this.logger.log(`Reading codebase: ${directory}`);
     const git = simpleGit(directory);
@@ -348,7 +405,8 @@ export class CodeReaderService {
       ...new Set(result.split('\0').filter((f) => f.length > 0)),
     ]
       .filter((f) => extensions.includes(extname(f)))
-      .filter((f) => !this.isSensitiveFile(f));
+      .filter((f) => !this.isSensitiveFile(f))
+      .filter((f) => !this.isExcludedFile(f, excludePatterns));
 
     this.logger.log(`Found ${allFiles.length} files matching extensions`);
 
@@ -447,6 +505,7 @@ export class CodeReaderService {
     options: CodebaseOptions = {},
   ): Promise<string[]> {
     const extensions = this.resolveExtensions(options);
+    const excludePatterns = this.resolveExcludePatterns(options);
 
     this.logger.log(`Listing codebase files: ${directory}`);
     const git = simpleGit(directory);
@@ -463,7 +522,8 @@ export class CodeReaderService {
       ...new Set(result.split('\0').filter((f) => f.length > 0)),
     ]
       .filter((f) => extensions.includes(extname(f)))
-      .filter((f) => !this.isSensitiveFile(f));
+      .filter((f) => !this.isSensitiveFile(f))
+      .filter((f) => !this.isExcludedFile(f, excludePatterns));
 
     // Verify symlinks stay within repo boundary (parallel batches)
     const dirReal = await realpath(resolve(directory));

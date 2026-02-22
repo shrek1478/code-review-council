@@ -2,11 +2,11 @@ import { Component, inject } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { SelectButton } from 'primeng/selectbutton';
 import { InputText } from 'primeng/inputtext';
-import { Button } from 'primeng/button';
 import { Textarea } from 'primeng/textarea';
 import { ReviewStore } from '../../core/services/review-store.service';
 import { ApiService } from '../../core/services/api.service';
 import { ReviewerSelectorComponent } from './reviewer-selector.component';
+import { DirectoryPickerComponent } from './directory-picker.component';
 
 @Component({
   selector: 'app-review-form',
@@ -15,50 +15,70 @@ import { ReviewerSelectorComponent } from './reviewer-selector.component';
     FormsModule,
     SelectButton,
     InputText,
-    Button,
     Textarea,
     ReviewerSelectorComponent,
+    DirectoryPickerComponent,
   ],
   template: `
-    <div class="space-y-4 p-4">
-      <h2 class="text-lg font-bold">Review Mode</h2>
-      <p-selectbutton
-        [options]="modeOptions"
-        [(ngModel)]="mode"
-        optionLabel="label"
-        optionValue="value"
-      />
+    <div class="p-4 space-y-4">
+      <div>
+        <label class="block text-xs font-semibold uppercase tracking-wide mb-1" style="color: var(--p-text-muted-color)">Mode</label>
+        <p-selectbutton
+          [options]="modeOptions"
+          [(ngModel)]="mode"
+          optionLabel="label"
+          optionValue="value"
+          styleClass="w-full"
+        />
+      </div>
+      <div>
+        <label class="block text-xs font-semibold uppercase tracking-wide mb-1" style="color: var(--p-text-muted-color)">Analysis</label>
+        <p-selectbutton
+          [options]="analysisModeOptions"
+          [(ngModel)]="analysisMode"
+          optionLabel="label"
+          optionValue="value"
+          styleClass="w-full"
+        />
+      </div>
 
       @switch (mode) {
         @case ('codebase') {
-          <label class="block text-sm font-medium">Directory</label>
-          <input
-            pInputText
-            [(ngModel)]="directory"
-            class="w-full"
-            placeholder="/path/to/project"
-          />
-          <label class="block text-sm font-medium">Extensions</label>
-          <input
-            pInputText
-            [(ngModel)]="extensions"
-            placeholder="ts,js"
-            class="w-full"
-          />
+          <div>
+            <label class="block text-sm font-medium mb-1" style="color: var(--p-text-muted-color)">Directory</label>
+            <div class="flex gap-2">
+              <input
+                pInputText
+                [(ngModel)]="directory"
+                class="flex-1"
+                placeholder="/path/to/project"
+              />
+              <app-directory-picker (dirSelected)="directory = $event" />
+            </div>
+          </div>
         }
         @case ('diff') {
-          <label class="block text-sm font-medium">Repo Path</label>
-          <input
-            pInputText
-            [(ngModel)]="repoPath"
-            class="w-full"
-            placeholder="."
-          />
-          <label class="block text-sm font-medium">Base Branch</label>
-          <input pInputText [(ngModel)]="baseBranch" class="w-full" />
+          <div class="flex gap-3 items-end">
+            <div class="flex-1">
+              <label class="block text-sm font-medium mb-1" style="color: var(--p-text-muted-color)">Repo Path</label>
+              <div class="flex gap-2">
+                <input
+                  pInputText
+                  [(ngModel)]="repoPath"
+                  class="flex-1"
+                  placeholder="."
+                />
+                <app-directory-picker (dirSelected)="repoPath = $event" />
+              </div>
+            </div>
+            <div style="width: 8rem">
+              <label class="block text-sm font-medium mb-1" style="color: var(--p-text-muted-color)">Base Branch</label>
+              <input pInputText [(ngModel)]="baseBranch" class="w-full" />
+            </div>
+          </div>
         }
         @case ('file') {
-          <label class="block text-sm font-medium"
+          <label class="block text-sm font-medium" style="color: var(--p-text-muted-color)"
             >File Paths (one per line)</label
           >
           <textarea
@@ -70,25 +90,18 @@ import { ReviewerSelectorComponent } from './reviewer-selector.component';
         }
       }
 
-      <label class="block text-sm font-medium">Extra Instructions</label>
-      <textarea
-        pTextarea
-        [(ngModel)]="extra"
-        [rows]="2"
-        class="w-full"
-        placeholder="Optional: focus on specific areas..."
-      ></textarea>
+      <div>
+        <label class="block text-sm font-medium mb-1" style="color: var(--p-text-muted-color)">Extra Instructions</label>
+        <textarea
+          pTextarea
+          [(ngModel)]="extra"
+          [rows]="2"
+          class="w-full"
+          placeholder="Optional: focus on specific areas..."
+        ></textarea>
+      </div>
 
       <app-reviewer-selector />
-
-      <p-button
-        label="Start Review"
-        icon="pi pi-play"
-        (onClick)="startReview()"
-        [loading]="store.isReviewing()"
-        [disabled]="store.isReviewing()"
-        styleClass="w-full"
-      />
     </div>
   `,
 })
@@ -97,8 +110,8 @@ export class ReviewFormComponent {
   private readonly api = inject(ApiService);
 
   mode = 'codebase';
+  analysisMode = 'batch';
   directory = '';
-  extensions = 'ts';
   repoPath = '.';
   baseBranch = 'main';
   filePaths = '';
@@ -110,16 +123,20 @@ export class ReviewFormComponent {
     { label: 'File', value: 'file' },
   ];
 
+  analysisModeOptions = [
+    { label: 'Inline', value: 'inline' },
+    { label: 'Batch', value: 'batch' },
+    { label: 'Explore', value: 'explore' },
+  ];
+
   async startReview(): Promise<void> {
     switch (this.mode) {
       case 'codebase':
         await this.api.startCodebaseReview({
           directory: this.directory,
-          extensions: this.extensions
-            .split(',')
-            .map((e) => e.trim())
-            .filter(Boolean),
           extra: this.extra || undefined,
+          analysisMode: this.analysisMode as 'inline' | 'batch' | 'explore',
+          config: this.store.config() ?? undefined,
         });
         break;
       case 'diff':
@@ -127,6 +144,8 @@ export class ReviewFormComponent {
           repoPath: this.repoPath,
           baseBranch: this.baseBranch,
           extra: this.extra || undefined,
+          analysisMode: this.analysisMode as 'inline' | 'batch' | 'explore',
+          config: this.store.config() ?? undefined,
         });
         break;
       case 'file':
@@ -136,6 +155,8 @@ export class ReviewFormComponent {
             .map((f) => f.trim())
             .filter(Boolean),
           extra: this.extra || undefined,
+          analysisMode: this.analysisMode as 'inline' | 'batch' | 'explore',
+          config: this.store.config() ?? undefined,
         });
         break;
     }

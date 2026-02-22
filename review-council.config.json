@@ -1,28 +1,12 @@
 {
   "reviewers": [
     {
-      "name": "Gemini",
-      "cliPath": "gemini",
-      "cliArgs": [
-        "--experimental-acp"
-      ],
-      "timeoutMs": 600000,
-      "maxRetries": 0
-    },
-    {
       "name": "Copilot",
       "cliPath": "copilot",
       "cliArgs": [],
       "protocol": "copilot",
-      "model": "claude-sonnet-4.5",
+      "model": "gpt-5-mini",
       "timeoutMs": 600000,
-      "maxRetries": 0
-    },
-    {
-      "name": "Codex",
-      "cliPath": "codex-acp",
-      "cliArgs": [],
-      "timeoutMs": 240000,
       "maxRetries": 0
     }
   ],

@@ -18,18 +18,19 @@ export interface ReviewerConfig {
   model?: string;
   timeoutMs?: number;
   maxRetries?: number;
+  streaming?: boolean;
 }
 
 export interface ReviewConfig {
   defaultChecks: string[];
   language: string;
-  mode?: 'inline' | 'explore';
+  mode?: 'inline' | 'batch' | 'explore';
   extensions?: string[];
 }
 
 export interface CouncilConfig {
   reviewers: ReviewerConfig[];
-  decisionMaker: ReviewerConfig;
+  decisionMaker?: ReviewerConfig;
   review: ReviewConfig;
 }
 
@@ -92,6 +93,8 @@ export class ReviewStore {
   readonly progress = signal<Map<string, ReviewProgressEvent>>(new Map());
   readonly result = signal<ReviewResult | null>(null);
   readonly error = signal<string | null>(null);
+  readonly reviewerDeltas = signal<Map<string, string>>(new Map());
+  readonly reviewerToolActivity = signal<Map<string, string>>(new Map());
 
   readonly activeReviewers = computed(() => {
     const cfg = this.config();
@@ -100,8 +103,12 @@ export class ReviewStore {
 
   readonly allReviewersDone = computed(() => {
     const p = this.progress();
-    if (p.size === 0) return false;
-    return [...p.values()].every((e) => e.status !== 'sending');
+    const reviewers = this.activeReviewers();
+    if (reviewers.length === 0) return false;
+    return reviewers.every((r) => {
+      const e = p.get(r.name);
+      return e !== undefined && e.status !== 'sending';
+    });
   });
 
   updateProgress(event: ReviewProgressEvent): void {
@@ -112,10 +119,36 @@ export class ReviewStore {
     });
   }
 
+  appendDelta(reviewer: string, content: string): void {
+    this.reviewerDeltas.update((map) => {
+      const next = new Map(map);
+      next.set(reviewer, (next.get(reviewer) ?? '') + content);
+      return next;
+    });
+  }
+
+  updateToolActivity(reviewer: string, toolName: string, args?: unknown): void {
+    let label = toolName;
+    if (args && typeof args === 'object') {
+      const a = args as Record<string, unknown>;
+      const filePath = a['file_path'] ?? a['path'] ?? a['filePath'] ?? a['command'];
+      if (typeof filePath === 'string') {
+        label = `${toolName}: ${filePath}`;
+      }
+    }
+    this.reviewerToolActivity.update((map) => {
+      const next = new Map(map);
+      next.set(reviewer, label);
+      return next;
+    });
+  }
+
   reset(): void {
     this.isReviewing.set(false);
     this.progress.set(new Map());
     this.result.set(null);
     this.error.set(null);
+    this.reviewerDeltas.set(new Map());
+    this.reviewerToolActivity.set(new Map());
   }
 }

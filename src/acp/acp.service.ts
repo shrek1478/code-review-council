@@ -6,69 +6,25 @@ import {
 } from '@nestjs/common';
 import { execFile } from 'node:child_process';
 import { isAbsolute } from 'node:path';
-import { CopilotClient } from '@shrek1478/copilot-sdk-with-acp';
+import {
+  CopilotClient,
+  type CopilotClientOptions,
+  type SessionConfig,
+} from '@shrek1478/copilot-sdk-with-acp';
 import { ReviewerConfig } from '../config/config.types.js';
 import { sanitizeErrorMessage } from '../review/retry-utils.js';
 
-export interface AcpSessionOptions {
-  streaming: boolean;
-  model?: string;
-}
-
-export interface AcpEvent {
-  type: string;
-  data?: {
-    content?: string;
-    deltaContent?: string;
-    message?: string;
-  };
-}
-
-export interface AcpSession {
-  on(callback: (event: AcpEvent) => void): void;
-  send(params: { prompt: string }): Promise<void>;
-  destroy(): Promise<void>;
-}
-
-/**
- * Local type augmentations for CopilotClient capabilities not yet exported by the SDK.
- * These interfaces document the expected runtime API surface and should be updated
- * when the SDK publishes proper type definitions.
- */
-interface CopilotClientWithSession {
-  createSession(opts: AcpSessionOptions): Promise<AcpSession>;
-}
-
-interface ForceStoppable {
-  forceStop?(): Promise<void>;
-}
-
-/** Constructor options for CopilotClient (SDK doesn't export protocol in its types yet). */
-interface CopilotClientConstructorOptions {
-  cliPath: string;
-  cliArgs: string[];
-  protocol?: 'acp' | 'copilot';
-}
-
-interface AcpUsageEvent extends AcpEvent {
-  data?: AcpEvent['data'] & {
-    model?: string;
-    inputTokens?: number;
-    outputTokens?: number;
-  };
-  model?: string;
-  inputTokens?: number;
-  outputTokens?: number;
-}
-
-function isUsageEvent(event: AcpEvent): event is AcpUsageEvent {
-  return event.type === 'assistant.usage';
+export interface SendPromptOptions {
+  onDelta?: (delta: string) => void;
+  onToolActivity?: (toolName: string, args?: unknown) => void;
 }
 
 export interface AcpClientHandle {
   name: string;
   client: CopilotClient;
   model?: string;
+  streaming?: boolean;
+  cwd?: string;
 }
 
 @Injectable()
@@ -133,7 +89,7 @@ export class AcpService implements OnModuleDestroy {
   private static readonly CLI_RESOLVE_TIMEOUT_MS = 5_000;
   private static readonly SAFE_CLI_NAME = /^(?!-)[A-Za-z0-9._-]+$/;
 
-  async createClient(config: ReviewerConfig): Promise<AcpClientHandle> {
+  async createClient(config: ReviewerConfig, cwd?: string): Promise<AcpClientHandle> {
     if (this.stopping) {
       throw new Error('Cannot create client: AcpService is shutting down');
     }
@@ -154,17 +110,20 @@ export class AcpService implements OnModuleDestroy {
     this.logger.log(
       `Creating ACP client: ${config.name} (${cliPath}${argsInfo})${modelInfo}`,
     );
-    const opts: CopilotClientConstructorOptions = {
+    const opts: CopilotClientOptions = {
       cliPath,
       cliArgs: config.cliArgs,
       protocol: config.protocol ?? 'acp',
+      ...(cwd ? { cwd } : {}),
     };
-    const client = new CopilotClient(opts as ConstructorParameters<typeof CopilotClient>[0]);
+    const client = new CopilotClient(opts);
     await client.start();
     const handle: AcpClientHandle = {
       name: config.name,
       client,
       model: config.model,
+      streaming: config.streaming,
+      cwd,
     };
     this.clients.add(handle);
     return handle;
@@ -219,97 +178,76 @@ export class AcpService implements OnModuleDestroy {
     });
   }
 
-  private asSessionClient(
-    client: CopilotClient,
-    name: string,
-  ): CopilotClientWithSession {
-    const c = client as unknown as CopilotClientWithSession;
-    if (typeof c.createSession !== 'function') {
-      throw new Error(
-        `SDK incompatible: ${name} client has no createSession method`,
-      );
-    }
-    return c;
-  }
-
   async sendPrompt(
     handle: AcpClientHandle,
     prompt: string,
     timeoutMs = 180_000,
+    options?: SendPromptOptions,
   ): Promise<string> {
     const sendStartMs = Date.now();
     this.logger.log(`[SEND] ${handle.name} reviewing...`);
 
-    const sessionOpts: AcpSessionOptions = { streaming: true };
+    const streaming = handle.streaming !== false; // 預設 true
+    const sessionOpts: SessionConfig = { streaming };
     if (handle.model) sessionOpts.model = handle.model;
-    const sessionClient = this.asSessionClient(handle.client, handle.name);
-    const session: AcpSession = await sessionClient.createSession(sessionOpts);
+    if (handle.cwd) sessionOpts.workingDirectory = handle.cwd;
+    const session = await handle.client.createSession(sessionOpts);
+
+    let deltaCount = 0;
+
+    // 串流模式：監聽 message_delta 即時推送
+    session.on('assistant.message_delta', (event) => {
+      if (!streaming) return;
+      const delta = event.data.deltaContent || '';
+      if (delta) {
+        deltaCount++;
+        if (deltaCount === 1) {
+          this.logger.log(`[DELTA] ${handle.name} first delta received`);
+        }
+        options?.onDelta?.(delta);
+      }
+    });
+
+    // 非串流模式：監聽 assistant.message 取得完整回應後推送一次
+    session.on('assistant.message', (event) => {
+      if (streaming) return;
+      const content = event.data.content || '';
+      if (content) {
+        deltaCount++;
+        options?.onDelta?.(content);
+      }
+    });
+
+    // 註冊 tool 活動事件（顯示 agent 正在讀哪個檔案）
+    session.on('tool.execution_start', (event) => {
+      const { toolName, arguments: toolArgs } = event.data;
+      options?.onToolActivity?.(toolName, toolArgs);
+    });
+
+    // 註冊 usage 事件（記錄 model、token 使用量）
+    session.on('assistant.usage', (event) => {
+      const { model, inputTokens, outputTokens } = event.data;
+      if (model) {
+        this.logger.log(
+          `[MODEL] ${handle.name} model: ${model} (in: ${inputTokens ?? '?'}, out: ${outputTokens ?? '?'})`,
+        );
+      }
+    });
 
     try {
-      const result = await new Promise<string>((resolve, reject) => {
-        let responseContent = '';
-        let settled = false;
+      const response = await session.sendAndWait({ prompt }, timeoutMs);
+      const content = response?.data?.content ?? '';
 
-        const timer = setTimeout(() => {
-          if (!settled) {
-            settled = true;
-            reject(new Error(`${handle.name} timed out after ${timeoutMs}ms`));
-          }
-        }, timeoutMs);
-
-        session.on((event: AcpEvent) => {
-          // Log model info from usage events (may arrive after session.idle)
-          if (isUsageEvent(event)) {
-            const model = event.data?.model ?? event.model;
-            const input = event.data?.inputTokens ?? event.inputTokens;
-            const output = event.data?.outputTokens ?? event.outputTokens;
-            if (model) {
-              this.logger.log(
-                `[MODEL] ${handle.name} model: ${model} (in: ${input ?? '?'}, out: ${output ?? '?'})`,
-              );
-            }
-          }
-
-          if (settled) return;
-
-          if (event.type === 'assistant.message_delta') {
-            const delta = event.data?.deltaContent || '';
-            if (delta) {
-              responseContent += delta;
-            }
-          } else if (event.type === 'assistant.message') {
-            // Only use full message content as fallback when no delta content was accumulated
-            if (!responseContent && event.data?.content) {
-              responseContent = event.data.content;
-            }
-          } else if (event.type === 'session.idle') {
-            settled = true;
-            clearTimeout(timer);
-            if (!responseContent.trim()) {
-              reject(new Error(`Empty response from ${handle.name}`));
-            } else {
-              resolve(responseContent);
-            }
-          } else if (event.type === 'session.error' || event.type === 'error') {
-            settled = true;
-            clearTimeout(timer);
-            reject(new Error(event.data?.message || 'ACP error'));
-          }
-        });
-
-        session.send({ prompt }).catch((err: unknown) => {
-          clearTimeout(timer);
-          if (!settled) {
-            settled = true;
-            reject(err instanceof Error ? err : new Error(String(err)));
-          }
-        });
-      });
+      if (!content.trim()) {
+        throw new Error(`Empty response from ${handle.name}`);
+      }
 
       const elapsedMs = Date.now() - sendStartMs;
       const elapsedSec = (elapsedMs / 1000).toFixed(1);
-      this.logger.log(`[DONE] ${handle.name} done. (${elapsedSec}s)`);
-      return result;
+      this.logger.log(
+        `[DONE] ${handle.name} done. (${elapsedSec}s, ${deltaCount} deltas${streaming ? ', streaming' : ''})`,
+      );
+      return content;
     } finally {
       try {
         await session.destroy();
@@ -340,10 +278,8 @@ export class AcpService implements OnModuleDestroy {
       if (result instanceof Error) throw result;
     } catch {
       this.logger.warn(`Graceful stop failed for ${name}, force stopping...`);
-      const fc = client as unknown as ForceStoppable;
-      if (typeof fc.forceStop !== 'function') return;
       try {
-        await fc.forceStop();
+        await client.forceStop();
       } catch (error) {
         this.logger.warn(
           `Force stop failed for ${name}: ${sanitizeErrorMessage(error)}`,

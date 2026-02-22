@@ -25,7 +25,7 @@ import { ReviewStore } from '../../core/services/review-store.service';
                 @case ('done') {
                   <p-tag severity="success" value="Done" />
                   @if (entry.durationMs) {
-                    <div class="text-xs text-gray-500 mt-1">
+                    <div class="text-xs mt-1">
                       {{ (entry.durationMs / 1000).toFixed(1) }}s
                     </div>
                   }

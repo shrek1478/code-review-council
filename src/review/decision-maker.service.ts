@@ -2,6 +2,7 @@ import { Injectable, ConsoleLogger, Inject } from '@nestjs/common';
 import { randomUUID } from 'node:crypto';
 import { AcpService } from '../acp/acp.service.js';
 import { ConfigService } from '../config/config.service.js';
+import { CouncilConfig } from '../config/config.types.js';
 import {
   IndividualReview,
   ReviewCategory,
@@ -40,8 +41,12 @@ export class DecisionMakerService {
     codeOrSummary: string,
     reviews: IndividualReview[],
     reviewMode: 'inline' | 'batch' | 'explore' = 'inline',
+    cwd?: string,
+    configOverride?: CouncilConfig,
+    onDelta?: (content: string) => void,
+    onStart?: (dmName: string) => void,
   ): Promise<ReviewDecision> {
-    const config = this.configService.getConfig();
+    const config = configOverride ?? this.configService.getConfig();
     const dmConfig = config.decisionMaker;
     const lang = config.review.language ?? 'zh-tw';
     const timeoutMs = dmConfig.timeoutMs ?? 300_000;
@@ -57,6 +62,7 @@ export class DecisionMakerService {
     this.logger.log(
       `Decision maker ${dmConfig.name} reviewing code and ${reviews.length} reviewer opinions...`,
     );
+    onStart?.(dmConfig.name);
 
     let handle: Awaited<
       ReturnType<typeof this.acpService.createClient>
@@ -101,6 +107,7 @@ Note: Reviewers independently explored the codebase using file reading tools. Yo
 
       const prompt = `You are a senior engineering lead and the final decision maker in a code review council.
 You MUST reply entirely in ${lang}. All text content must be written in ${lang}.
+Do NOT ask the user any questions, request feedback, or offer follow-up options (e.g. "A or B"). This is a non-interactive review — output your final decision in a single response.
 Respond with ONLY a JSON object. No other text.
 
 ${responsibilities}
@@ -157,9 +164,9 @@ Rules:
       const response = await retryWithBackoff(
         async () => {
           if (!handle) {
-            handle = await this.acpService.createClient(dmConfig);
+            handle = await this.acpService.createClient(dmConfig, cwd);
           }
-          return this.acpService.sendPrompt(handle, prompt, timeoutMs);
+          return this.acpService.sendPrompt(handle, prompt, timeoutMs, onDelta ? { onDelta } : undefined);
         },
         {
           maxRetries,
@@ -232,9 +239,55 @@ Rules:
     if (jsonStr) {
       candidates.push(jsonStr);
       // Strategy 3b: strip JS-style comments and trailing commas
-      candidates.push(this.stripJsonArtifacts(jsonStr));
+      const stripped3b = this.stripJsonArtifacts(jsonStr);
+      candidates.push(stripped3b);
+      // Strategy 3c: escape unescaped control characters inside string values
+      candidates.push(this.sanitizeJsonControlChars(jsonStr));
+      candidates.push(this.sanitizeJsonControlChars(stripped3b));
     }
     return candidates;
+  }
+
+  /**
+   * Escape unescaped control characters (newlines, tabs, etc.) inside JSON string values.
+   * Some LLMs emit raw newlines within string values, which is invalid per JSON spec.
+   */
+  private sanitizeJsonControlChars(text: string): string {
+    let result = '';
+    let inString = false;
+    let escape = false;
+    for (let i = 0; i < text.length; i++) {
+      const ch = text[i];
+      if (escape) {
+        escape = false;
+        result += ch;
+        continue;
+      }
+      if (inString) {
+        if (ch === '\\') {
+          escape = true;
+          result += ch;
+          continue;
+        }
+        if (ch === '"') {
+          inString = false;
+          result += ch;
+          continue;
+        }
+        const code = ch.charCodeAt(0);
+        if (code === 0x0a) { result += '\\n'; continue; }
+        if (code === 0x0d) { result += '\\r'; continue; }
+        if (code === 0x09) { result += '\\t'; continue; }
+        if (code < 0x20) { result += `\\u${code.toString(16).padStart(4, '0')}`; continue; }
+        result += ch;
+        continue;
+      }
+      if (ch === '"') {
+        inString = true;
+      }
+      result += ch;
+    }
+    return result;
   }
 
   private buildFallbackDecision(
