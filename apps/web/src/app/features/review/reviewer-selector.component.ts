@@ -3,7 +3,6 @@ import { FormsModule } from '@angular/forms';
 import { Checkbox } from 'primeng/checkbox';
 import { Select } from 'primeng/select';
 import { Tag } from 'primeng/tag';
-import { ToggleSwitch } from 'primeng/toggleswitch';
 import { ReviewStore } from '../../core/services/review-store.service';
 import { ApiService, AgentDetectionResult } from '../../core/services/api.service';
 
@@ -11,13 +10,12 @@ interface AgentSelection extends AgentDetectionResult {
   selected: boolean;
   role: 'reviewer' | 'decisionMaker';
   model?: string;
-  streaming: boolean;
 }
 
 @Component({
   selector: 'app-reviewer-selector',
   standalone: true,
-  imports: [FormsModule, Checkbox, Select, Tag, ToggleSwitch],
+  imports: [FormsModule, Checkbox, Select, Tag],
   template: `
     <div class="space-y-3">
       <div class="flex items-center gap-2">
@@ -89,13 +87,6 @@ interface AgentSelection extends AgentDetectionResult {
                 />
               </div>
             }
-            <div class="flex items-center gap-2">
-              <span class="text-xs w-12 shrink-0 text-right" style="color: var(--p-text-muted-color)">Stream:</span>
-              <p-toggleswitch
-                [(ngModel)]="agent.streaming"
-                (ngModelChange)="syncConfigToStore()"
-              />
-            </div>
           </div>
         }
       }
@@ -146,7 +137,6 @@ export class ReviewerSelectorComponent implements OnInit {
           selected: agent.installed && (isReviewer || isDecisionMaker || false),
           role: isDecisionMaker ? 'decisionMaker' as const : 'reviewer' as const,
           model: existingConfig?.model,
-          streaming: existingConfig?.streaming === true,
         };
       });
 
@@ -174,7 +164,6 @@ export class ReviewerSelectorComponent implements OnInit {
         cliArgs: a.cliArgs,
         ...(a.protocol ? { protocol: a.protocol } : {}),
         ...(a.model ? { model: a.model } : {}),
-        ...(!a.streaming ? { streaming: false } : {}),
         timeoutMs: 600000,
         maxRetries: 0,
       })),
@@ -186,7 +175,6 @@ export class ReviewerSelectorComponent implements OnInit {
               cliArgs: dm.cliArgs,
               ...(dm.protocol ? { protocol: dm.protocol } : {}),
               ...(dm.model ? { model: dm.model } : {}),
-              ...(!dm.streaming ? { streaming: false } : {}),
               timeoutMs: 600000,
               maxRetries: 0,
             },

@@ -187,7 +187,7 @@ export class AcpService implements OnModuleDestroy {
     const sendStartMs = Date.now();
     this.logger.log(`[SEND] ${handle.name} reviewing...`);
 
-    const streaming = handle.streaming !== false; // 預設 true
+    const streaming = handle.streaming === true; // 預設 false
     const sessionOpts: SessionConfig = { streaming };
     if (handle.model) sessionOpts.model = handle.model;
     if (handle.cwd) sessionOpts.workingDirectory = handle.cwd;
