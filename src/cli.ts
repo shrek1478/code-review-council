@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+import { createRequire } from 'node:module';
 import { ConsoleLogger } from '@nestjs/common';
 import { CommandFactory } from 'nest-commander';
 import { CliModule } from './cli/cli.module.js';
@@ -6,6 +7,13 @@ import {
   MAX_REVIEWER_CONCURRENCY,
   BATCH_CONCURRENCY,
 } from './constants.js';
+
+const _require = createRequire(import.meta.url);
+const { version } = _require('../../package.json') as { version: string };
+if (process.argv.includes('--version') || process.argv.includes('-V')) {
+  console.log(version);
+  process.exit(0);
+}
 
 const FRAMEWORK_CONTEXTS = new Set([
   'NestFactory',
