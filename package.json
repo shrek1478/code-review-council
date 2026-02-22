@@ -1,6 +1,6 @@
 {
   "name": "@shrek1478/code-review-council",
-  "version": "0.1.4",
+  "version": "0.1.5",
   "description": "AI-powered code review council using multiple LLM reviewers",
   "author": "shrek1478",
   "license": "MIT",
@@ -21,7 +21,7 @@
     "review-council.config.sample.json"
   ],
   "bin": {
-    "code-review-council": "./dist/cli.js"
+    "code-review-council": "./dist/src/cli.js"
   },
   "scripts": {
     "build": "nest build",
