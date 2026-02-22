@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# server.sh — 控制 Code Review Council 前後端服務
+# srvctl.sh — 控制 Code Review Council 前後端服務
 
 set -euo pipefail
 
@@ -82,7 +82,7 @@ cmd_start() {
   info "Services started:"
   info "  API → http://localhost:$API_PORT"
   info "  Web → http://localhost:$WEB_PORT"
-  info "Use './server.sh logs' to tail logs, './server.sh stop' to stop."
+  info "Use './srvctl.sh logs' to tail logs, './srvctl.sh stop' to stop."
 }
 
 # ── 指令：stop ────────────────────────────────────────────────
@@ -147,7 +147,7 @@ case "${1:-help}" in
   build-start)  cmd_build_start ;;
   help|--help|-h)
     echo ""
-    echo "Usage: ./server.sh <command> [options]"
+    echo "Usage: ./srvctl.sh <command> [options]"
     echo ""
     echo "Commands:"
     echo "  start        啟動前後端服務"
@@ -164,7 +164,7 @@ case "${1:-help}" in
     ;;
   *)
     error "Unknown command: $1"
-    echo "Run './server.sh help' for usage."
+    echo "Run './srvctl.sh help' for usage."
     exit 1
     ;;
 esac
