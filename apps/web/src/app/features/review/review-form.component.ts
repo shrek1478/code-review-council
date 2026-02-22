@@ -110,7 +110,7 @@ export class ReviewFormComponent {
   private readonly api = inject(ApiService);
 
   mode = 'codebase';
-  analysisMode = 'batch';
+  analysisMode = 'explore';
   directory = '';
   repoPath = '.';
   baseBranch = 'main';
@@ -124,9 +124,9 @@ export class ReviewFormComponent {
   ];
 
   analysisModeOptions = [
-    { label: 'Inline', value: 'inline' },
-    { label: 'Batch', value: 'batch' },
     { label: 'Explore', value: 'explore' },
+    { label: 'Batch', value: 'batch' },
+    { label: 'Inline', value: 'inline' },
   ];
 
   async startReview(): Promise<void> {
