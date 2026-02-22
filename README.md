@@ -414,7 +414,7 @@ CONFIG_JSON='{"reviewers":[{"name":"Gemini","cliPath":"gemini","cliArgs":["--exp
 
 ## 技術架構
 
-- **框架**: NestJS 11 (ESM) + Angular 19
+- **框架**: NestJS 11 (ESM) + Angular 21
 - **Monorepo**: Nx workspace
 - **CLI**: nest-commander
 - **Git 操作**: simple-git
