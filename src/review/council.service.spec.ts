@@ -161,11 +161,8 @@ describe('CouncilService', () => {
       checks: ['code-quality'],
     });
 
-    expect(mockAcpService.sendPrompt).toHaveBeenCalledWith(
-      expect.anything(),
-      expect.any(String),
-      300000,
-    );
+    // Verify the timeoutMs was passed as the 3rd argument
+    expect(mockAcpService.sendPrompt.mock.calls[0][2]).toBe(300000);
   });
 
   it('should double timeoutMs when mode is explore and no code provided', async () => {
@@ -185,11 +182,8 @@ describe('CouncilService', () => {
       filePaths: ['src/app.ts'],
     });
 
-    expect(mockAcpService.sendPrompt).toHaveBeenCalledWith(
-      expect.anything(),
-      expect.any(String),
-      600000,
-    );
+    // Verify the doubled timeoutMs was passed as the 3rd argument
+    expect(mockAcpService.sendPrompt.mock.calls[0][2]).toBe(600000);
   });
 
   it('should not double timeoutMs when mode is explore but code is provided', async () => {
@@ -209,11 +203,8 @@ describe('CouncilService', () => {
       checks: ['code-quality'],
     });
 
-    expect(mockAcpService.sendPrompt).toHaveBeenCalledWith(
-      expect.anything(),
-      expect.any(String),
-      300000,
-    );
+    // When code is provided, explore timeout doubling does not apply
+    expect(mockAcpService.sendPrompt.mock.calls[0][2]).toBe(300000);
   });
 
   it('should include no-tools instruction when mode is inline', async () => {
@@ -236,7 +227,7 @@ describe('CouncilService', () => {
     expect(promptArg).not.toContain('You MAY use available tools');
   });
 
-  it('should include explore instruction when mode is explore', async () => {
+  it('should include explore instruction when mode is explore and no code provided', async () => {
     mockConfigService.getConfig.mockReturnValue({
       reviewers: [{ name: 'Gemini', cliPath: 'gemini', cliArgs: [] }],
       review: {
@@ -247,8 +238,8 @@ describe('CouncilService', () => {
     });
 
     await service.dispatchReviews({
-      code: 'const x = 1;',
       checks: ['code-quality'],
+      filePaths: ['src/app.ts'],
     });
 
     const promptArg = mockAcpService.sendPrompt.mock.calls[0][1] as string;
@@ -313,10 +304,12 @@ describe('CouncilService', () => {
     const promptArg = mockAcpService.sendPrompt.mock.calls[0][1] as string;
     // Should still embed code when code is provided (e.g. diff mode)
     expect(promptArg).toContain('const x = 1;');
-    expect(promptArg).toContain('You MAY use available tools');
+    // When code is provided, allowExplore=false, so inline instructions are used
+    expect(promptArg).toContain('Do NOT use any tools');
+    expect(promptArg).not.toContain('You MAY use available tools');
   });
 
-  it('should include repoPath in inline mode when mode is explore', async () => {
+  it('should include repoPath in explore prompt when mode is explore and no code provided', async () => {
     mockConfigService.getConfig.mockReturnValue({
       reviewers: [{ name: 'Gemini', cliPath: 'gemini', cliArgs: [] }],
       review: {
@@ -327,8 +320,8 @@ describe('CouncilService', () => {
     });
 
     await service.dispatchReviews({
-      code: 'const x = 1;',
       checks: ['code-quality'],
+      filePaths: ['src/app.ts'],
       repoPath: '/home/user/project',
     });
 
@@ -347,8 +340,8 @@ describe('CouncilService', () => {
     });
 
     await service.dispatchReviews({
-      code: 'const x = 1;',
       checks: ['code-quality'],
+      filePaths: ['src/app.ts'],
       repoPath: '/home/\x00user/\x1bproject',
     });
 

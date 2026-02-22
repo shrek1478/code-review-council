@@ -193,11 +193,8 @@ describe('DecisionMakerService', () => {
     await service.decide('const x = 1;', [
       { reviewer: 'Test', review: 'OK', status: 'success' as const },
     ]);
-    expect(mockAcpService.sendPrompt).toHaveBeenCalledWith(
-      expect.anything(),
-      expect.any(String),
-      600000,
-    );
+    // Verify the timeoutMs was passed as the 3rd argument
+    expect(mockAcpService.sendPrompt.mock.calls[0][2]).toBe(600000);
   });
 
   it('should fallback invalid category to other and reject invalid line', async () => {

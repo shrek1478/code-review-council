@@ -32,6 +32,7 @@ vi.mock('@shrek1478/copilot-sdk-with-acp', () => {
     this.forceStop = vi.fn().mockResolvedValue(undefined);
     this.createSession = vi.fn().mockResolvedValue({
       on: vi.fn(),
+      sendAndWait: vi.fn().mockResolvedValue({ data: { content: '' } }),
       send: vi.fn().mockResolvedValue(undefined),
       destroy: vi.fn().mockResolvedValue(undefined),
     });
@@ -147,14 +148,9 @@ describe('AcpService', () => {
     });
 
     const mockSession = {
-      on: vi.fn((callback: (event: any) => void) => {
-        setTimeout(() => {
-          callback({
-            type: 'assistant.message',
-            data: { content: 'Review result' },
-          });
-          callback({ type: 'session.idle', data: {} });
-        }, 0);
+      on: vi.fn(),
+      sendAndWait: vi.fn().mockResolvedValue({
+        data: { content: 'Review result' },
       }),
       send: vi.fn().mockResolvedValue(undefined),
       destroy: vi.fn().mockResolvedValue(undefined),
@@ -168,38 +164,34 @@ describe('AcpService', () => {
 
     expect((handle.client as any).createSession).toHaveBeenCalledWith({
       model: 'gpt-5-mini',
-      streaming: true,
+      streaming: false,
     });
     expect(result).toBe('Review result');
     expect(mockSession.destroy).toHaveBeenCalled();
   });
 
-  it('should preserve delta-accumulated content over assistant.message', async () => {
+  it('should invoke onDelta callback for streaming deltas via assistant.message_delta event', async () => {
     const handle = await service.createClient({
       name: 'DeltaReviewer',
       cliPath: 'delta-cli',
       cliArgs: [],
+      streaming: true,
     });
 
+    const deltaHandler = vi.fn();
+    let deltaEventHandler: ((event: any) => void) | undefined;
+
     const mockSession = {
-      on: vi.fn((callback: (event: any) => void) => {
-        setTimeout(() => {
-          // Simulate streaming deltas
-          callback({
-            type: 'assistant.message_delta',
-            data: { deltaContent: 'Hello ' },
-          });
-          callback({
-            type: 'assistant.message_delta',
-            data: { deltaContent: 'World' },
-          });
-          // assistant.message arrives after deltas — should NOT overwrite
-          callback({
-            type: 'assistant.message',
-            data: { content: 'Stale content' },
-          });
-          callback({ type: 'session.idle', data: {} });
-        }, 0);
+      on: vi.fn((eventName: string, handler: (event: any) => void) => {
+        if (eventName === 'assistant.message_delta') {
+          deltaEventHandler = handler;
+        }
+      }),
+      sendAndWait: vi.fn().mockImplementation(async () => {
+        // Fire delta events before resolving
+        deltaEventHandler?.({ data: { deltaContent: 'Hello ' } });
+        deltaEventHandler?.({ data: { deltaContent: 'World' } });
+        return { data: { content: 'Hello World' } };
       }),
       send: vi.fn().mockResolvedValue(undefined),
       destroy: vi.fn().mockResolvedValue(undefined),
@@ -209,11 +201,13 @@ describe('AcpService', () => {
       .fn()
       .mockResolvedValue(mockSession);
 
-    const result = await service.sendPrompt(handle, 'Review this');
+    const result = await service.sendPrompt(handle, 'Review this', 5000, { onDelta: deltaHandler });
     expect(result).toBe('Hello World');
+    expect(deltaHandler).toHaveBeenCalledWith('Hello ');
+    expect(deltaHandler).toHaveBeenCalledWith('World');
   });
 
-  it('should use assistant.message content when no deltas were received', async () => {
+  it('should return content from sendAndWait response', async () => {
     const handle = await service.createClient({
       name: 'NonDelta',
       cliPath: 'nondelta-cli',
@@ -221,14 +215,9 @@ describe('AcpService', () => {
     });
 
     const mockSession = {
-      on: vi.fn((callback: (event: any) => void) => {
-        setTimeout(() => {
-          callback({
-            type: 'assistant.message',
-            data: { content: 'Full message' },
-          });
-          callback({ type: 'session.idle', data: {} });
-        }, 0);
+      on: vi.fn(),
+      sendAndWait: vi.fn().mockResolvedValue({
+        data: { content: 'Full message' },
       }),
       send: vi.fn().mockResolvedValue(undefined),
       destroy: vi.fn().mockResolvedValue(undefined),
@@ -450,6 +439,7 @@ describe('AcpService', () => {
 
     const mockSession = {
       on: vi.fn(),
+      sendAndWait: vi.fn().mockRejectedValue(new Error('SlowReviewer timed out after 100ms')),
       send: vi.fn().mockResolvedValue(undefined),
       destroy: vi.fn().mockResolvedValue(undefined),
     };

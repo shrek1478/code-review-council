@@ -31,6 +31,15 @@ describe('ReviewService', () => {
       { reviewer: 'Gemini', review: 'Looks good', status: 'success' },
       { reviewer: 'Codex', review: 'LGTM', status: 'success' },
     ]),
+    synthesizeReview: vi.fn().mockImplementation(
+      (reviewerConfig: any, batchReviews: any[]) =>
+        Promise.resolve({
+          reviewer: reviewerConfig.name,
+          review: batchReviews.map((r: any) => r.review).join('\n'),
+          status: 'success' as const,
+          durationMs: 0,
+        }),
+    ),
   };
   const mockDecisionMaker = {
     decide: vi.fn().mockResolvedValue({
@@ -42,7 +51,11 @@ describe('ReviewService', () => {
   };
   const mockConfigService = {
     getConfig: vi.fn().mockReturnValue({
-      review: { mode: 'inline' },
+      reviewers: [
+        { name: 'Gemini', cliPath: 'gemini', cliArgs: [] },
+        { name: 'Codex', cliPath: 'codex-acp', cliArgs: [] },
+      ],
+      review: { mode: 'batch' },
     }),
   };
 
@@ -67,6 +80,15 @@ describe('ReviewService', () => {
       { reviewer: 'Gemini', review: 'Looks good', status: 'success' },
       { reviewer: 'Codex', review: 'LGTM', status: 'success' },
     ]);
+    mockCouncil.synthesizeReview.mockImplementation(
+      (reviewerConfig: any, batchReviews: any[]) =>
+        Promise.resolve({
+          reviewer: reviewerConfig.name,
+          review: batchReviews.map((r: any) => r.review).join('\n'),
+          status: 'success' as const,
+          durationMs: 0,
+        }),
+    );
     mockDecisionMaker.decide.mockResolvedValue({
       reviewer: 'Claude (Decision Maker)',
       overallAssessment: 'Code is clean.',
@@ -74,7 +96,11 @@ describe('ReviewService', () => {
       additionalFindings: [],
     });
     mockConfigService.getConfig.mockReturnValue({
-      review: { mode: 'inline' },
+      reviewers: [
+        { name: 'Gemini', cliPath: 'gemini', cliArgs: [] },
+        { name: 'Codex', cliPath: 'codex-acp', cliArgs: [] },
+      ],
+      review: { mode: 'batch' },
     });
     const module = await Test.createTestingModule({
       providers: [
@@ -99,10 +125,12 @@ describe('ReviewService', () => {
       'main',
     );
     // Decision maker receives both code and reviews
-    expect(mockDecisionMaker.decide).toHaveBeenCalledWith(
-      'diff --git a/test.ts',
+    const decideCalls = mockDecisionMaker.decide.mock.calls[0];
+    expect(decideCalls[0]).toBe('diff --git a/test.ts');
+    expect(decideCalls[1]).toEqual(
       expect.arrayContaining([expect.objectContaining({ reviewer: 'Gemini' })]),
     );
+    expect(decideCalls[2]).toBe('inline');
   });
 
   it('should review files end-to-end', async () => {
@@ -125,13 +153,12 @@ describe('ReviewService', () => {
     const result = await service.reviewFiles(['a.ts', 'b.ts']);
     expect(result.status).toBe('completed');
     expect(mockCouncil.dispatchReviews).toHaveBeenCalledTimes(2);
-    // 2 batches * 2 reviewers = 4 individual reviews
-    expect(result.individualReviews.length).toBe(4);
-    expect(mockDecisionMaker.decide).toHaveBeenCalledWith(
-      expect.stringContaining('a.ts'),
-      expect.any(Array),
-      'batch',
-    );
+    // After synthesis, one review per reviewer (2 reviewers)
+    expect(result.individualReviews.length).toBe(2);
+    const batchDecideCalls = mockDecisionMaker.decide.mock.calls[0];
+    expect(batchDecideCalls[0]).toContain('a.ts');
+    expect(batchDecideCalls[1]).toBeInstanceOf(Array);
+    expect(batchDecideCalls[2]).toBe('batch');
   });
 
   describe('reviewCodebase', () => {
@@ -156,8 +183,8 @@ describe('ReviewService', () => {
       const result = await service.reviewCodebase('/tmp/project');
       expect(result.status).toBe('completed');
       expect(mockCouncil.dispatchReviews).toHaveBeenCalledTimes(3);
-      // 3 batches * 2 reviewers each = 6 individual reviews
-      expect(result.individualReviews.length).toBe(6);
+      // After synthesis, one review per reviewer (2 reviewers)
+      expect(result.individualReviews.length).toBe(2);
       expect(mockDecisionMaker.decide).toHaveBeenCalledTimes(1);
 
       // Decision maker receives file summary (not full code) in multi-batch mode
@@ -165,6 +192,8 @@ describe('ReviewService', () => {
       expect(decideCalls[0]).toContain('batch1.ts');
       expect(decideCalls[0]).toContain('lines');
       expect(decideCalls[2]).toBe('batch');
+      // Additional args are passed (cwd, configOverride, onDmDelta, onDmStart)
+      expect(decideCalls.length).toBeGreaterThanOrEqual(3);
     });
 
     it('should throw when no files found', async () => {
@@ -210,7 +239,8 @@ describe('ReviewService', () => {
       mockDecisionMaker.decide.mockRejectedValue(new Error('DM error'));
       const result = await service.reviewCodebase('/tmp/project');
       expect(result.status).toBe('partial');
-      expect(result.individualReviews.length).toBe(4);
+      // After synthesis, one review per reviewer (2 reviewers)
+      expect(result.individualReviews.length).toBe(2);
       expect(result.decision).toBeUndefined();
     });
   });
@@ -252,11 +282,10 @@ describe('ReviewService', () => {
       expect(dispatchCall.repoPath).toBe(resolve('.'));
 
       // Decision maker should use explore mode with relative paths
-      expect(mockDecisionMaker.decide).toHaveBeenCalledWith(
-        `${fileA}\n${fileB}`,
-        expect.any(Array),
-        'explore',
-      );
+      const exploreDecideCalls = mockDecisionMaker.decide.mock.calls[0];
+      expect(exploreDecideCalls[0]).toBe(`${fileA}\n${fileB}`);
+      expect(exploreDecideCalls[1]).toBeInstanceOf(Array);
+      expect(exploreDecideCalls[2]).toBe('explore');
     });
 
     it('reviewCodebase should list files without reading content', async () => {
@@ -276,11 +305,10 @@ describe('ReviewService', () => {
       expect(dispatchCall.filePaths).toEqual(['src/app.ts', 'src/main.ts']);
 
       // Decision maker should use explore mode
-      expect(mockDecisionMaker.decide).toHaveBeenCalledWith(
-        'src/app.ts\nsrc/main.ts',
-        expect.any(Array),
-        'explore',
-      );
+      const cbDecideCalls = mockDecisionMaker.decide.mock.calls[0];
+      expect(cbDecideCalls[0]).toBe('src/app.ts\nsrc/main.ts');
+      expect(cbDecideCalls[1]).toBeInstanceOf(Array);
+      expect(cbDecideCalls[2]).toBe('explore');
     });
 
     it('should return partial result when decision maker fails in explore mode', async () => {

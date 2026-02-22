@@ -38,7 +38,7 @@ describe('ConfigService', () => {
 
   it('should load config from custom path', async () => {
     const config = await service.loadConfig('./review-council.config.json');
-    expect(config.reviewers[0].name).toBe('Gemini');
+    expect(config.reviewers[0].name).toBe('Copilot');
   });
 
   it('should throw when getConfig() called before loadConfig()', () => {
@@ -101,7 +101,7 @@ describe('ConfigService', () => {
     it('should prefer --config flag over CONFIG_JSON', async () => {
       process.env.CONFIG_JSON = VALID_JSON_CONFIG;
       const config = await service.loadConfig('./review-council.config.json');
-      expect(config.reviewers[0].name).toBe('Gemini');
+      expect(config.reviewers[0].name).toBe('Copilot');
     });
 
     it('should throw on invalid JSON in CONFIG_JSON', async () => {
