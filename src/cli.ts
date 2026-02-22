@@ -3,10 +3,7 @@ import { createRequire } from 'node:module';
 import { ConsoleLogger } from '@nestjs/common';
 import { CommandFactory } from 'nest-commander';
 import { CliModule } from './cli/cli.module.js';
-import {
-  MAX_REVIEWER_CONCURRENCY,
-  BATCH_CONCURRENCY,
-} from './constants.js';
+import { MAX_REVIEWER_CONCURRENCY, BATCH_CONCURRENCY } from './constants.js';
 
 const _require = createRequire(import.meta.url);
 const { version } = _require('../../package.json') as { version: string };
@@ -38,6 +35,15 @@ process.setMaxListeners(
   BASE_LISTENERS +
     (BATCH_CONCURRENCY * MAX_REVIEWER_CONCURRENCY + 1) * LISTENERS_PER_CLIENT,
 );
+
+// Patch process.exit to flush stdout/stderr before exiting.
+// nest-commander calls process.exit() which skips buffer flush when stdout is not a TTY.
+const _exit = process.exit.bind(process);
+(process as any).exit = (code?: number) => {
+  process.stdout.write('', () => {
+    process.stderr.write('', () => _exit(code));
+  });
+};
 
 async function bootstrap() {
   await CommandFactory.run(CliModule, { logger: new CliLogger() });
