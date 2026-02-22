@@ -10,6 +10,7 @@ interface AgentSelection extends AgentDetectionResult {
   selected: boolean;
   role: 'reviewer' | 'decisionMaker';
   model?: string;
+  custom?: boolean;
 }
 
 @Component({
@@ -30,7 +31,7 @@ interface AgentSelection extends AgentDetectionResult {
         }
       </div>
 
-      @for (agent of agents(); track agent.cliPath) {
+      @for (agent of agents(); track $index) {
         <div
           class="flex items-center gap-2 p-2 rounded"
           style="border: 1px solid var(--p-surface-border)"
@@ -39,10 +40,10 @@ interface AgentSelection extends AgentDetectionResult {
             [binary]="true"
             [(ngModel)]="agent.selected"
             (ngModelChange)="syncConfigToStore()"
-            [inputId]="agent.cliPath"
+            [inputId]="'agent-' + $index"
             [disabled]="!agent.installed"
           />
-          <label [for]="agent.cliPath" class="cursor-pointer flex-1">
+          <label [for]="'agent-' + $index" class="cursor-pointer flex-1">
             <span class="font-medium">{{ agent.name }}</span>
             <span
               class="text-xs ml-1"
@@ -56,6 +57,16 @@ interface AgentSelection extends AgentDetectionResult {
             <p-tag severity="success" value="Installed" />
           } @else {
             <p-tag severity="danger" value="Not Found" />
+          }
+
+          @if (agent.custom) {
+            <button
+              (click)="removeCli($index)"
+              title="Remove"
+              class="ml-1 opacity-40 hover:opacity-100 transition-opacity"
+            >
+              <i class="pi pi-times text-xs"></i>
+            </button>
           }
         </div>
 
@@ -91,6 +102,94 @@ interface AgentSelection extends AgentDetectionResult {
         }
       }
 
+      @if (showAddForm()) {
+        <div class="p-3 rounded space-y-2" style="border: 1px dashed var(--p-primary-color)">
+          <div class="flex items-center gap-2">
+            <span class="text-xs w-16 shrink-0 text-right" style="color: var(--p-text-muted-color)">Name:</span>
+            <input
+              type="text"
+              [(ngModel)]="newCliName"
+              placeholder="(optional)"
+              class="flex-1 px-2 py-1 rounded text-sm"
+              style="background: var(--p-surface-ground); border: 1px solid var(--p-surface-border); color: var(--p-text-color)"
+            />
+          </div>
+          <div class="flex items-center gap-2">
+            <span class="text-xs w-16 shrink-0 text-right" style="color: var(--p-text-muted-color)">CLI Path:</span>
+            <input
+              type="text"
+              [(ngModel)]="newCliPath"
+              placeholder="e.g. copilot"
+              class="flex-1 px-2 py-1 rounded text-sm"
+              style="background: var(--p-surface-ground); border: 1px solid var(--p-surface-border); color: var(--p-text-color)"
+            />
+          </div>
+          <div class="flex items-center gap-2">
+            <span class="text-xs w-16 shrink-0 text-right" style="color: var(--p-text-muted-color)">Args:</span>
+            <input
+              type="text"
+              [(ngModel)]="newCliArgs"
+              placeholder="(space-separated, optional)"
+              class="flex-1 px-2 py-1 rounded text-sm"
+              style="background: var(--p-surface-ground); border: 1px solid var(--p-surface-border); color: var(--p-text-color)"
+            />
+          </div>
+          <div class="flex items-center gap-2">
+            <span class="text-xs w-16 shrink-0 text-right" style="color: var(--p-text-muted-color)">Protocol:</span>
+            <p-select
+              [options]="protocolOptions"
+              [(ngModel)]="newCliProtocol"
+              optionLabel="label"
+              optionValue="value"
+              styleClass="flex-1"
+              appendTo="body"
+            />
+          </div>
+          @if (newCliProtocol === 'copilot') {
+            <div class="flex items-center gap-2">
+              <span class="text-xs w-16 shrink-0 text-right" style="color: var(--p-text-muted-color)">Model:</span>
+              <p-select
+                [options]="modelOptions"
+                [(ngModel)]="newCliModel"
+                optionLabel="label"
+                optionValue="value"
+                styleClass="flex-1"
+                appendTo="body"
+              />
+            </div>
+          }
+          <div class="flex justify-end gap-2 pt-1">
+            <button
+              (click)="showAddForm.set(false)"
+              class="px-3 py-1 rounded text-xs opacity-60 hover:opacity-100 transition-opacity"
+              style="border: 1px solid var(--p-surface-border); color: var(--p-text-color)"
+            >
+              Cancel
+            </button>
+            <button
+              (click)="addCli()"
+              [disabled]="!newCliPath.trim()"
+              class="px-3 py-1 rounded text-xs transition-opacity"
+              style="background: var(--p-primary-color); color: var(--p-primary-contrast-color); opacity: 1"
+              [style.opacity]="!newCliPath.trim() ? '0.4' : '1'"
+              [style.cursor]="!newCliPath.trim() ? 'not-allowed' : 'pointer'"
+            >
+              Add
+            </button>
+          </div>
+        </div>
+      }
+
+      @if (!showAddForm()) {
+        <button
+          (click)="showAddForm.set(true)"
+          class="w-full flex items-center justify-center gap-1 py-2 text-xs opacity-40 hover:opacity-80 transition-opacity rounded"
+          style="border: 1px dashed var(--p-surface-border); color: var(--p-text-muted-color)"
+        >
+          <i class="pi pi-plus"></i> Add CLI
+        </button>
+      }
+
     </div>
   `,
 })
@@ -100,6 +199,13 @@ export class ReviewerSelectorComponent implements OnInit {
 
   agents = signal<AgentSelection[]>([]);
   detecting = signal(true);
+
+  showAddForm = signal(false);
+  newCliName = '';
+  newCliPath = '';
+  newCliArgs = '';
+  newCliProtocol: '' | 'copilot' = '';
+  newCliModel = '';
 
   readonly roleOptions = [
     { label: 'Reviewer', value: 'reviewer' },
@@ -111,6 +217,11 @@ export class ReviewerSelectorComponent implements OnInit {
     { label: 'claude-sonnet-4.6', value: 'claude-sonnet-4.6' },
     { label: 'gpt-5-mini', value: 'gpt-5-mini' },
     { label: 'gpt-5.3-codex', value: 'gpt-5.3-codex' },
+  ];
+
+  readonly protocolOptions = [
+    { label: 'ACP', value: '' },
+    { label: 'Copilot', value: 'copilot' },
   ];
 
   async ngOnInit(): Promise<void> {
@@ -147,6 +258,37 @@ export class ReviewerSelectorComponent implements OnInit {
     } finally {
       this.detecting.set(false);
     }
+  }
+
+  addCli(): void {
+    const cliPath = this.newCliPath.trim();
+    if (!cliPath) return;
+    let name = this.newCliName.trim() || cliPath;
+    // Ensure unique name to prevent progress-tracking conflicts in Live Output
+    const existingNames = new Set(this.agents().map(a => a.name));
+    if (existingNames.has(name)) {
+      let suffix = 2;
+      while (existingNames.has(`${name} (${suffix})`)) suffix++;
+      name = `${name} (${suffix})`;
+    }
+    const cliArgs = this.newCliArgs.trim() ? this.newCliArgs.trim().split(/\s+/) : [];
+    const protocol = (this.newCliProtocol || undefined) as 'copilot' | undefined;
+    this.agents.update(agents => [...agents, {
+      name, cliPath, cliArgs,
+      installed: true, description: '',
+      protocol,
+      model: this.newCliModel || undefined,
+      selected: true, role: 'reviewer', custom: true,
+    }]);
+    this.syncConfigToStore();
+    this.newCliName = this.newCliPath = this.newCliArgs = this.newCliModel = '';
+    this.newCliProtocol = '';
+    this.showAddForm.set(false);
+  }
+
+  removeCli(index: number): void {
+    this.agents.update(agents => agents.filter((_, i) => i !== index));
+    this.syncConfigToStore();
   }
 
   syncConfigToStore(): void {
