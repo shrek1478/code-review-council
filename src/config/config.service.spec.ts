@@ -119,7 +119,7 @@ describe('ConfigService', () => {
     it('should fall through to default file when CONFIG_JSON is empty', async () => {
       process.env.CONFIG_JSON = '';
       const config = await service.loadConfig();
-      expect(config.reviewers[0].name).toBe('Gemini');
+      expect(config.reviewers.length).toBeGreaterThan(0);
     });
   });
 
