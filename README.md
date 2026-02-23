@@ -210,6 +210,7 @@ code-review-council diff --repo /path/to/repo --base main --config ./my-config.j
 | `--checks <list>` | 逗號分隔的檢查類別 | 設定檔的 defaultChecks |
 | `--extra <text>` | 額外審查指示 | — |
 | `--config <path>` | 設定檔路徑 | 自動搜尋（見載入優先順序） |
+| `--no-cleanup` | 跳過啟動前的孤兒進程清理 | 預設執行清理 |
 
 ### `file` — 審查指定檔案
 
@@ -223,6 +224,7 @@ code-review-council file src/app.ts src/main.ts --config ./my-config.json
 | `--checks <list>` | 檢查類別 |
 | `--extra <text>` | 額外審查指示 |
 | `--config <path>` | 設定檔路徑 |
+| `--no-cleanup` | 跳過啟動前的孤兒進程清理 |
 
 ### `codebase` — 審查整個專案
 
@@ -238,6 +240,7 @@ code-review-council codebase --dir ./src --config ./my-config.json
 | `--checks <list>` | 檢查類別 | — |
 | `--extra <text>` | 額外審查指示 | — |
 | `--config <path>` | 設定檔路徑 | — |
+| `--no-cleanup` | 跳過啟動前的孤兒進程清理 | 預設執行清理 |
 
 ---
 
