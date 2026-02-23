@@ -1,8 +1,8 @@
 import { Injectable, ConsoleLogger, Inject, Optional } from '@nestjs/common';
-import { simpleGit } from 'simple-git';
 import { readFile, stat, realpath } from 'node:fs/promises';
 import { join, extname, resolve, relative, isAbsolute } from 'node:path';
 import { createRequire } from 'node:module';
+import { simpleGit } from 'simple-git';
 import { ConfigService } from '../config/config.service.js';
 import { isWithinRoot } from './path-utils.js';
 import { sanitizeErrorMessage } from './retry-utils.js';

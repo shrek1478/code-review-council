@@ -245,5 +245,12 @@ describe('CodeReaderService', () => {
     it('should match nested paths with **', () => {
       expect(service.isExcludedFile('a/b/c/foo.ts', ['a/**/foo.ts'])).toBe(true);
     });
+    it('should match dot files with ** pattern', () => {
+      expect(service.isExcludedFile('.env', ['**'])).toBe(true);
+      expect(service.isExcludedFile('config/.secrets', ['config/.*'])).toBe(true);
+    });
+    it('should not match deep paths with single * wildcard', () => {
+      expect(service.isExcludedFile('dist/a/b.js', ['dist/*'])).toBe(false);
+    });
   });
 });
