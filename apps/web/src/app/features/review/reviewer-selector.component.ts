@@ -264,12 +264,10 @@ export class ReviewerSelectorComponent implements OnInit {
     const cliPath = this.newCliPath.trim();
     if (!cliPath) return;
     let name = this.newCliName.trim() || cliPath;
-    // Ensure unique name to prevent progress-tracking conflicts in Live Output
+    // 使用 UUID 前 8 碼確保名稱唯一，避免 while 迴圈潛在風險
     const existingNames = new Set(this.agents().map(a => a.name));
     if (existingNames.has(name)) {
-      let suffix = 2;
-      while (existingNames.has(`${name} (${suffix})`)) suffix++;
-      name = `${name} (${suffix})`;
+      name = `${name} (${crypto.randomUUID().slice(0, 8)})`;
     }
     const cliArgs = this.newCliArgs.trim() ? this.newCliArgs.trim().split(/\s+/) : [];
     const protocol = (this.newCliProtocol || undefined) as 'copilot' | undefined;
