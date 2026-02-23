@@ -229,12 +229,12 @@ code-review-council file src/app.ts src/main.ts --config ./my-config.json
 ### `codebase` — 審查整個專案
 
 ```bash
-code-review-council codebase --dir ./src --config ./my-config.json
+code-review-council codebase --path ./src --config ./my-config.json
 ```
 
 | 選項 | 說明 | 預設值 |
 |------|------|--------|
-| `--dir <path>` | 掃描目錄 | 當前目錄 |
+| `--path <path>` | 掃描目錄 | 當前目錄 |
 | `--extensions <list>` | 逗號分隔的副檔名（如 `ts,js,py`） | 常見程式語言副檔名 |
 | `--batch-size <chars>` | 每批最大字元數 | 500,000 |
 | `--checks <list>` | 檢查類別 | — |
@@ -368,7 +368,7 @@ code-review-council diff --base main --config ./my-config.json
 
 ```bash
 code-review-council codebase \
-  --dir ./src \
+  --path ./src \
   --checks "security" \
   --extra "Focus on SQL injection, XSS, authentication" \
   --config ./my-config.json
