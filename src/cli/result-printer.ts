@@ -24,11 +24,6 @@ export function sanitize(text: string): string {
     .replace(C0_CONTROL_REGEX, '');
 }
 
-/** Sanitize multiline text and indent continuation lines for aligned CLI output. */
-function sanitizeIndented(text: string, indent: string): string {
-  const clean = sanitize(text);
-  return clean.replace(/\n/g, `\n${indent}`);
-}
 
 function sanitizeLine(text: string): string {
   return sanitize(text).replace(/[\r\n]+/g, ' ');
