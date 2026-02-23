@@ -1,6 +1,7 @@
 import { Component, inject, computed } from '@angular/core';
 import { DomSanitizer, SafeHtml } from '@angular/platform-browser';
 import { marked } from 'marked';
+import DOMPurify from 'dompurify';
 import {
   Accordion,
   AccordionPanel,
@@ -303,7 +304,8 @@ export class ResultViewerComponent {
   }
 
   renderMarkdown(text: string): SafeHtml {
-    const html = marked.parse(text, { async: false }) as string;
+    const raw = marked.parse(text, { async: false }) as string;
+    const html = DOMPurify.sanitize(raw);
     return this.sanitizer.bypassSecurityTrustHtml(html);
   }
 
