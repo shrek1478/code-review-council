@@ -320,12 +320,12 @@ export class AcpService implements OnModuleDestroy {
     }
   }
 
-  /** Returns PIDs of processes whose full command line contains `pattern`. */
+  /** Returns PIDs of orphaned processes (PPID=1) whose command line contains `pattern`. */
   private findProcesses(pattern: string): Promise<number[]> {
     return new Promise((resolve) => {
       execFile(
         'pgrep',
-        ['-f', pattern],
+        ['-f', '-P', '1', pattern],
         { encoding: 'utf-8' },
         (err, stdout) => {
           if (err) {

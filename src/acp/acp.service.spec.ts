@@ -538,7 +538,7 @@ describe('AcpService', () => {
       await service.cleanupOrphanedProcesses([
         { name: 'Gemini', cliPath: 'gemini', cliArgs: ['--experimental-acp'] },
       ]);
-      expect(capturedArgs[1]).toBe('gemini.*--experimental-acp');
+      expect(capturedArgs).toEqual(['-f', '-P', '1', 'gemini.*--experimental-acp']);
     });
 
     it('should use plain cliPath pattern when no --experimental-acp', async () => {
@@ -552,7 +552,7 @@ describe('AcpService', () => {
       await service.cleanupOrphanedProcesses([
         { name: 'Codex', cliPath: 'codex-acp', cliArgs: [] },
       ]);
-      expect(capturedArgs[1]).toBe('codex-acp');
+      expect(capturedArgs).toEqual(['-f', '-P', '1', 'codex-acp']);
     });
 
     it('should deduplicate patterns from multiple configs with same cliPath', async () => {
