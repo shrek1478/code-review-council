@@ -2,6 +2,7 @@ import {
   WebSocketGateway,
   OnGatewayConnection,
 } from '@nestjs/websockets';
+import { Inject, ConsoleLogger } from '@nestjs/common';
 import { WebSocket } from 'ws';
 import { ReviewService } from '../../../../src/review/review.service.js';
 import { ConfigService } from '../../../../src/config/config.service.js';
@@ -16,7 +17,10 @@ export class ReviewGateway implements OnGatewayConnection {
   constructor(
     private readonly reviewService: ReviewService,
     private readonly configService: ConfigService,
-  ) {}
+    @Inject(ConsoleLogger) private readonly logger: ConsoleLogger,
+  ) {
+    this.logger.setContext(ReviewGateway.name);
+  }
 
   handleConnection(client: WebSocket): void {
     client.on('message', (raw: Buffer | string) => {
@@ -38,7 +42,14 @@ export class ReviewGateway implements OnGatewayConnection {
         this.send(client, 'error', { message: 'Invalid message format' });
         return;
       }
-      this.handleMessage(client, msg).catch(() => {});
+      this.handleMessage(client, msg).catch((error) => {
+        this.logger.error(
+          `Unhandled error in handleMessage: ${error instanceof Error ? error.message : String(error)}`,
+        );
+        this.send(client, 'error', {
+          message: error instanceof Error ? error.message : 'Internal error',
+        });
+      });
     });
   }
 
@@ -110,11 +121,20 @@ export class ReviewGateway implements OnGatewayConnection {
     if (data.config && typeof data.config === 'object' && !Array.isArray(data.config)) {
       type CouncilConfig = import('../../../../src/config/config.types.js').CouncilConfig;
       const partial = data.config as Partial<CouncilConfig>;
+      let merged: CouncilConfig;
       if (!partial.decisionMaker) {
         const serverCfg = this.configService.getConfig();
-        return { ...serverCfg, ...partial, decisionMaker: serverCfg.decisionMaker };
+        merged = { ...serverCfg, ...partial, decisionMaker: serverCfg.decisionMaker };
+      } else {
+        merged = data.config as CouncilConfig;
       }
-      return data.config as CouncilConfig;
+      const validation = this.configService.validateConfigData(
+        merged as unknown as Record<string, unknown>,
+      );
+      if (!validation.valid) {
+        return undefined;
+      }
+      return merged;
     }
     return undefined;
   }
