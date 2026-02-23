@@ -14,7 +14,7 @@ export interface ReviewConfig {
   maxReviewsLength?: number;
   maxCodeLength?: number;
   maxSummaryLength?: number;
-  mode?: 'inline' | 'explore';
+  mode?: 'inline' | 'batch' | 'explore';
   extensions?: string[];
   sensitivePatterns?: string[];
 }
