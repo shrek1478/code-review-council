@@ -366,10 +366,14 @@ export class CodeReaderService {
 
   private resolveExcludePatterns(options: CodebaseOptions): string[] {
     if (options.excludePatterns !== undefined) return options.excludePatterns;
-    return (
-      this.configService?.getConfig()?.review?.excludePatterns ??
-      DEFAULT_EXCLUDE_PATTERNS
-    );
+    try {
+      return (
+        this.configService?.getConfig().review?.excludePatterns ??
+        DEFAULT_EXCLUDE_PATTERNS
+      );
+    } catch {
+      return DEFAULT_EXCLUDE_PATTERNS;
+    }
   }
 
   /** 使用 minimatch 進行 glob 匹配，支援 *, **, ? 等標準語法。 */

@@ -1,7 +1,11 @@
 import { Test } from '@nestjs/testing';
 import { ConsoleLogger } from '@nestjs/common';
-import { CodeReaderService } from './code-reader.service.js';
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import {
+  CodeReaderService,
+  DEFAULT_EXCLUDE_PATTERNS,
+} from './code-reader.service.js';
+import { ConfigService } from '../config/config.service.js';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { writeFile, mkdtemp, rm, mkdir } from 'node:fs/promises';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -230,10 +234,14 @@ describe('CodeReaderService', () => {
 
   describe('isExcludedFile', () => {
     it('should exclude exact filename', () => {
-      expect(service.isExcludedFile('node_modules/foo.ts', ['node_modules/**'])).toBe(true);
+      expect(
+        service.isExcludedFile('node_modules/foo.ts', ['node_modules/**']),
+      ).toBe(true);
     });
     it('should not exclude non-matching path', () => {
-      expect(service.isExcludedFile('src/foo.ts', ['node_modules/**'])).toBe(false);
+      expect(service.isExcludedFile('src/foo.ts', ['node_modules/**'])).toBe(
+        false,
+      );
     });
     it('should support * wildcard', () => {
       expect(service.isExcludedFile('dist/bundle.js', ['dist/*'])).toBe(true);
@@ -243,14 +251,69 @@ describe('CodeReaderService', () => {
       expect(service.isExcludedFile('src/ab.ts', ['src/?.ts'])).toBe(false);
     });
     it('should match nested paths with **', () => {
-      expect(service.isExcludedFile('a/b/c/foo.ts', ['a/**/foo.ts'])).toBe(true);
+      expect(service.isExcludedFile('a/b/c/foo.ts', ['a/**/foo.ts'])).toBe(
+        true,
+      );
     });
     it('should match dot files with ** pattern', () => {
       expect(service.isExcludedFile('.env', ['**'])).toBe(true);
-      expect(service.isExcludedFile('config/.secrets', ['config/.*'])).toBe(true);
+      expect(service.isExcludedFile('config/.secrets', ['config/.*'])).toBe(
+        true,
+      );
     });
     it('should not match deep paths with single * wildcard', () => {
       expect(service.isExcludedFile('dist/a/b.js', ['dist/*'])).toBe(false);
+    });
+  });
+
+  describe('resolveExcludePatterns fallback', () => {
+    let tmpDir: string;
+    let serviceWithThrowingConfig: CodeReaderService;
+
+    beforeEach(async () => {
+      tmpDir = await mkdtemp(join(tmpdir(), 'cr-exclude-'));
+      const git = simpleGit(tmpDir);
+      await git.init();
+      await git.addConfig('user.email', 'test@test.com');
+      await git.addConfig('user.name', 'Test');
+      await mkdir(join(tmpDir, 'src'), { recursive: true });
+      await writeFile(join(tmpDir, 'src', 'app.ts'), 'const app = 1;\n');
+      await writeFile(
+        join(tmpDir, 'src', 'app.spec.ts'),
+        'describe("app", () => {});\n',
+      );
+      await git.add('.');
+      await git.commit('initial');
+
+      const mockConfigService = {
+        getConfig: vi.fn().mockImplementation(() => {
+          throw new Error('Config not loaded. Call loadConfig() first.');
+        }),
+      };
+
+      const module = await Test.createTestingModule({
+        providers: [
+          CodeReaderService,
+          { provide: ConsoleLogger, useValue: new ConsoleLogger() },
+          { provide: ConfigService, useValue: mockConfigService },
+        ],
+      }).compile();
+      serviceWithThrowingConfig = module.get(CodeReaderService);
+    });
+
+    afterEach(async () => {
+      await rm(tmpDir, { recursive: true, force: true });
+    });
+
+    it('should fall back to DEFAULT_EXCLUDE_PATTERNS when configService.getConfig() throws', async () => {
+      const batches = await serviceWithThrowingConfig.readCodebase(tmpDir);
+      const allFiles = batches.flat();
+      // app.spec.ts should be excluded by DEFAULT_EXCLUDE_PATTERNS ('**/*.spec.ts')
+      const hasSpecFile = allFiles.some((f) => f.path.includes('app.spec.ts'));
+      expect(hasSpecFile).toBe(false);
+      // app.ts should still be included
+      const hasAppFile = allFiles.some((f) => f.path.includes('app.ts'));
+      expect(hasAppFile).toBe(true);
     });
   });
 });
