@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Query, Body, ConsoleLogger, Inject, ForbiddenException, NotFoundException } from '@nestjs/common';
+import { Controller, Get, Post, Query, Body, ConsoleLogger, Inject, ForbiddenException, NotFoundException, BadRequestException } from '@nestjs/common';
 import { readdir, writeFile, access, realpath } from 'node:fs/promises';
 import { join, resolve, sep, basename } from 'node:path';
 import { constants } from 'node:fs';
@@ -136,6 +136,13 @@ export class FilesystemController {
     // 防禦性斷言：確保最終路徑的檔名是預期的設定檔名（深層防禦）
     if (basename(configPath) !== 'review-council.config.json') {
       throw new ForbiddenException('Invalid config path');
+    }
+    // 先驗證，再寫入
+    const validation = this.configService.validateConfigData(config);
+    if (!validation.valid) {
+      throw new BadRequestException(
+        `Invalid configuration: ${validation.error}`,
+      );
     }
     await writeFile(configPath, JSON.stringify(config, null, 2), 'utf-8');
     await this.configService.loadConfig(configPath);
