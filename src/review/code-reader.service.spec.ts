@@ -227,4 +227,23 @@ describe('CodeReaderService', () => {
       expect(service.isSensitiveFile('package.json')).toBe(false);
     });
   });
+
+  describe('isExcludedFile', () => {
+    it('should exclude exact filename', () => {
+      expect(service.isExcludedFile('node_modules/foo.ts', ['node_modules/**'])).toBe(true);
+    });
+    it('should not exclude non-matching path', () => {
+      expect(service.isExcludedFile('src/foo.ts', ['node_modules/**'])).toBe(false);
+    });
+    it('should support * wildcard', () => {
+      expect(service.isExcludedFile('dist/bundle.js', ['dist/*'])).toBe(true);
+    });
+    it('should support ? wildcard', () => {
+      expect(service.isExcludedFile('src/a.ts', ['src/?.ts'])).toBe(true);
+      expect(service.isExcludedFile('src/ab.ts', ['src/?.ts'])).toBe(false);
+    });
+    it('should match nested paths with **', () => {
+      expect(service.isExcludedFile('a/b/c/foo.ts', ['a/**/foo.ts'])).toBe(true);
+    });
+  });
 });

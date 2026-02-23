@@ -2,9 +2,16 @@ import { Injectable, ConsoleLogger, Inject, Optional } from '@nestjs/common';
 import { simpleGit } from 'simple-git';
 import { readFile, stat, realpath } from 'node:fs/promises';
 import { join, extname, resolve, relative, isAbsolute } from 'node:path';
+import { createRequire } from 'node:module';
 import { ConfigService } from '../config/config.service.js';
 import { isWithinRoot } from './path-utils.js';
 import { sanitizeErrorMessage } from './retry-utils.js';
+// minimatch v3 為 CJS 模組，以 createRequire 匯入以相容 ESM
+const _minimatch = createRequire(import.meta.url)('minimatch') as (
+  path: string,
+  pattern: string,
+  opts?: { dot?: boolean; matchBase?: boolean },
+) => boolean;
 
 export interface FileContent {
   path: string;
@@ -365,20 +372,10 @@ export class CodeReaderService {
     );
   }
 
-  /** Minimal glob matcher supporting `*`, `**`, `?` and path-based patterns. */
+  /** 使用 minimatch 進行 glob 匹配，支援 *, **, ? 等標準語法。 */
   private matchesGlob(filePath: string, pattern: string): boolean {
     const normalized = filePath.replace(/\\/g, '/');
-    // Use placeholders to avoid later replacements clobbering inserted regex syntax
-    const regexStr = pattern
-      .replace(/\\/g, '/')
-      .replace(/[.+^${}()|[\]]/g, '\\$&') // escape regex special chars
-      .replace(/\?/g, '[^/]') // ? → one non-slash char
-      .replace(/\*\*\//g, '\x00GLOBSTAR\x00') // placeholder for **/
-      .replace(/\*\*/g, '\x00STAR2\x00') // placeholder for **
-      .replace(/\*/g, '[^/]*') // * → zero+ non-slash chars
-      .replace(/\x00GLOBSTAR\x00/g, '(?:[^/]+/)*') // **/ → zero+ dir segments
-      .replace(/\x00STAR2\x00/g, '.*'); // ** → anything
-    return new RegExp(`^${regexStr}$`).test(normalized);
+    return _minimatch(normalized, pattern, { dot: true });
   }
 
   isExcludedFile(filePath: string, patterns: string[]): boolean {
