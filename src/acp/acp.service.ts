@@ -319,4 +319,62 @@ export class AcpService implements OnModuleDestroy {
       );
     }
   }
+
+  /** Returns PIDs of processes whose full command line contains `pattern`. */
+  private findProcesses(pattern: string): Promise<number[]> {
+    return new Promise((resolve) => {
+      execFile(
+        'pgrep',
+        ['-f', pattern],
+        { encoding: 'utf-8' },
+        (err, stdout) => {
+          if (err) {
+            resolve([]);
+            return;
+          }
+          const pids = (stdout as string)
+            .split('\n')
+            .map((s) => parseInt(s.trim(), 10))
+            .filter((n) => !isNaN(n) && n > 0);
+          resolve(pids);
+        },
+      );
+    });
+  }
+
+  /**
+   * Kills orphaned ACP client processes left by a previous interrupted run.
+   * Uses `pgrep -f` to match processes by their full command line.
+   * No-op on Windows. Returns the number of processes killed.
+   */
+  async cleanupOrphanedProcesses(configs: ReviewerConfig[]): Promise<number> {
+    if (process.platform === 'win32') return 0;
+
+    const patterns = new Map<string, string>();
+    for (const config of configs) {
+      const hasAcpFlag = config.cliArgs.includes('--experimental-acp');
+      const pattern = hasAcpFlag
+        ? `${config.cliPath}.*--experimental-acp`
+        : config.cliPath;
+      if (!patterns.has(pattern)) {
+        patterns.set(pattern, config.name);
+      }
+    }
+
+    let killed = 0;
+    for (const [pattern, name] of patterns) {
+      const pids = await this.findProcesses(pattern);
+      for (const pid of pids) {
+        if (pid === process.pid) continue;
+        try {
+          process.kill(pid, 'SIGKILL');
+          this.logger.log(`Killed ${name} (PID ${pid})`);
+          killed++;
+        } catch {
+          // Process already gone — silently skip
+        }
+      }
+    }
+    return killed;
+  }
 }

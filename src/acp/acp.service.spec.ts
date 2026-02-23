@@ -1,7 +1,8 @@
 import { Test } from '@nestjs/testing';
 import { ConsoleLogger } from '@nestjs/common';
 import { AcpService } from './acp.service.js';
-import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
+import { execFile } from 'node:child_process';
 
 vi.mock('node:child_process', () => ({
   execFile: vi.fn(
@@ -457,5 +458,133 @@ describe('AcpService', () => {
     ).rejects.toThrow('SlowReviewer timed out after 100ms');
 
     expect(mockSession.destroy).toHaveBeenCalled();
+  });
+
+  describe('cleanupOrphanedProcesses', () => {
+    let killSpy: ReturnType<typeof vi.spyOn>;
+
+    beforeEach(() => {
+      killSpy = vi.spyOn(process, 'kill').mockImplementation(() => true);
+    });
+
+    afterEach(() => {
+      killSpy.mockRestore();
+    });
+
+    function mockPgrep(pids: number[]): void {
+      (vi.mocked(execFile) as any).mockImplementationOnce(
+        (_cmd: string, _args: string[], _opts: unknown, cb: Function) => {
+          cb(null, pids.map(String).join('\n') + '\n', '');
+        },
+      );
+    }
+
+    function mockPgrepNotFound(): void {
+      (vi.mocked(execFile) as any).mockImplementationOnce(
+        (_cmd: string, _args: string[], _opts: unknown, cb: Function) => {
+          cb(new Error('no matches'), '', '');
+        },
+      );
+    }
+
+    it('should return 0 and kill nothing when no processes found', async () => {
+      mockPgrepNotFound();
+      const killed = await service.cleanupOrphanedProcesses([
+        { name: 'Codex', cliPath: 'codex-acp', cliArgs: [] },
+      ]);
+      expect(killed).toBe(0);
+      expect(killSpy).not.toHaveBeenCalled();
+    });
+
+    it('should kill found PIDs and return count', async () => {
+      mockPgrep([11111, 22222]);
+      const killed = await service.cleanupOrphanedProcesses([
+        { name: 'Codex', cliPath: 'codex-acp', cliArgs: [] },
+      ]);
+      expect(killed).toBe(2);
+      expect(killSpy).toHaveBeenCalledWith(11111, 'SIGKILL');
+      expect(killSpy).toHaveBeenCalledWith(22222, 'SIGKILL');
+    });
+
+    it('should skip own process PID', async () => {
+      mockPgrep([process.pid, 99999]);
+      const killed = await service.cleanupOrphanedProcesses([
+        { name: 'Codex', cliPath: 'codex-acp', cliArgs: [] },
+      ]);
+      expect(killed).toBe(1);
+      expect(killSpy).not.toHaveBeenCalledWith(process.pid, 'SIGKILL');
+      expect(killSpy).toHaveBeenCalledWith(99999, 'SIGKILL');
+    });
+
+    it('should not throw when kill fails (process already gone)', async () => {
+      mockPgrep([55555]);
+      killSpy.mockImplementation(() => {
+        throw new Error('ESRCH: no such process');
+      });
+      const killed = await service.cleanupOrphanedProcesses([
+        { name: 'Codex', cliPath: 'codex-acp', cliArgs: [] },
+      ]);
+      expect(killed).toBe(0);
+    });
+
+    it('should append --experimental-acp to pattern when present in cliArgs', async () => {
+      let capturedArgs: string[] = [];
+      (vi.mocked(execFile) as any).mockImplementationOnce(
+        (_cmd: string, args: string[], _opts: unknown, cb: Function) => {
+          capturedArgs = args as string[];
+          cb(null, '', '');
+        },
+      );
+      await service.cleanupOrphanedProcesses([
+        { name: 'Gemini', cliPath: 'gemini', cliArgs: ['--experimental-acp'] },
+      ]);
+      expect(capturedArgs[1]).toBe('gemini.*--experimental-acp');
+    });
+
+    it('should use plain cliPath pattern when no --experimental-acp', async () => {
+      let capturedArgs: string[] = [];
+      (vi.mocked(execFile) as any).mockImplementationOnce(
+        (_cmd: string, args: string[], _opts: unknown, cb: Function) => {
+          capturedArgs = args as string[];
+          cb(null, '', '');
+        },
+      );
+      await service.cleanupOrphanedProcesses([
+        { name: 'Codex', cliPath: 'codex-acp', cliArgs: [] },
+      ]);
+      expect(capturedArgs[1]).toBe('codex-acp');
+    });
+
+    it('should deduplicate patterns from multiple configs with same cliPath', async () => {
+      let callCount = 0;
+      (vi.mocked(execFile) as any).mockImplementation(
+        (_cmd: string, _args: string[], _opts: unknown, cb: Function) => {
+          callCount++;
+          cb(null, '', '');
+        },
+      );
+      await service.cleanupOrphanedProcesses([
+        { name: 'Codex', cliPath: 'codex-acp', cliArgs: [] },
+        { name: 'Codex2', cliPath: 'codex-acp', cliArgs: [] },
+      ]);
+      expect(callCount).toBe(1);
+      // Restore mock to original which/where behavior
+      (vi.mocked(execFile) as any).mockImplementation(
+        (
+          _cmd: string,
+          args: string[],
+          _opts: unknown,
+          cb: (err: Error | null, stdout?: string) => void,
+        ) => {
+          const map: Record<string, string> = {
+            copilot: '/usr/local/bin/copilot',
+            gemini: '/usr/local/bin/gemini',
+          };
+          const resolved = map[args[0]];
+          if (resolved) cb(null, resolved + '\n');
+          else cb(new Error(`not found: ${args[0]}`));
+        },
+      );
+    });
   });
 });
