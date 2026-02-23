@@ -275,7 +275,10 @@ ${delimiter}`;
     return p.replace(CONTROL_CHARS_REGEX, '');
   }
 
-  private buildReviewPrompt(request: ReviewRequest, config: CouncilConfig): string {
+  private buildReviewPrompt(
+    request: ReviewRequest,
+    config: CouncilConfig,
+  ): string {
     const lang = request.language ?? config.review.language ?? 'zh-tw';
     const MAX_CHECK_LENGTH = 50;
     const rawChecks =
@@ -292,7 +295,7 @@ ${delimiter}`;
       : 'Do NOT use any tools. Do NOT read files from the filesystem. Do NOT execute any commands. ONLY analyze the code provided below in this prompt.';
 
     const checkList = `Check for: ${checks.join(', ')}`;
-    const issueFormat = `Your entire response MUST be written in valid Markdown. Use the following structure:
+    const issueFormat = `Your entire response MUST be written in valid Markdown. All output must be in ${lang}.
 
 ## 問題清單
 
@@ -304,17 +307,18 @@ A Markdown table listing all issues found:
 
 Rules for the table:
 - Severity values: 🔴 High / 🟡 Medium / 🟢 Low; sort rows High → Medium → Low
-- All text in the table must be in ${lang}
-- Use \`code\` formatting for file paths, function names, and code snippets in the table
+- Use \`code\` formatting for file paths, function names, and code snippets
+- Keep each cell concise (one to two sentences max)
 - If no issues are found, write "No issues found" under the heading
 
 ## 補充建議
 
-A bullet list of general observations, tips, or improvements that are not specific issues. All text must be in ${lang}.
+A bullet list (3–5 items) of general observations, tips, or improvements that are not specific issues.
 
 Rules:
 - Output ONLY the two sections above — no introduction, no conclusion, no other prose
-- Do NOT number sections or add any other headings`;
+- Do NOT number sections or add any other headings
+- Without Over-Engineering: Only include observations directly supported by the code you reviewed; do NOT introduce suggestions not grounded in the provided code`;
 
     let prompt: string;
 
