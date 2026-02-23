@@ -211,7 +211,10 @@ export class ConfigService {
   /**
    * 供外部呼叫的設定驗證入口，回傳 { valid, error } 而非 throw。
    */
-  validateConfigData(config: Record<string, unknown>): { valid: boolean; error?: string } {
+  validateConfigData(config: Record<string, unknown>): {
+    valid: boolean;
+    error?: string;
+  } {
     try {
       this.validateConfig(config as Record<string, any>, 'inline');
       return { valid: true };
