@@ -27,6 +27,17 @@ export class ReviewGateway implements OnGatewayConnection {
         this.send(client, 'error', { message: 'Invalid JSON' });
         return;
       }
+      // 基本結構驗證：event 必須是非空字串，data 必須是非 null 物件
+      if (
+        typeof msg.event !== 'string' ||
+        !msg.event ||
+        typeof msg.data !== 'object' ||
+        msg.data === null ||
+        Array.isArray(msg.data)
+      ) {
+        this.send(client, 'error', { message: 'Invalid message format' });
+        return;
+      }
       this.handleMessage(client, msg).catch(() => {});
     });
   }
