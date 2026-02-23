@@ -391,6 +391,36 @@ describe('CouncilService', () => {
     expect(longestRun).toBe(4096);
   });
 
+  it('should use configOverride language instead of global config language in prompt', async () => {
+    // Global config uses zh-tw
+    mockConfigService.getConfig.mockReturnValue({
+      reviewers: [{ name: 'Gemini', cliPath: 'gemini', cliArgs: [] }],
+      review: { defaultChecks: ['code-quality'], language: 'zh-tw' },
+    });
+
+    // Override config uses en
+    const overrideConfig = {
+      reviewers: [{ name: 'Gemini', cliPath: 'gemini', cliArgs: [] }],
+      review: { defaultChecks: ['code-quality'], language: 'en' },
+    };
+
+    await service.dispatchReviews(
+      {
+        code: 'const x = 1;',
+        checks: ['code-quality'],
+      },
+      undefined, // onDelta
+      undefined, // onReviewerDone
+      undefined, // onToolActivity
+      overrideConfig,
+    );
+
+    const promptArg = mockAcpService.sendPrompt.mock.calls[0][1] as string;
+    // The prompt should use the override language 'en', not the global 'zh-tw'
+    expect(promptArg).toContain('reply entirely in en');
+    expect(promptArg).not.toContain('reply entirely in zh-tw');
+  });
+
   it('should stop clients for failed reviewers', async () => {
     mockAcpService.createClient
       .mockResolvedValueOnce({ name: 'Gemini', client: {} })

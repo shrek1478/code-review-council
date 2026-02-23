@@ -43,7 +43,7 @@ export class CouncilService {
 
     this.logger.log(`Dispatching reviews to ${reviewers.length} reviewers...`);
 
-    const prompt = this.buildReviewPrompt(request);
+    const prompt = this.buildReviewPrompt(request, config);
 
     const reviewOneReviewer = async (
       reviewerConfig: (typeof reviewers)[number],
@@ -275,8 +275,7 @@ ${delimiter}`;
     return p.replace(CONTROL_CHARS_REGEX, '');
   }
 
-  private buildReviewPrompt(request: ReviewRequest): string {
-    const config = this.configService.getConfig();
+  private buildReviewPrompt(request: ReviewRequest, config: CouncilConfig): string {
     const lang = request.language ?? config.review.language ?? 'zh-tw';
     const MAX_CHECK_LENGTH = 50;
     const rawChecks =
