@@ -1,5 +1,5 @@
-import { Controller, Get, Post, Query, Body, ConsoleLogger, Inject, ForbiddenException } from '@nestjs/common';
-import { readdir, writeFile, access } from 'node:fs/promises';
+import { Controller, Get, Post, Query, Body, ConsoleLogger, Inject, ForbiddenException, NotFoundException } from '@nestjs/common';
+import { readdir, writeFile, access, realpath } from 'node:fs/promises';
 import { join, resolve, sep } from 'node:path';
 import { constants } from 'node:fs';
 import { execFile } from 'node:child_process';
@@ -67,14 +67,29 @@ export class FilesystemController {
     @Query('path') dirPath?: string,
   ): Promise<DirectoryEntry[]> {
     const root = this.defaultRoot;
-    const targetPath = resolve(dirPath || root);
+    const resolved = resolve(dirPath || root);
+    // 展開 symlink 後再做邊界檢查，防止 symlink 繞過
+    let targetPath: string;
+    try {
+      targetPath = await realpath(resolved);
+    } catch {
+      throw new NotFoundException('Directory not found');
+    }
     // 限制只允許 home 目錄以下（含 home 本身）
     if (targetPath !== root && !targetPath.startsWith(root + sep)) {
       throw new ForbiddenException('Access outside home directory is not allowed');
     }
-    const entries = await readdir(targetPath, { withFileTypes: true });
+    let entries: import('node:fs').Dirent[];
+    try {
+      entries = await readdir(targetPath, { withFileTypes: true });
+    } catch (error: unknown) {
+      const err = error as NodeJS.ErrnoException;
+      if (err.code === 'ENOENT') throw new NotFoundException('Directory not found');
+      if (err.code === 'EACCES') throw new ForbiddenException('Permission denied');
+      throw error;
+    }
 
-    const directories: DirectoryEntry[] = entries
+    return entries
       .filter((entry) => entry.isDirectory() && !entry.name.startsWith('.'))
       .sort((a, b) => a.name.localeCompare(b.name))
       .map((entry) => ({
@@ -82,8 +97,6 @@ export class FilesystemController {
         path: join(targetPath, entry.name),
         isDirectory: true,
       }));
-
-    return directories;
   }
 
   @Get('agents')
