@@ -1,6 +1,6 @@
 import { Controller, Get, Post, Query, Body, ConsoleLogger, Inject, ForbiddenException, NotFoundException } from '@nestjs/common';
 import { readdir, writeFile, access, realpath } from 'node:fs/promises';
-import { join, resolve, sep } from 'node:path';
+import { join, resolve, sep, basename } from 'node:path';
 import { constants } from 'node:fs';
 import { execFile } from 'node:child_process';
 import { homedir } from 'node:os';
@@ -133,6 +133,10 @@ export class FilesystemController {
     @Body() config: Record<string, unknown>,
   ): Promise<{ success: boolean }> {
     const configPath = resolve(process.cwd(), 'review-council.config.json');
+    // 防禦性斷言：確保最終路徑的檔名是預期的設定檔名（深層防禦）
+    if (basename(configPath) !== 'review-council.config.json') {
+      throw new ForbiddenException('Invalid config path');
+    }
     await writeFile(configPath, JSON.stringify(config, null, 2), 'utf-8');
     await this.configService.loadConfig(configPath);
     return { success: true };
