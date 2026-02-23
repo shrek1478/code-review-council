@@ -36,15 +36,6 @@ process.setMaxListeners(
     (BATCH_CONCURRENCY * MAX_REVIEWER_CONCURRENCY + 1) * LISTENERS_PER_CLIENT,
 );
 
-// Patch process.exit to flush stdout/stderr before exiting.
-// nest-commander calls process.exit() which skips buffer flush when stdout is not a TTY.
-const _exit = process.exit.bind(process);
-(process as any).exit = (code?: number) => {
-  process.stdout.write('', () => {
-    process.stderr.write('', () => _exit(code));
-  });
-};
-
 async function bootstrap() {
   await CommandFactory.run(CliModule, { logger: new CliLogger() });
 }
