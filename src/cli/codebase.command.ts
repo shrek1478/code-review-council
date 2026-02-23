@@ -3,6 +3,7 @@ import { Inject } from '@nestjs/common';
 import { existsSync, statSync } from 'node:fs';
 import { ReviewService } from '../review/review.service.js';
 import { ConfigService } from '../config/config.service.js';
+import { AcpService } from '../acp/acp.service.js';
 import { printResult, sanitize, parseChecksOption } from './result-printer.js';
 import { VALID_CHECK_CATEGORIES, MAX_BATCH_SIZE } from '../constants.js';
 
@@ -11,12 +12,20 @@ export class CodebaseCommand extends CommandRunner {
   constructor(
     @Inject(ReviewService) private readonly reviewService: ReviewService,
     @Inject(ConfigService) private readonly configService: ConfigService,
+    @Inject(AcpService) private readonly acpService: AcpService,
   ) {
     super();
   }
 
   async run(_params: string[], options: Record<string, string>): Promise<void> {
     await this.configService.loadConfig(options.config);
+
+    if ((options as Record<string, unknown>).cleanup !== false) {
+      const cfg = this.configService.getConfig();
+      const allConfigs = [...cfg.reviewers, cfg.decisionMaker];
+      const killed = await this.acpService.cleanupOrphanedProcesses(allConfigs);
+      if (killed > 0) console.log('');
+    }
 
     const directory = options.path ?? process.cwd();
     const extensions =
@@ -115,5 +124,13 @@ export class CodebaseCommand extends CommandRunner {
   })
   parseConfig(val: string) {
     return val;
+  }
+
+  @Option({
+    flags: '--no-cleanup',
+    description: 'Skip orphaned ACP client cleanup before reviewing',
+  })
+  parseNoCleanup(): boolean {
+    return false;
   }
 }
