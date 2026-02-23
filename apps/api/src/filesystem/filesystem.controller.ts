@@ -1,6 +1,6 @@
-import { Controller, Get, Post, Query, Body, ConsoleLogger, Inject } from '@nestjs/common';
+import { Controller, Get, Post, Query, Body, ConsoleLogger, Inject, ForbiddenException } from '@nestjs/common';
 import { readdir, writeFile, access } from 'node:fs/promises';
-import { join, resolve } from 'node:path';
+import { join, resolve, sep } from 'node:path';
 import { constants } from 'node:fs';
 import { execFile } from 'node:child_process';
 import { homedir } from 'node:os';
@@ -66,7 +66,12 @@ export class FilesystemController {
   async listDirectory(
     @Query('path') dirPath?: string,
   ): Promise<DirectoryEntry[]> {
-    const targetPath = resolve(dirPath || this.defaultRoot);
+    const root = this.defaultRoot;
+    const targetPath = resolve(dirPath || root);
+    // 限制只允許 home 目錄以下（含 home 本身）
+    if (targetPath !== root && !targetPath.startsWith(root + sep)) {
+      throw new ForbiddenException('Access outside home directory is not allowed');
+    }
     const entries = await readdir(targetPath, { withFileTypes: true });
 
     const directories: DirectoryEntry[] = entries
