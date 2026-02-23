@@ -24,7 +24,6 @@ export function sanitize(text: string): string {
     .replace(C0_CONTROL_REGEX, '');
 }
 
-
 function sanitizeLine(text: string): string {
   return sanitize(text).replace(/[\r\n]+/g, ' ');
 }

@@ -557,7 +557,7 @@ describe('AcpService', () => {
 
     it('should deduplicate patterns from multiple configs with same cliPath', async () => {
       let callCount = 0;
-      (vi.mocked(execFile) as any).mockImplementation(
+      (vi.mocked(execFile) as any).mockImplementationOnce(
         (_cmd: string, _args: string[], _opts: unknown, cb: Function) => {
           callCount++;
           cb(null, '', '');
@@ -568,23 +568,6 @@ describe('AcpService', () => {
         { name: 'Codex2', cliPath: 'codex-acp', cliArgs: [] },
       ]);
       expect(callCount).toBe(1);
-      // Restore mock to original which/where behavior
-      (vi.mocked(execFile) as any).mockImplementation(
-        (
-          _cmd: string,
-          args: string[],
-          _opts: unknown,
-          cb: (err: Error | null, stdout?: string) => void,
-        ) => {
-          const map: Record<string, string> = {
-            copilot: '/usr/local/bin/copilot',
-            gemini: '/usr/local/bin/gemini',
-          };
-          const resolved = map[args[0]];
-          if (resolved) cb(null, resolved + '\n');
-          else cb(new Error(`not found: ${args[0]}`));
-        },
-      );
     });
   });
 });

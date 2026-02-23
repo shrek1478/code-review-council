@@ -344,7 +344,7 @@ export class AcpService implements OnModuleDestroy {
 
   /**
    * Kills orphaned ACP client processes left by a previous interrupted run.
-   * Uses `pgrep -f` to match processes by their full command line.
+   * Uses `pgrep -f -P 1` to match orphan processes (PPID=1) by their full command line.
    * No-op on Windows. Returns the number of processes killed.
    */
   async cleanupOrphanedProcesses(configs: ReviewerConfig[]): Promise<number> {
