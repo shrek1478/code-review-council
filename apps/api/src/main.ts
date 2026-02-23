@@ -8,7 +8,7 @@ async function bootstrap() {
   app.setGlobalPrefix('api');
   // 限制 CORS 來源為 localhost 任意 port（本機開發工具）
   app.enableCors({ origin: /^http:\/\/localhost(:\d+)?$/, credentials: true });
-  await app.listen(3100);
+  await app.listen(3100, '127.0.0.1');
   console.log('API server running on http://localhost:3100');
 }
 bootstrap();
