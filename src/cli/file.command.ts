@@ -2,6 +2,7 @@ import { Command, CommandRunner, Option } from 'nest-commander';
 import { Inject } from '@nestjs/common';
 import { ReviewService } from '../review/review.service.js';
 import { ConfigService } from '../config/config.service.js';
+import { AcpService } from '../acp/acp.service.js';
 import { printResult, sanitize, parseChecksOption } from './result-printer.js';
 import { VALID_CHECK_CATEGORIES } from '../constants.js';
 
@@ -10,6 +11,7 @@ export class FileCommand extends CommandRunner {
   constructor(
     @Inject(ReviewService) private readonly reviewService: ReviewService,
     @Inject(ConfigService) private readonly configService: ConfigService,
+    @Inject(AcpService) private readonly acpService: AcpService,
   ) {
     super();
   }
@@ -20,6 +22,13 @@ export class FileCommand extends CommandRunner {
     }
 
     await this.configService.loadConfig(options.config);
+
+    if ((options as Record<string, unknown>).cleanup !== false) {
+      const cfg = this.configService.getConfig();
+      const allConfigs = [...cfg.reviewers, cfg.decisionMaker];
+      const killed = await this.acpService.cleanupOrphanedProcesses(allConfigs);
+      if (killed > 0) console.log('');
+    }
 
     const config = this.configService.getConfig();
     const checks = parseChecksOption(
@@ -60,5 +69,13 @@ export class FileCommand extends CommandRunner {
   })
   parseConfig(val: string) {
     return val;
+  }
+
+  @Option({
+    flags: '--no-cleanup',
+    description: 'Skip orphaned ACP client cleanup before reviewing',
+  })
+  parseNoCleanup(): boolean {
+    return false;
   }
 }
