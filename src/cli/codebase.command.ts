@@ -18,7 +18,7 @@ export class CodebaseCommand extends CommandRunner {
   async run(_params: string[], options: Record<string, string>): Promise<void> {
     await this.configService.loadConfig(options.config);
 
-    const directory = options.dir ?? process.cwd();
+    const directory = options.path ?? process.cwd();
     const extensions =
       options.extensions
         ?.split(',')
@@ -64,10 +64,10 @@ export class CodebaseCommand extends CommandRunner {
   }
 
   @Option({
-    flags: '--dir <path>',
+    flags: '--path <path>',
     description: 'Directory to review (default: cwd)',
   })
-  parseDir(val: string) {
+  parsePath(val: string) {
     if (!existsSync(val)) {
       throw new Error(`Directory not found: "${sanitize(val)}"`);
     }
