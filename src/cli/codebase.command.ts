@@ -48,7 +48,8 @@ export class CodebaseCommand extends CommandRunner {
 
     console.log('\n=== Code Review Council ===\n');
     console.log(`Directory: ${sanitize(directory)}`);
-    if (extensions) console.log(`Extensions: ${extensions.map(sanitize).join(', ')}`);
+    if (extensions)
+      console.log(`Extensions: ${extensions.map(sanitize).join(', ')}`);
     if (parsedBatchSize) console.log(`Batch size: ${parsedBatchSize}`);
     console.log('Reviewing...\n');
 

@@ -201,7 +201,9 @@ describe('AcpService', () => {
       .fn()
       .mockResolvedValue(mockSession);
 
-    const result = await service.sendPrompt(handle, 'Review this', 5000, { onDelta: deltaHandler });
+    const result = await service.sendPrompt(handle, 'Review this', 5000, {
+      onDelta: deltaHandler,
+    });
     expect(result).toBe('Hello World');
     expect(deltaHandler).toHaveBeenCalledWith('Hello ');
     expect(deltaHandler).toHaveBeenCalledWith('World');
@@ -439,7 +441,9 @@ describe('AcpService', () => {
 
     const mockSession = {
       on: vi.fn(),
-      sendAndWait: vi.fn().mockRejectedValue(new Error('SlowReviewer timed out after 100ms')),
+      sendAndWait: vi
+        .fn()
+        .mockRejectedValue(new Error('SlowReviewer timed out after 100ms')),
       send: vi.fn().mockResolvedValue(undefined),
       destroy: vi.fn().mockResolvedValue(undefined),
     };

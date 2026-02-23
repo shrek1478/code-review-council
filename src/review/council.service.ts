@@ -25,8 +25,17 @@ export class CouncilService {
   async dispatchReviews(
     request: ReviewRequest,
     onDelta?: (reviewer: string, delta: string) => void,
-    onReviewerDone?: (reviewer: string, status: 'done' | 'error', durationMs: number, error?: string) => void,
-    onToolActivity?: (reviewer: string, toolName: string, args?: unknown) => void,
+    onReviewerDone?: (
+      reviewer: string,
+      status: 'done' | 'error',
+      durationMs: number,
+      error?: string,
+    ) => void,
+    onToolActivity?: (
+      reviewer: string,
+      toolName: string,
+      args?: unknown,
+    ) => void,
     configOverride?: CouncilConfig,
   ): Promise<IndividualReview[]> {
     const config = configOverride ?? this.configService.getConfig();
@@ -49,19 +58,38 @@ export class CouncilService {
         ReturnType<typeof this.acpService.createClient>
       > | null = null;
       try {
-        handle = await this.acpService.createClient(reviewerConfig, request.repoPath);
-        const sendOptions = (onDelta || onToolActivity)
-          ? {
-              ...(onDelta ? { onDelta: (delta: string) => onDelta(reviewerConfig.name, delta) } : {}),
-              ...(onToolActivity ? { onToolActivity: (toolName: string, args?: unknown) => onToolActivity(reviewerConfig.name, toolName, args) } : {}),
-            }
-          : undefined;
+        handle = await this.acpService.createClient(
+          reviewerConfig,
+          request.repoPath,
+        );
+        const sendOptions =
+          onDelta || onToolActivity
+            ? {
+                ...(onDelta
+                  ? {
+                      onDelta: (delta: string) =>
+                        onDelta(reviewerConfig.name, delta),
+                    }
+                  : {}),
+                ...(onToolActivity
+                  ? {
+                      onToolActivity: (toolName: string, args?: unknown) =>
+                        onToolActivity(reviewerConfig.name, toolName, args),
+                    }
+                  : {}),
+              }
+            : undefined;
         const review = await retryWithBackoff(
           () => {
             if (!handle) {
               throw new Error(`No active client for ${reviewerConfig.name}`);
             }
-            return this.acpService.sendPrompt(handle, prompt, timeoutMs, sendOptions);
+            return this.acpService.sendPrompt(
+              handle,
+              prompt,
+              timeoutMs,
+              sendOptions,
+            );
           },
           {
             maxRetries,
@@ -78,7 +106,10 @@ export class CouncilService {
                   `Failed to stop client during retry for ${reviewerConfig.name}: ${sanitizeErrorMessage(stopError)}`,
                 );
               }
-              handle = await this.acpService.createClient(reviewerConfig, request.repoPath);
+              handle = await this.acpService.createClient(
+                reviewerConfig,
+                request.repoPath,
+              );
             },
           },
         );
@@ -135,7 +166,11 @@ export class CouncilService {
     lang: string,
     cwd?: string,
     onDelta?: (reviewer: string, delta: string) => void,
-    onToolActivity?: (reviewer: string, toolName: string, args?: unknown) => void,
+    onToolActivity?: (
+      reviewer: string,
+      toolName: string,
+      args?: unknown,
+    ) => void,
   ): Promise<IndividualReview> {
     if (batchReviews.length === 1) return batchReviews[0];
 
@@ -172,17 +207,35 @@ ${reviewsText}
 ${delimiter}`;
 
     const startMs = Date.now();
-    let handle: Awaited<ReturnType<typeof this.acpService.createClient>> | null = null;
+    let handle: Awaited<
+      ReturnType<typeof this.acpService.createClient>
+    > | null = null;
     const timeoutMs = (reviewerConfig.timeoutMs ?? 180_000) * 2;
     try {
       handle = await this.acpService.createClient(reviewerConfig, cwd);
-      const sendOptions = (onDelta || onToolActivity)
-        ? {
-            ...(onDelta ? { onDelta: (delta: string) => onDelta(reviewerConfig.name, delta) } : {}),
-            ...(onToolActivity ? { onToolActivity: (toolName: string, args?: unknown) => onToolActivity(reviewerConfig.name, toolName, args) } : {}),
-          }
-        : undefined;
-      const review = await this.acpService.sendPrompt(handle, prompt, timeoutMs, sendOptions);
+      const sendOptions =
+        onDelta || onToolActivity
+          ? {
+              ...(onDelta
+                ? {
+                    onDelta: (delta: string) =>
+                      onDelta(reviewerConfig.name, delta),
+                  }
+                : {}),
+              ...(onToolActivity
+                ? {
+                    onToolActivity: (toolName: string, args?: unknown) =>
+                      onToolActivity(reviewerConfig.name, toolName, args),
+                  }
+                : {}),
+            }
+          : undefined;
+      const review = await this.acpService.sendPrompt(
+        handle,
+        prompt,
+        timeoutMs,
+        sendOptions,
+      );
       return {
         reviewer: reviewerConfig.name,
         review,
@@ -196,8 +249,12 @@ ${delimiter}`;
       // Fallback: concatenate raw batch reviews
       return {
         reviewer: reviewerConfig.name,
-        review: batchReviews.map((r, i) => `## Batch ${i + 1}\n\n${r.review}`).join('\n\n---\n\n'),
-        status: batchReviews.some((r) => r.status === 'error') ? 'error' as const : 'success' as const,
+        review: batchReviews
+          .map((r, i) => `## Batch ${i + 1}\n\n${r.review}`)
+          .join('\n\n---\n\n'),
+        status: batchReviews.some((r) => r.status === 'error')
+          ? ('error' as const)
+          : ('success' as const),
         durationMs: Date.now() - startMs,
       };
     } finally {
@@ -205,7 +262,9 @@ ${delimiter}`;
         try {
           await this.acpService.stopClient(handle);
         } catch (stopError) {
-          this.logger.warn(`Failed to stop client for ${reviewerConfig.name} synthesis: ${sanitizeErrorMessage(stopError)}`);
+          this.logger.warn(
+            `Failed to stop client for ${reviewerConfig.name} synthesis: ${sanitizeErrorMessage(stopError)}`,
+          );
         }
       }
     }
@@ -224,7 +283,9 @@ ${delimiter}`;
       request.checks.length > 0 ? request.checks : config.review.defaultChecks;
     const checks = rawChecks
       .filter((c) => c.trim().length > 0)
-      .map((c) => c.slice(0, MAX_CHECK_LENGTH).replace(CONTROL_CHARS_REGEX, ''));
+      .map((c) =>
+        c.slice(0, MAX_CHECK_LENGTH).replace(CONTROL_CHARS_REGEX, ''),
+      );
 
     const allowExplore = !request.code && !!request.filePaths;
     const toolInstruction = allowExplore
@@ -255,7 +316,6 @@ A bullet list of general observations, tips, or improvements that are not specif
 Rules:
 - Output ONLY the two sections above — no introduction, no conclusion, no other prose
 - Do NOT number sections or add any other headings`;
-
 
     let prompt: string;
 

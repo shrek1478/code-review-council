@@ -50,9 +50,7 @@ function printDecisionsTable(decisions: ReviewDecisionItem[]): void {
   console.log(
     '| | Severity | Category | Description | File | Reasoning | Action | Raised by |',
   );
-  console.log(
-    '|---|---|---|---|---|---|---|---|',
-  );
+  console.log('|---|---|---|---|---|---|---|---|');
   for (const d of decisions) {
     const icon = getVerdictIcon(d.verdict);
     const file = d.file

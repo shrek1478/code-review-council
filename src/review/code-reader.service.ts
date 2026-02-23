@@ -122,7 +122,8 @@ export class CodeReaderService {
       configured = this.configService?.getConfig()?.review?.extensions;
     } catch (error) {
       if (
-        error instanceof Error && error.message.includes('Config not loaded')
+        error instanceof Error &&
+        error.message.includes('Config not loaded')
       ) {
         configLoaded = false;
       } else {
@@ -147,7 +148,8 @@ export class CodeReaderService {
       configured = this.configService?.getConfig()?.review?.sensitivePatterns;
     } catch (error) {
       if (
-        error instanceof Error && error.message.includes('Config not loaded')
+        error instanceof Error &&
+        error.message.includes('Config not loaded')
       ) {
         configLoaded = false;
       } else {
@@ -357,7 +359,10 @@ export class CodeReaderService {
 
   private resolveExcludePatterns(options: CodebaseOptions): string[] {
     if (options.excludePatterns !== undefined) return options.excludePatterns;
-    return this.configService?.getConfig()?.review?.excludePatterns ?? DEFAULT_EXCLUDE_PATTERNS;
+    return (
+      this.configService?.getConfig()?.review?.excludePatterns ??
+      DEFAULT_EXCLUDE_PATTERNS
+    );
   }
 
   /** Minimal glob matcher supporting `*`, `**`, `?` and path-based patterns. */
@@ -366,13 +371,13 @@ export class CodeReaderService {
     // Use placeholders to avoid later replacements clobbering inserted regex syntax
     const regexStr = pattern
       .replace(/\\/g, '/')
-      .replace(/[.+^${}()|[\]]/g, '\\$&')   // escape regex special chars
-      .replace(/\?/g, '[^/]')                // ? → one non-slash char
-      .replace(/\*\*\//g, '\x00GLOBSTAR\x00')// placeholder for **/
-      .replace(/\*\*/g, '\x00STAR2\x00')     // placeholder for **
-      .replace(/\*/g, '[^/]*')               // * → zero+ non-slash chars
+      .replace(/[.+^${}()|[\]]/g, '\\$&') // escape regex special chars
+      .replace(/\?/g, '[^/]') // ? → one non-slash char
+      .replace(/\*\*\//g, '\x00GLOBSTAR\x00') // placeholder for **/
+      .replace(/\*\*/g, '\x00STAR2\x00') // placeholder for **
+      .replace(/\*/g, '[^/]*') // * → zero+ non-slash chars
       .replace(/\x00GLOBSTAR\x00/g, '(?:[^/]+/)*') // **/ → zero+ dir segments
-      .replace(/\x00STAR2\x00/g, '.*');      // ** → anything
+      .replace(/\x00STAR2\x00/g, '.*'); // ** → anything
     return new RegExp(`^${regexStr}$`).test(normalized);
   }
 

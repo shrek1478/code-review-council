@@ -28,9 +28,9 @@ describe('sanitizeErrorMessage', () => {
     expect(sanitizeErrorMessage(new Error('pat=glpat-abcdef'))).toBe(
       'pat=[REDACTED]',
     );
-    expect(sanitizeErrorMessage(new Error('jwt=eyJhbGciOiJIUzI1NiJ9.test'))).toBe(
-      'jwt=[REDACTED]',
-    );
+    expect(
+      sanitizeErrorMessage(new Error('jwt=eyJhbGciOiJIUzI1NiJ9.test')),
+    ).toBe('jwt=[REDACTED]');
     expect(sanitizeErrorMessage(new Error('aws=AKIAIOSFODNN7EXAMPLE'))).toBe(
       'aws=[REDACTED]',
     );
@@ -56,7 +56,13 @@ describe('isRetryable', () => {
   });
 
   it('should return true for retryable error codes', () => {
-    for (const code of ['ETIMEDOUT', 'ECONNRESET', 'ECONNREFUSED', 'EPIPE', 'EAI_AGAIN']) {
+    for (const code of [
+      'ETIMEDOUT',
+      'ECONNRESET',
+      'ECONNREFUSED',
+      'EPIPE',
+      'EAI_AGAIN',
+    ]) {
       const err = new Error('fail') as NodeJS.ErrnoException;
       err.code = code;
       expect(isRetryable(err)).toBe(true);
@@ -64,7 +70,11 @@ describe('isRetryable', () => {
   });
 
   it('should return false for non-retryable error codes', () => {
-    for (const code of ['ERR_INVALID_TOKEN', 'ERR_UNAUTHORIZED', 'ERR_AUTHENTICATION']) {
+    for (const code of [
+      'ERR_INVALID_TOKEN',
+      'ERR_UNAUTHORIZED',
+      'ERR_AUTHENTICATION',
+    ]) {
       const err = new Error('fail') as NodeJS.ErrnoException;
       err.code = code;
       expect(isRetryable(err)).toBe(false);

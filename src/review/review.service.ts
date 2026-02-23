@@ -36,8 +36,15 @@ export class ReviewService {
     this.logger.setContext(ReviewService.name);
   }
 
-  private resolveMode(modeOverride?: 'inline' | 'batch' | 'explore', config?: CouncilConfig): 'inline' | 'batch' | 'explore' {
-    return modeOverride ?? (config ?? this.configService.getConfig()).review.mode ?? 'batch';
+  private resolveMode(
+    modeOverride?: 'inline' | 'batch' | 'explore',
+    config?: CouncilConfig,
+  ): 'inline' | 'batch' | 'explore' {
+    return (
+      modeOverride ??
+      (config ?? this.configService.getConfig()).review.mode ??
+      'batch'
+    );
   }
 
   async reviewDiff(
@@ -46,8 +53,17 @@ export class ReviewService {
     checks: string[] = [],
     extraInstructions?: string,
     onDelta?: (reviewer: string, delta: string) => void,
-    onReviewerDone?: (reviewer: string, status: 'done' | 'error', durationMs: number, error?: string) => void,
-    onToolActivity?: (reviewer: string, toolName: string, args?: unknown) => void,
+    onReviewerDone?: (
+      reviewer: string,
+      status: 'done' | 'error',
+      durationMs: number,
+      error?: string,
+    ) => void,
+    onToolActivity?: (
+      reviewer: string,
+      toolName: string,
+      args?: unknown,
+    ) => void,
     modeOverride?: 'inline' | 'batch' | 'explore',
     configOverride?: CouncilConfig,
     onDmDelta?: (content: string) => void,
@@ -55,7 +71,9 @@ export class ReviewService {
   ): Promise<ReviewResult> {
     const id = `review-${randomUUID().slice(0, 8)}`;
     const startMs = Date.now();
-    this.logger.log(`Starting diff review ${id} (mode: ${modeOverride ?? 'config'})`);
+    this.logger.log(
+      `Starting diff review ${id} (mode: ${modeOverride ?? 'config'})`,
+    );
 
     // Always send diff content inline, even in explore mode.
     // Unlike reviewFiles/reviewCodebase (which send only file paths in explore mode
@@ -73,11 +91,32 @@ export class ReviewService {
         absolutePath = resolve(repoPath);
       }
       result = await this.runReview(
-        id, code, checks, extraInstructions, absolutePath,
-        onDelta, onReviewerDone, onToolActivity, configOverride, onDmDelta, onDmStart,
+        id,
+        code,
+        checks,
+        extraInstructions,
+        absolutePath,
+        onDelta,
+        onReviewerDone,
+        onToolActivity,
+        configOverride,
+        onDmDelta,
+        onDmStart,
       );
     } else {
-      result = await this.runReview(id, code, checks, extraInstructions, undefined, onDelta, onReviewerDone, onToolActivity, configOverride, onDmDelta, onDmStart);
+      result = await this.runReview(
+        id,
+        code,
+        checks,
+        extraInstructions,
+        undefined,
+        onDelta,
+        onReviewerDone,
+        onToolActivity,
+        configOverride,
+        onDmDelta,
+        onDmStart,
+      );
     }
     result.durationMs = Date.now() - startMs;
     this.logger.log(`Diff review ${id} completed in ${result.durationMs}ms`);
@@ -89,8 +128,17 @@ export class ReviewService {
     checks: string[] = [],
     extraInstructions?: string,
     onDelta?: (reviewer: string, delta: string) => void,
-    onReviewerDone?: (reviewer: string, status: 'done' | 'error', durationMs: number, error?: string) => void,
-    onToolActivity?: (reviewer: string, toolName: string, args?: unknown) => void,
+    onReviewerDone?: (
+      reviewer: string,
+      status: 'done' | 'error',
+      durationMs: number,
+      error?: string,
+    ) => void,
+    onToolActivity?: (
+      reviewer: string,
+      toolName: string,
+      args?: unknown,
+    ) => void,
     modeOverride?: 'inline' | 'batch' | 'explore',
     configOverride?: CouncilConfig,
     onDmDelta?: (content: string) => void,
@@ -98,7 +146,9 @@ export class ReviewService {
   ): Promise<ReviewResult> {
     const id = `review-${randomUUID().slice(0, 8)}`;
     const startMs = Date.now();
-    this.logger.log(`Starting file review ${id} (mode: ${modeOverride ?? 'config'})`);
+    this.logger.log(
+      `Starting file review ${id} (mode: ${modeOverride ?? 'config'})`,
+    );
 
     let result: ReviewResult;
     const mode = this.resolveMode(modeOverride, configOverride);
@@ -140,8 +190,17 @@ export class ReviewService {
         `Exploration mode: sending ${safePaths.length} file paths (no content)`,
       );
       result = await this.runExplorationReview(
-        id, safePaths, checks, extraInstructions, repoRoot,
-        onDelta, onReviewerDone, onToolActivity, configOverride, onDmDelta, onDmStart,
+        id,
+        safePaths,
+        checks,
+        extraInstructions,
+        repoRoot,
+        onDelta,
+        onReviewerDone,
+        onToolActivity,
+        configOverride,
+        onDmDelta,
+        onDmStart,
       );
     } else {
       const files = await this.codeReader.readFiles(filePaths);
@@ -149,14 +208,38 @@ export class ReviewService {
         const code = files
           .map((f) => `=== ${sanitizeFileName(f.path)} ===\n${f.content}`)
           .join('\n\n');
-        this.logger.log(`Inline mode: ${files.length} files, ${code.length} chars`);
-        result = await this.runReview(id, code, checks, extraInstructions, undefined, onDelta, onReviewerDone, onToolActivity, configOverride, onDmDelta, onDmStart);
+        this.logger.log(
+          `Inline mode: ${files.length} files, ${code.length} chars`,
+        );
+        result = await this.runReview(
+          id,
+          code,
+          checks,
+          extraInstructions,
+          undefined,
+          onDelta,
+          onReviewerDone,
+          onToolActivity,
+          configOverride,
+          onDmDelta,
+          onDmStart,
+        );
       } else {
         const batches = this.codeReader.createBatches(files);
-        this.logger.log(`Batch mode: ${files.length} files split into ${batches.length} batch(es)`);
+        this.logger.log(
+          `Batch mode: ${files.length} files split into ${batches.length} batch(es)`,
+        );
         result = await this.runBatchedInlineReview(
-          id, batches, checks, extraInstructions,
-          onDelta, onReviewerDone, onToolActivity, configOverride, onDmDelta, onDmStart,
+          id,
+          batches,
+          checks,
+          extraInstructions,
+          onDelta,
+          onReviewerDone,
+          onToolActivity,
+          configOverride,
+          onDmDelta,
+          onDmStart,
         );
       }
     }
@@ -171,8 +254,17 @@ export class ReviewService {
     checks: string[] = [],
     extraInstructions?: string,
     onDelta?: (reviewer: string, delta: string) => void,
-    onReviewerDone?: (reviewer: string, status: 'done' | 'error', durationMs: number, error?: string) => void,
-    onToolActivity?: (reviewer: string, toolName: string, args?: unknown) => void,
+    onReviewerDone?: (
+      reviewer: string,
+      status: 'done' | 'error',
+      durationMs: number,
+      error?: string,
+    ) => void,
+    onToolActivity?: (
+      reviewer: string,
+      toolName: string,
+      args?: unknown,
+    ) => void,
     modeOverride?: 'inline' | 'batch' | 'explore',
     configOverride?: CouncilConfig,
     onDmDelta?: (content: string) => void,
@@ -180,7 +272,9 @@ export class ReviewService {
   ): Promise<ReviewResult> {
     const id = `review-${randomUUID().slice(0, 8)}`;
     const startMs = Date.now();
-    this.logger.log(`Starting codebase review ${id} (mode: ${modeOverride ?? 'config'})`);
+    this.logger.log(
+      `Starting codebase review ${id} (mode: ${modeOverride ?? 'config'})`,
+    );
 
     let result: ReviewResult;
     const mode = this.resolveMode(modeOverride, configOverride);
@@ -192,11 +286,25 @@ export class ReviewService {
       } catch {
         absoluteDir = resolve(directory);
       }
-      const filePaths = await this.codeReader.listCodebaseFiles(absoluteDir, options);
-      this.logger.log(`Exploration mode: found ${filePaths.length} files (no content)`);
+      const filePaths = await this.codeReader.listCodebaseFiles(
+        absoluteDir,
+        options,
+      );
+      this.logger.log(
+        `Exploration mode: found ${filePaths.length} files (no content)`,
+      );
       result = await this.runExplorationReview(
-        id, filePaths, checks, extraInstructions, absoluteDir,
-        onDelta, onReviewerDone, onToolActivity, configOverride, onDmDelta, onDmStart,
+        id,
+        filePaths,
+        checks,
+        extraInstructions,
+        absoluteDir,
+        onDelta,
+        onReviewerDone,
+        onToolActivity,
+        configOverride,
+        onDmDelta,
+        onDmStart,
       );
     } else if (mode === 'inline') {
       const batches = await this.codeReader.readCodebase(directory, options);
@@ -204,14 +312,36 @@ export class ReviewService {
       const code = allFiles
         .map((f) => `=== ${sanitizeFileName(f.path)} ===\n${f.content}`)
         .join('\n\n');
-      this.logger.log(`Inline mode: ${allFiles.length} files, ${code.length} chars`);
-      result = await this.runReview(id, code, checks, extraInstructions, undefined, onDelta, onReviewerDone, onToolActivity, configOverride, onDmDelta, onDmStart);
+      this.logger.log(
+        `Inline mode: ${allFiles.length} files, ${code.length} chars`,
+      );
+      result = await this.runReview(
+        id,
+        code,
+        checks,
+        extraInstructions,
+        undefined,
+        onDelta,
+        onReviewerDone,
+        onToolActivity,
+        configOverride,
+        onDmDelta,
+        onDmStart,
+      );
     } else {
       const batches = await this.codeReader.readCodebase(directory, options);
       this.logger.log(`Batch mode: split into ${batches.length} batch(es)`);
       result = await this.runBatchedInlineReview(
-        id, batches, checks, extraInstructions,
-        onDelta, onReviewerDone, onToolActivity, configOverride, onDmDelta, onDmStart,
+        id,
+        batches,
+        checks,
+        extraInstructions,
+        onDelta,
+        onReviewerDone,
+        onToolActivity,
+        configOverride,
+        onDmDelta,
+        onDmStart,
       );
     }
 
@@ -222,7 +352,9 @@ export class ReviewService {
     return result;
   }
 
-  private groupReviewsByReviewer(reviews: IndividualReview[]): Map<string, IndividualReview[]> {
+  private groupReviewsByReviewer(
+    reviews: IndividualReview[],
+  ): Map<string, IndividualReview[]> {
     const grouped = new Map<string, IndividualReview[]>();
     for (const r of reviews) {
       const list = grouped.get(r.reviewer) ?? [];
@@ -232,22 +364,29 @@ export class ReviewService {
     return grouped;
   }
 
-  private mergeReviewsByReviewer(reviews: IndividualReview[]): IndividualReview[] {
-    return [...this.groupReviewsByReviewer(reviews).entries()].map(([reviewer, batchReviews]) => {
-      const hasError = batchReviews.some((r) => r.status === 'error');
-      const combined =
-        batchReviews.length === 1
-          ? batchReviews[0].review
-          : batchReviews
-              .map((r, i) => `## Batch ${i + 1}\n\n${r.review}`)
-              .join('\n\n---\n\n');
-      return {
-        reviewer,
-        review: combined,
-        status: hasError ? ('error' as const) : ('success' as const),
-        durationMs: batchReviews.reduce((sum, r) => sum + (r.durationMs ?? 0), 0),
-      };
-    });
+  private mergeReviewsByReviewer(
+    reviews: IndividualReview[],
+  ): IndividualReview[] {
+    return [...this.groupReviewsByReviewer(reviews).entries()].map(
+      ([reviewer, batchReviews]) => {
+        const hasError = batchReviews.some((r) => r.status === 'error');
+        const combined =
+          batchReviews.length === 1
+            ? batchReviews[0].review
+            : batchReviews
+                .map((r, i) => `## Batch ${i + 1}\n\n${r.review}`)
+                .join('\n\n---\n\n');
+        return {
+          reviewer,
+          review: combined,
+          status: hasError ? ('error' as const) : ('success' as const),
+          durationMs: batchReviews.reduce(
+            (sum, r) => sum + (r.durationMs ?? 0),
+            0,
+          ),
+        };
+      },
+    );
   }
 
   private allReviewsFailed(reviews: IndividualReview[]): boolean {
@@ -265,18 +404,33 @@ export class ReviewService {
     extraInstructions?: string,
     repoPath?: string,
     onDelta?: (reviewer: string, delta: string) => void,
-    onReviewerDone?: (reviewer: string, status: 'done' | 'error', durationMs: number, error?: string) => void,
-    onToolActivity?: (reviewer: string, toolName: string, args?: unknown) => void,
+    onReviewerDone?: (
+      reviewer: string,
+      status: 'done' | 'error',
+      durationMs: number,
+      error?: string,
+    ) => void,
+    onToolActivity?: (
+      reviewer: string,
+      toolName: string,
+      args?: unknown,
+    ) => void,
     configOverride?: CouncilConfig,
     onDmDelta?: (content: string) => void,
     onDmStart?: (dmName: string) => void,
   ): Promise<ReviewResult> {
-    const individualReviews = await this.council.dispatchReviews({
-      checks,
-      extraInstructions,
-      repoPath,
-      filePaths,
-    }, onDelta, onReviewerDone, onToolActivity, configOverride);
+    const individualReviews = await this.council.dispatchReviews(
+      {
+        checks,
+        extraInstructions,
+        repoPath,
+        filePaths,
+      },
+      onDelta,
+      onReviewerDone,
+      onToolActivity,
+      configOverride,
+    );
 
     if (this.allReviewsFailed(individualReviews)) {
       this.logger.error('All reviewers failed, skipping decision maker');
@@ -313,8 +467,17 @@ export class ReviewService {
     checks: string[],
     extraInstructions?: string,
     onDelta?: (reviewer: string, delta: string) => void,
-    onReviewerDone?: (reviewer: string, status: 'done' | 'error', durationMs: number, error?: string) => void,
-    onToolActivity?: (reviewer: string, toolName: string, args?: unknown) => void,
+    onReviewerDone?: (
+      reviewer: string,
+      status: 'done' | 'error',
+      durationMs: number,
+      error?: string,
+    ) => void,
+    onToolActivity?: (
+      reviewer: string,
+      toolName: string,
+      args?: unknown,
+    ) => void,
     configOverride?: CouncilConfig,
     onDmDelta?: (content: string) => void,
     onDmStart?: (dmName: string) => void,
@@ -323,7 +486,17 @@ export class ReviewService {
       const code = batches[0]
         .map((f) => `=== ${sanitizeFileName(f.path)} ===\n${f.content}`)
         .join('\n\n');
-      return this.runReview(id, code, checks, extraInstructions, undefined, onDelta, onReviewerDone, onToolActivity, configOverride);
+      return this.runReview(
+        id,
+        code,
+        checks,
+        extraInstructions,
+        undefined,
+        onDelta,
+        onReviewerDone,
+        onToolActivity,
+        configOverride,
+      );
     }
 
     // Multi-batch: review batches with limited concurrency, then pass file summary to decision maker
@@ -331,7 +504,9 @@ export class ReviewService {
     const allFileNames: string[] = [];
 
     // Reviewer names for synthetic progress notifications
-    const reviewerNames = (configOverride ?? this.configService.getConfig()).reviewers.map((r) => r.name);
+    const reviewerNames = (
+      configOverride ?? this.configService.getConfig()
+    ).reviewers.map((r) => r.name);
 
     // Collect file names upfront
     for (const batch of batches) {
@@ -346,9 +521,10 @@ export class ReviewService {
       // Notify UI once per chunk (before parallel dispatch) to avoid rapid-fire overwrites
       const chunkStart = i + 1;
       const chunkEnd = Math.min(i + BATCH_CONCURRENCY, batches.length);
-      const batchLabel = chunkStart === chunkEnd
-        ? `Batch ${chunkStart} / ${batches.length}`
-        : `Batches ${chunkStart}–${chunkEnd} / ${batches.length}`;
+      const batchLabel =
+        chunkStart === chunkEnd
+          ? `Batch ${chunkStart} / ${batches.length}`
+          : `Batches ${chunkStart}–${chunkEnd} / ${batches.length}`;
       const chunkFiles = chunk.reduce((sum, b) => sum + b.length, 0);
       for (const name of reviewerNames) {
         onToolActivity?.(name, batchLabel, { files: chunkFiles });
@@ -370,11 +546,17 @@ export class ReviewService {
           );
           // Batch phase: run silently — no delta or progress events.
           // onDelta/onReviewerDone are deferred until synthesis completes.
-          const reviews = await this.council.dispatchReviews({
-            code,
-            checks,
-            extraInstructions: batchExtra,
-          }, undefined, undefined, onToolActivity, configOverride);
+          const reviews = await this.council.dispatchReviews(
+            {
+              code,
+              checks,
+              extraInstructions: batchExtra,
+            },
+            undefined,
+            undefined,
+            onToolActivity,
+            configOverride,
+          );
           this.logger.log(
             `[Batch ${batchIdx + 1}/${batches.length}] Complete.`,
           );
@@ -392,7 +574,11 @@ export class ReviewService {
 
     if (this.allReviewsFailed(allReviews)) {
       this.logger.error('All reviewers failed, skipping decision maker');
-      return { id, status: 'failed', individualReviews: this.mergeReviewsByReviewer(allReviews) };
+      return {
+        id,
+        status: 'failed',
+        individualReviews: this.mergeReviewsByReviewer(allReviews),
+      };
     }
 
     // Each reviewer consolidates their own batch findings before passing to DM
@@ -401,22 +587,46 @@ export class ReviewService {
     const grouped = this.groupReviewsByReviewer(allReviews);
     const synthesizedReviews = await Promise.all(
       [...grouped.entries()].map(async ([reviewerName, batchReviews]) => {
-        const reviewerConfig = config.reviewers.find((r) => r.name === reviewerName);
+        const reviewerConfig = config.reviewers.find(
+          (r) => r.name === reviewerName,
+        );
         if (!reviewerConfig || batchReviews.length <= 1) {
-          const result = batchReviews.length === 1 ? batchReviews[0] : this.mergeReviewsByReviewer(batchReviews)[0];
-          onReviewerDone?.(reviewerName, result.status === 'error' ? 'error' : 'done', result.durationMs ?? 0);
+          const result =
+            batchReviews.length === 1
+              ? batchReviews[0]
+              : this.mergeReviewsByReviewer(batchReviews)[0];
+          onReviewerDone?.(
+            reviewerName,
+            result.status === 'error' ? 'error' : 'done',
+            result.durationMs ?? 0,
+          );
           return result;
         }
-        this.logger.log(`[Synthesis] ${reviewerName}: consolidating ${batchReviews.length} batch reviews...`);
+        this.logger.log(
+          `[Synthesis] ${reviewerName}: consolidating ${batchReviews.length} batch reviews...`,
+        );
         // Notify UI: batch phase done, synthesis starting
         onToolActivity?.(reviewerName, 'Merging...', undefined);
         // Synthesis: stream delta content to frontend, then fire a single reviewerDone
-        const result = await this.council.synthesizeReview(reviewerConfig, batchReviews, lang, undefined, onDelta, onToolActivity);
-        onReviewerDone?.(reviewerName, result.status === 'error' ? 'error' : 'done', result.durationMs ?? 0);
+        const result = await this.council.synthesizeReview(
+          reviewerConfig,
+          batchReviews,
+          lang,
+          undefined,
+          onDelta,
+          onToolActivity,
+        );
+        onReviewerDone?.(
+          reviewerName,
+          result.status === 'error' ? 'error' : 'done',
+          result.durationMs ?? 0,
+        );
         return result;
       }),
     );
-    this.logger.log(`Synthesis complete. Sending ${synthesizedReviews.length} reviews to decision maker...`);
+    this.logger.log(
+      `Synthesis complete. Sending ${synthesizedReviews.length} reviews to decision maker...`,
+    );
     const fileSummary = allFileNames.join('\n');
     try {
       const decision = await this.decisionMaker.decide(
@@ -464,18 +674,33 @@ export class ReviewService {
     extraInstructions?: string,
     repoPath?: string,
     onDelta?: (reviewer: string, delta: string) => void,
-    onReviewerDone?: (reviewer: string, status: 'done' | 'error', durationMs: number, error?: string) => void,
-    onToolActivity?: (reviewer: string, toolName: string, args?: unknown) => void,
+    onReviewerDone?: (
+      reviewer: string,
+      status: 'done' | 'error',
+      durationMs: number,
+      error?: string,
+    ) => void,
+    onToolActivity?: (
+      reviewer: string,
+      toolName: string,
+      args?: unknown,
+    ) => void,
     configOverride?: CouncilConfig,
     onDmDelta?: (content: string) => void,
     onDmStart?: (dmName: string) => void,
   ): Promise<ReviewResult> {
-    const individualReviews = await this.council.dispatchReviews({
-      code,
-      checks,
-      extraInstructions,
-      repoPath,
-    }, onDelta, onReviewerDone, onToolActivity, configOverride);
+    const individualReviews = await this.council.dispatchReviews(
+      {
+        code,
+        checks,
+        extraInstructions,
+        repoPath,
+      },
+      onDelta,
+      onReviewerDone,
+      onToolActivity,
+      configOverride,
+    );
 
     // All reviewers failed → no usable data for the decision maker, return 'failed'.
     // If only some reviewers failed, proceed to the DM — partial data is still valuable.
@@ -485,7 +710,15 @@ export class ReviewService {
     }
 
     try {
-      const decision = await this.decisionMaker.decide(code, individualReviews, 'inline', repoPath, configOverride, onDmDelta, onDmStart);
+      const decision = await this.decisionMaker.decide(
+        code,
+        individualReviews,
+        'inline',
+        repoPath,
+        configOverride,
+        onDmDelta,
+        onDmStart,
+      );
       const status =
         decision.parseFailed || this.hasAnyReviewerFailure(individualReviews)
           ? 'partial'

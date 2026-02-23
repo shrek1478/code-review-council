@@ -31,15 +31,16 @@ describe('ReviewService', () => {
       { reviewer: 'Gemini', review: 'Looks good', status: 'success' },
       { reviewer: 'Codex', review: 'LGTM', status: 'success' },
     ]),
-    synthesizeReview: vi.fn().mockImplementation(
-      (reviewerConfig: any, batchReviews: any[]) =>
+    synthesizeReview: vi
+      .fn()
+      .mockImplementation((reviewerConfig: any, batchReviews: any[]) =>
         Promise.resolve({
           reviewer: reviewerConfig.name,
           review: batchReviews.map((r: any) => r.review).join('\n'),
           status: 'success' as const,
           durationMs: 0,
         }),
-    ),
+      ),
   };
   const mockDecisionMaker = {
     decide: vi.fn().mockResolvedValue({

@@ -89,7 +89,10 @@ export class AcpService implements OnModuleDestroy {
   private static readonly CLI_RESOLVE_TIMEOUT_MS = 5_000;
   private static readonly SAFE_CLI_NAME = /^(?!-)[A-Za-z0-9._-]+$/;
 
-  async createClient(config: ReviewerConfig, cwd?: string): Promise<AcpClientHandle> {
+  async createClient(
+    config: ReviewerConfig,
+    cwd?: string,
+  ): Promise<AcpClientHandle> {
     if (this.stopping) {
       throw new Error('Cannot create client: AcpService is shutting down');
     }
@@ -144,32 +147,37 @@ export class AcpService implements OnModuleDestroy {
     const lookupCmd = process.platform === 'win32' ? 'where' : 'which';
     return new Promise<string>((resolve) => {
       try {
-        execFile(lookupCmd, [cliPath], { encoding: 'utf-8', timeout: AcpService.CLI_RESOLVE_TIMEOUT_MS }, (err, stdout) => {
-          if (err) {
-            this.logger.warn(
-              `Could not resolve "${cliPath}" via ${lookupCmd}, using as-is. Ensure the CLI tool is installed and in your PATH.`,
-            );
-            this.resolvedPaths.set(cliPath, cliPath);
-            resolve(cliPath);
-            return;
-          }
-          // `where` may return multiple matches (one per line); use the first non-empty line
-          const resolved =
-            stdout
-              .split('\n')
-              .map((l) => l.trim())
-              .find((l) => l.length > 0) ?? cliPath;
-          if (resolved.includes('\0')) {
-            this.logger.warn(
-              `Resolved path for "${cliPath}" contains null bytes, using original`,
-            );
-            this.resolvedPaths.set(cliPath, cliPath);
-            resolve(cliPath);
-            return;
-          }
-          this.resolvedPaths.set(cliPath, resolved);
-          resolve(resolved);
-        });
+        execFile(
+          lookupCmd,
+          [cliPath],
+          { encoding: 'utf-8', timeout: AcpService.CLI_RESOLVE_TIMEOUT_MS },
+          (err, stdout) => {
+            if (err) {
+              this.logger.warn(
+                `Could not resolve "${cliPath}" via ${lookupCmd}, using as-is. Ensure the CLI tool is installed and in your PATH.`,
+              );
+              this.resolvedPaths.set(cliPath, cliPath);
+              resolve(cliPath);
+              return;
+            }
+            // `where` may return multiple matches (one per line); use the first non-empty line
+            const resolved =
+              stdout
+                .split('\n')
+                .map((l) => l.trim())
+                .find((l) => l.length > 0) ?? cliPath;
+            if (resolved.includes('\0')) {
+              this.logger.warn(
+                `Resolved path for "${cliPath}" contains null bytes, using original`,
+              );
+              this.resolvedPaths.set(cliPath, cliPath);
+              resolve(cliPath);
+              return;
+            }
+            this.resolvedPaths.set(cliPath, resolved);
+            resolve(resolved);
+          },
+        );
       } catch {
         // execFile may throw synchronously (e.g. ENOENT for the lookup command itself)
         this.resolvedPaths.set(cliPath, cliPath);
@@ -270,9 +278,7 @@ export class AcpService implements OnModuleDestroy {
     });
     const stopPromise = client
       .stop()
-      .catch((e: unknown) =>
-        e instanceof Error ? e : new Error(String(e)),
-      );
+      .catch((e: unknown) => (e instanceof Error ? e : new Error(String(e))));
     try {
       const result = await Promise.race([stopPromise, timeout]);
       if (result instanceof Error) throw result;

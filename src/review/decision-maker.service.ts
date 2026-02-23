@@ -166,7 +166,12 @@ Rules:
           if (!handle) {
             handle = await this.acpService.createClient(dmConfig, cwd);
           }
-          return this.acpService.sendPrompt(handle, prompt, timeoutMs, onDelta ? { onDelta } : undefined);
+          return this.acpService.sendPrompt(
+            handle,
+            prompt,
+            timeoutMs,
+            onDelta ? { onDelta } : undefined,
+          );
         },
         {
           maxRetries,
@@ -275,10 +280,22 @@ Rules:
           continue;
         }
         const code = ch.charCodeAt(0);
-        if (code === 0x0a) { result += '\\n'; continue; }
-        if (code === 0x0d) { result += '\\r'; continue; }
-        if (code === 0x09) { result += '\\t'; continue; }
-        if (code < 0x20) { result += `\\u${code.toString(16).padStart(4, '0')}`; continue; }
+        if (code === 0x0a) {
+          result += '\\n';
+          continue;
+        }
+        if (code === 0x0d) {
+          result += '\\r';
+          continue;
+        }
+        if (code === 0x09) {
+          result += '\\t';
+          continue;
+        }
+        if (code < 0x20) {
+          result += `\\u${code.toString(16).padStart(4, '0')}`;
+          continue;
+        }
         result += ch;
         continue;
       }
