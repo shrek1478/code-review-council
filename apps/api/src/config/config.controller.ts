@@ -12,23 +12,6 @@ export class ConfigController {
 
   @Post('validate')
   validateConfig(@Body() body: Record<string, unknown>) {
-    try {
-      // Basic structural validation
-      if (!body.reviewers || !Array.isArray(body.reviewers)) {
-        return { valid: false, error: 'reviewers must be an array' };
-      }
-      if (!body.decisionMaker || typeof body.decisionMaker !== 'object') {
-        return { valid: false, error: 'decisionMaker is required' };
-      }
-      if (!body.review || typeof body.review !== 'object') {
-        return { valid: false, error: 'review settings are required' };
-      }
-      return { valid: true };
-    } catch (error) {
-      return {
-        valid: false,
-        error: error instanceof Error ? error.message : 'Invalid config',
-      };
-    }
+    return this.configService.validateConfigData(body);
   }
 }

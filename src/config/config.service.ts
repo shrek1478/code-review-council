@@ -208,6 +208,21 @@ export class ConfigService {
     return this.config;
   }
 
+  /**
+   * 供外部呼叫的設定驗證入口，回傳 { valid, error } 而非 throw。
+   */
+  validateConfigData(config: Record<string, unknown>): { valid: boolean; error?: string } {
+    try {
+      this.validateConfig(config as Record<string, any>, 'inline');
+      return { valid: true };
+    } catch (error) {
+      return {
+        valid: false,
+        error: error instanceof Error ? error.message : 'Invalid config',
+      };
+    }
+  }
+
   private validateConfig(config: Record<string, any>, filePath: string): void {
     if (!Array.isArray(config.reviewers) || config.reviewers.length === 0) {
       throw new Error(
