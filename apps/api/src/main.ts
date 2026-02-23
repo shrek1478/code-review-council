@@ -6,7 +6,8 @@ async function bootstrap() {
   const app = await NestFactory.create(AppModule);
   app.useWebSocketAdapter(new WsAdapter(app));
   app.setGlobalPrefix('api');
-  app.enableCors();
+  // 限制 CORS 來源為 localhost 任意 port（本機開發工具）
+  app.enableCors({ origin: /^http:\/\/localhost(:\d+)?$/, credentials: true });
   await app.listen(3100);
   console.log('API server running on http://localhost:3100');
 }
