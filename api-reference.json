@@ -441,7 +441,7 @@
           },
           "mode": {
             "type": "string",
-            "enum": ["inline", "explore"],
+            "enum": ["inline", "batch", "explore"],
             "description": "Review mode: 'inline' sends code content to reviewers, 'explore' sends only file paths and lets agents read files themselves",
             "example": "inline"
           },

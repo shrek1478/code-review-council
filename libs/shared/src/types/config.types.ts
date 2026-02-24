@@ -6,6 +6,7 @@ export interface ReviewerConfig {
   model?: string;
   timeoutMs?: number;
   maxRetries?: number;
+  streaming?: boolean;
 }
 
 export interface ReviewConfig {
@@ -17,6 +18,8 @@ export interface ReviewConfig {
   mode?: 'inline' | 'batch' | 'explore';
   extensions?: string[];
   sensitivePatterns?: string[];
+  /** Glob patterns for files to exclude from codebase/file reviews (e.g. test files). */
+  excludePatterns?: string[];
 }
 
 export interface CouncilConfig {

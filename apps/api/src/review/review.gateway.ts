@@ -6,14 +6,19 @@ import { Inject, ConsoleLogger } from '@nestjs/common';
 import { WebSocket } from 'ws';
 import { ReviewService } from '../../../../src/review/review.service.js';
 import { ConfigService } from '../../../../src/config/config.service.js';
+import type { CouncilConfig } from '../../../../src/config/config.types.js';
 
 interface WsIncoming {
   event: string;
   data: Record<string, unknown>;
 }
 
+const MAX_CONCURRENT_REVIEWS = 1;
+
 @WebSocketGateway({ path: '/ws/reviews' })
 export class ReviewGateway implements OnGatewayConnection {
+  private activeReviews = 0;
+
   constructor(
     private readonly reviewService: ReviewService,
     private readonly configService: ConfigService,
@@ -59,18 +64,39 @@ export class ReviewGateway implements OnGatewayConnection {
   ): Promise<void> {
     const { event, data } = msg;
 
-    switch (event) {
-      case 'start:codebase':
-        await this.runCodebaseReview(client, data);
-        break;
-      case 'start:diff':
-        await this.runDiffReview(client, data);
-        break;
-      case 'start:file':
-        await this.runFileReview(client, data);
-        break;
-      default:
-        this.send(client, 'error', { message: `Unknown event: ${event}` });
+    const isReviewEvent =
+      event === 'start:codebase' ||
+      event === 'start:diff' ||
+      event === 'start:file';
+
+    if (isReviewEvent && this.activeReviews >= MAX_CONCURRENT_REVIEWS) {
+      this.send(client, 'error', {
+        message: `A review is already in progress. Please wait for it to complete.`,
+      });
+      return;
+    }
+
+    if (isReviewEvent) {
+      this.activeReviews++;
+    }
+    try {
+      switch (event) {
+        case 'start:codebase':
+          await this.runCodebaseReview(client, data);
+          break;
+        case 'start:diff':
+          await this.runDiffReview(client, data);
+          break;
+        case 'start:file':
+          await this.runFileReview(client, data);
+          break;
+        default:
+          this.send(client, 'error', { message: `Unknown event: ${event}` });
+      }
+    } finally {
+      if (isReviewEvent) {
+        this.activeReviews--;
+      }
     }
   }
 
@@ -101,7 +127,7 @@ export class ReviewGateway implements OnGatewayConnection {
     return { onDelta, onReviewerDone, onToolActivity, onDmStart, onDmDelta };
   }
 
-  private sendInitialProgress(client: WebSocket, config: import('../../../../src/config/config.types.js').CouncilConfig): void {
+  private sendInitialProgress(client: WebSocket, config: CouncilConfig): void {
     for (const r of config.reviewers) {
       this.send(client, 'progress', {
         reviewer: r.name,
@@ -117,9 +143,8 @@ export class ReviewGateway implements OnGatewayConnection {
     return undefined;
   }
 
-  private extractConfig(data: Record<string, unknown>): import('../../../../src/config/config.types.js').CouncilConfig | undefined {
+  private extractConfig(data: Record<string, unknown>): CouncilConfig | undefined {
     if (data.config && typeof data.config === 'object' && !Array.isArray(data.config)) {
-      type CouncilConfig = import('../../../../src/config/config.types.js').CouncilConfig;
       const partial = data.config as Partial<CouncilConfig>;
       let merged: CouncilConfig;
       if (!partial.decisionMaker) {
