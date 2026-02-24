@@ -342,6 +342,24 @@ export class ConfigService {
         );
       }
     }
+    if (config.review.excludePatterns !== undefined) {
+      if (
+        !Array.isArray(config.review.excludePatterns) ||
+        !config.review.excludePatterns.every(
+          (p: unknown) => typeof p === 'string',
+        )
+      ) {
+        throw new Error(
+          `Invalid config (${filePath}): "review.excludePatterns" must be an array of strings`,
+        );
+      }
+      const MAX_EXCLUDE_PATTERNS = 50;
+      if (config.review.excludePatterns.length > MAX_EXCLUDE_PATTERNS) {
+        throw new Error(
+          `Invalid config (${filePath}): "review.excludePatterns" exceeds maximum of ${MAX_EXCLUDE_PATTERNS} entries`,
+        );
+      }
+    }
   }
 
   private validateSensitivePatterns(
