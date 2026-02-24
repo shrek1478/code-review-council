@@ -316,10 +316,10 @@ export class ResultViewerComponent {
         'ul', 'ol', 'li',
         'table', 'thead', 'tbody', 'tr', 'th', 'td',
         'pre', 'code', 'blockquote',
-        'strong', 'em', 'del', 'a', 'img', 'span', 'div',
+        'strong', 'em', 'del', 'a', 'span', 'div',
         'details', 'summary', 'sup', 'sub',
       ],
-      ALLOWED_ATTR: ['href', 'src', 'alt', 'title', 'class', 'id', 'target', 'rel'],
+      ALLOWED_ATTR: ['href', 'alt', 'title', 'class', 'id', 'target', 'rel'],
     });
     const result = this.sanitizer.bypassSecurityTrustHtml(html);
     // Keep cache bounded — only cache latest per unique content
