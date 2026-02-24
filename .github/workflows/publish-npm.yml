@@ -61,13 +61,14 @@ jobs:
 
       - name: Publish
         run: |
+          npm config set @shrek1478:registry https://registry.npmjs.org
           PKG_NAME=$(node -p "require('./package.json').name")
           VERSION=$(node -p "require('./package.json').version")
           echo "Publishing ${PKG_NAME}@${VERSION}"
           if npm view "${PKG_NAME}@${VERSION}" version 2>/dev/null; then
             echo "::warning::Version ${VERSION} already exists, skipping publish"
           else
-            npm publish --access public --registry https://registry.npmjs.org
+            npm publish --access public
           fi
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
