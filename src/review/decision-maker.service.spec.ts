@@ -42,7 +42,7 @@ describe('DecisionMakerService', () => {
     getConfig: vi.fn().mockReturnValue({
       decisionMaker: {
         name: 'Claude',
-        cliPath: 'claude-code-acp',
+        cliPath: 'claude-agent-acp',
         cliArgs: [],
       },
       review: { language: 'zh-tw' },
@@ -167,7 +167,7 @@ describe('DecisionMakerService', () => {
     mockConfigService.getConfig.mockReturnValue({
       decisionMaker: {
         name: 'Claude',
-        cliPath: 'claude-code-acp',
+        cliPath: 'claude-agent-acp',
         cliArgs: [],
       },
       review: { language: 'zh-tw', maxReviewsLength: 100 },
@@ -184,7 +184,7 @@ describe('DecisionMakerService', () => {
     mockConfigService.getConfig.mockReturnValue({
       decisionMaker: {
         name: 'Claude',
-        cliPath: 'claude-code-acp',
+        cliPath: 'claude-agent-acp',
         cliArgs: [],
         timeoutMs: 600000,
       },
@@ -258,7 +258,7 @@ describe('DecisionMakerService', () => {
     mockConfigService.getConfig.mockReturnValue({
       decisionMaker: {
         name: 'Claude',
-        cliPath: 'claude-code-acp',
+        cliPath: 'claude-agent-acp',
         cliArgs: [],
         maxRetries: 1,
       },

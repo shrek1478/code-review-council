@@ -39,7 +39,7 @@
 | [Gemini CLI](https://github.com/google-gemini/gemini-cli) | `npm install -g @google/gemini-cli` | ACP |
 | [GitHub Copilot CLI](https://github.com/github/copilot-cli) | `npm install -g @github/copilot` | Copilot |
 | [Codex CLI](https://github.com/openai/codex) | `npm install -g @openai/codex` | ACP |
-| [Claude Code ACP](https://github.com/zed-industries/claude-code-acp) | `npm install -g @zed-industries/claude-code-acp` | ACP |
+| [Claude Agent ACP](https://github.com/zed-industries/claude-code-acp) | `npm install -g @zed-industries/claude-agent-acp` | ACP |
 
 > Copilot CLI 使用原生 Copilot SDK protocol，設定 `"protocol": "copilot"` 啟用，其餘 CLI 預設使用 ACP protocol。
 
@@ -161,7 +161,7 @@ mkdir -p ~/.code-review-council
     },
     {
       "name": "Claude",
-      "cliPath": "claude-code-acp",
+      "cliPath": "claude-agent-acp",
       "cliArgs": [],
       "timeoutMs": 600000,
       "maxRetries": 0

@@ -540,7 +540,7 @@ export class ConfigService {
     ) {
       throw new Error(
         `Invalid config (${filePath}): "${path}.cliPath" value "${r.cliPath}" is not a valid command name. ` +
-          `Only simple command names resolvable via PATH are allowed (e.g. "gemini", "copilot", "codex-acp", "claude-code-acp").`,
+          `Only simple command names resolvable via PATH are allowed (e.g. "gemini", "copilot", "codex-acp", "claude-agent-acp").`,
       );
     }
     r.cliPath = trimmed;

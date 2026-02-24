@@ -12,7 +12,7 @@
   ],
   "decisionMaker": {
     "name": "Claude",
-    "cliPath": "claude-code-acp",
+    "cliPath": "claude-agent-acp",
     "cliArgs": [],
     "timeoutMs": 600000,
     "maxRetries": 0

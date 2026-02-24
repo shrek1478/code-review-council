@@ -46,7 +46,7 @@ const KNOWN_AGENTS: AgentDefinition[] = [
   },
   {
     name: 'Claude',
-    cliPath: 'claude-code-acp',
+    cliPath: 'claude-agent-acp',
     cliArgs: [],
     description: 'Anthropic Claude Code CLI',
   },

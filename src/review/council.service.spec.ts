@@ -19,7 +19,7 @@ describe('CouncilService', () => {
     getConfig: vi.fn().mockReturnValue({
       reviewers: [
         { name: 'Gemini', cliPath: 'gemini', cliArgs: ['--experimental-acp'] },
-        { name: 'Claude', cliPath: 'claude-code-acp', cliArgs: [] },
+        { name: 'Claude', cliPath: 'claude-agent-acp', cliArgs: [] },
       ],
       review: { defaultChecks: ['code-quality'], language: 'zh-tw' },
     }),
@@ -36,7 +36,7 @@ describe('CouncilService', () => {
     mockConfigService.getConfig.mockReturnValue({
       reviewers: [
         { name: 'Gemini', cliPath: 'gemini', cliArgs: ['--experimental-acp'] },
-        { name: 'Claude', cliPath: 'claude-code-acp', cliArgs: [] },
+        { name: 'Claude', cliPath: 'claude-agent-acp', cliArgs: [] },
       ],
       review: { defaultChecks: ['code-quality'], language: 'zh-tw' },
     });
