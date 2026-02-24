@@ -130,8 +130,9 @@ export class ReviewStore {
   appendDelta(reviewer: string, content: string): void {
     this.reviewerDeltaChunks.update((map) => {
       const next = new Map(map);
-      const chunks = next.get(reviewer) ?? [];
-      next.set(reviewer, [...chunks, content]);
+      const existing = next.get(reviewer) ?? [];
+      // New array reference ensures Angular Signal change detection triggers
+      next.set(reviewer, [...existing, content]);
       return next;
     });
   }

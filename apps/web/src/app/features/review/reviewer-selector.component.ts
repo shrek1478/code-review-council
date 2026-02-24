@@ -98,6 +98,12 @@ interface AgentSelection extends AgentDetectionResult {
                 />
               </div>
             }
+            @if (!agent.custom) {
+              <div class="text-xs" style="color: var(--p-text-muted-color)">
+                <i class="pi pi-lock" style="font-size: 0.625rem; margin-right: 0.25rem"></i>
+                CLI path &amp; args locked by server config
+              </div>
+            }
           </div>
         }
       }

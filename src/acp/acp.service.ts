@@ -345,11 +345,35 @@ export class AcpService implements OnModuleDestroy {
     });
   }
 
+  /** Verifies a PID's command line contains the expected pattern via `ps`. */
+  private verifyProcessCommand(pid: number, pattern: string): Promise<boolean> {
+    return new Promise((resolve) => {
+      execFile(
+        'ps',
+        ['-p', String(pid), '-o', 'command='],
+        { encoding: 'utf-8', timeout: AcpService.CLI_RESOLVE_TIMEOUT_MS },
+        (err, stdout) => {
+          if (err) {
+            resolve(false);
+            return;
+          }
+          const cmd = stdout.trim();
+          // Convert pgrep-style regex pattern to a proper RegExp for validation
+          try {
+            resolve(new RegExp(pattern).test(cmd));
+          } catch {
+            // If pattern isn't valid regex, fall back to simple includes check
+            resolve(cmd.includes(pattern));
+          }
+        },
+      );
+    });
+  }
+
   /**
    * Kills orphaned ACP client processes left by a previous interrupted run.
-   * Uses `pgrep -f -P 1` to match orphan processes (PPID=1) by their full command line.
-   * Matches are further filtered by CRC_SESSION env to avoid killing processes
-   * from other running instances.
+   * Uses `pgrep -f -P 1` to match orphan processes (PPID=1) by their full command line,
+   * then verifies each PID via `ps` before sending SIGTERM.
    * No-op on Windows. Returns the number of processes killed.
    */
   async cleanupOrphanedProcesses(configs: ReviewerConfig[]): Promise<number> {
@@ -378,6 +402,9 @@ export class AcpService implements OnModuleDestroy {
       const pids = await this.findProcesses(pattern);
       for (const pid of pids) {
         if (pid === process.pid || managedPids.has(pid)) continue;
+        // Double-check: verify the process command line actually matches before killing
+        const confirmed = await this.verifyProcessCommand(pid, pattern);
+        if (!confirmed) continue;
         try {
           process.kill(pid, 'SIGTERM');
           this.logger.log(`Killed orphaned ${name} (PID ${pid})`);

@@ -17,6 +17,12 @@
       "options": {
         "buildTarget": "api:build"
       }
+    },
+    "lint": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "eslint \"apps/api/src/**/*.ts\" --fix"
+      }
     }
   }
 }

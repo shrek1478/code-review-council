@@ -487,6 +487,15 @@ describe('AcpService', () => {
       );
     }
 
+    /** Mock `ps -p <pid> -o command=` verification call to return given command string. */
+    function mockPsVerify(command: string): void {
+      (vi.mocked(execFile) as any).mockImplementationOnce(
+        (_cmd: string, _args: string[], _opts: unknown, cb: Function) => {
+          cb(null, command + '\n', '');
+        },
+      );
+    }
+
     it('should return 0 and kill nothing when no processes found', async () => {
       mockPgrepNotFound();
       const killed = await service.cleanupOrphanedProcesses([
@@ -498,6 +507,8 @@ describe('AcpService', () => {
 
     it('should kill found PIDs and return count', async () => {
       mockPgrep([11111, 22222]);
+      mockPsVerify('codex-acp --experimental-acp');
+      mockPsVerify('codex-acp');
       const killed = await service.cleanupOrphanedProcesses([
         { name: 'Codex', cliPath: 'codex-acp', cliArgs: [] },
       ]);
@@ -508,6 +519,8 @@ describe('AcpService', () => {
 
     it('should skip own process PID', async () => {
       mockPgrep([process.pid, 99999]);
+      // Only 99999 gets verified (process.pid is skipped before ps check)
+      mockPsVerify('codex-acp');
       const killed = await service.cleanupOrphanedProcesses([
         { name: 'Codex', cliPath: 'codex-acp', cliArgs: [] },
       ]);
@@ -518,6 +531,7 @@ describe('AcpService', () => {
 
     it('should not throw when kill fails (process already gone)', async () => {
       mockPgrep([55555]);
+      mockPsVerify('codex-acp');
       killSpy.mockImplementation(() => {
         throw new Error('ESRCH: no such process');
       });

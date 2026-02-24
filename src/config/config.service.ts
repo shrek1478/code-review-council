@@ -53,13 +53,16 @@ export class ConfigService {
       return this.loadFromFile(USER_CONFIG_PATH);
     }
     // 4. 專案層級：當前工作目錄下的設定檔 (lower trust — may be from untrusted repo)
-    const cwdConfigPath = resolve(process.cwd(), CWD_CONFIG_NAME);
-    if (await this.fileExists(cwdConfigPath)) {
-      this.logger.warn(
-        `Loading config from current working directory: ${cwdConfigPath}. ` +
-          `Use --config to specify an explicit path if this is unintended.`,
-      );
-      return this.loadFromFile(cwdConfigPath);
+    //    Skipped in API mode (CRC_SKIP_CWD_CONFIG=1) to prevent malicious repo configs
+    if (!process.env.CRC_SKIP_CWD_CONFIG) {
+      const cwdConfigPath = resolve(process.cwd(), CWD_CONFIG_NAME);
+      if (await this.fileExists(cwdConfigPath)) {
+        this.logger.warn(
+          `Loading config from current working directory: ${cwdConfigPath}. ` +
+            `Use --config to specify an explicit path if this is unintended.`,
+        );
+        return this.loadFromFile(cwdConfigPath);
+      }
     }
     // 5. 內建預設
     const builtinPath = resolve(PROJECT_ROOT, 'review-council.config.json');
@@ -517,6 +520,9 @@ export class ConfigService {
     const CONTROL_CHAR_REGEX = /[\x00-\x1f\x7f]/;
     const DANGEROUS_LONG_FLAGS = ['--eval', '--exec', '--import', '--require'];
     const DANGEROUS_SHORT_FLAGS = ['-c', '-e', '-r'];
+    // Shell metacharacters that could enable command injection
+    // eslint-disable-next-line no-control-regex
+    const SHELL_META_REGEX = /[|;&`$(){}[\]<>!]/;
     for (const arg of cliArgs) {
       if (arg.length > MAX_CLI_ARG_LENGTH) {
         throw new Error(
@@ -526,6 +532,11 @@ export class ConfigService {
       if (CONTROL_CHAR_REGEX.test(arg)) {
         throw new Error(
           `Invalid config (${filePath}): "${path}.cliArgs" element contains control characters`,
+        );
+      }
+      if (SHELL_META_REGEX.test(arg)) {
+        throw new Error(
+          `Invalid config (${filePath}): "${path}.cliArgs" element contains shell metacharacters`,
         );
       }
       const isDangerous =

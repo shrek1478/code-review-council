@@ -496,6 +496,8 @@ export class ReviewService {
         onReviewerDone,
         onToolActivity,
         configOverride,
+        onDmDelta,
+        onDmStart,
       );
     }
 

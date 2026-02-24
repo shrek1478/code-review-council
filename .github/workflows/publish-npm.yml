@@ -35,6 +35,9 @@ jobs:
 
       - run: npm run lint
 
+      - name: Build web frontend
+        run: npx nx build web --skip-nx-cache
+
       - run: npm test
 
       - name: Validate version input

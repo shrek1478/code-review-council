@@ -3,10 +3,12 @@ import {
   OnGatewayConnection,
 } from '@nestjs/websockets';
 import { Inject, ConsoleLogger } from '@nestjs/common';
-import { WebSocket } from 'ws';
+import { WebSocket, type RawData } from 'ws';
+import { IncomingMessage } from 'node:http';
 import { ReviewService } from '../../../../src/review/review.service.js';
 import { ConfigService } from '../../../../src/config/config.service.js';
 import type { CouncilConfig } from '../../../../src/config/config.types.js';
+import { MAX_BATCH_SIZE } from '../../../../src/constants.js';
 
 interface WsIncoming {
   event: string;
@@ -27,8 +29,31 @@ export class ReviewGateway implements OnGatewayConnection {
     this.logger.setContext(ReviewGateway.name);
   }
 
-  handleConnection(client: WebSocket): void {
-    client.on('message', (raw: Buffer | string) => {
+  private static readonly ALLOWED_ORIGIN = /^https?:\/\/localhost(:\d+)?$/;
+
+  handleConnection(client: WebSocket, req: IncomingMessage): void {
+    const origin = req.headers.origin;
+    if (origin && !ReviewGateway.ALLOWED_ORIGIN.test(origin)) {
+      this.logger.warn(`Rejected WebSocket connection from origin: ${origin}`);
+      client.close(1008, 'Origin not allowed');
+      return;
+    }
+
+    // Idempotent slot release: ensures activeReviews is decremented exactly once,
+    // whether by the normal finally path or the close handler as a safety net.
+    let ownsSlot = false;
+    const releaseSlot = (reason: string) => {
+      if (!ownsSlot) return;
+      ownsSlot = false;
+      this.activeReviews = Math.max(0, this.activeReviews - 1);
+      if (reason === 'disconnect') {
+        this.logger.warn('Client disconnected during active review, releasing concurrency slot');
+      }
+    };
+
+    client.on('close', () => releaseSlot('disconnect'));
+
+    client.on('message', (raw: RawData) => {
       let msg: WsIncoming;
       try {
         msg = JSON.parse(typeof raw === 'string' ? raw : raw.toString());
@@ -47,7 +72,7 @@ export class ReviewGateway implements OnGatewayConnection {
         this.send(client, 'error', { message: 'Invalid message format' });
         return;
       }
-      this.handleMessage(client, msg).catch((error) => {
+      this.handleMessage(client, msg, () => { ownsSlot = true; }, releaseSlot).catch((error) => {
         this.logger.error(
           `Unhandled error in handleMessage: ${error instanceof Error ? error.message : String(error)}`,
         );
@@ -61,6 +86,8 @@ export class ReviewGateway implements OnGatewayConnection {
   private async handleMessage(
     client: WebSocket,
     msg: WsIncoming,
+    acquireSlot: () => void,
+    releaseSlot: (reason: string) => void,
   ): Promise<void> {
     const { event, data } = msg;
 
@@ -78,6 +105,7 @@ export class ReviewGateway implements OnGatewayConnection {
 
     if (isReviewEvent) {
       this.activeReviews++;
+      acquireSlot();
     }
     try {
       switch (event) {
@@ -95,7 +123,7 @@ export class ReviewGateway implements OnGatewayConnection {
       }
     } finally {
       if (isReviewEvent) {
-        this.activeReviews--;
+        releaseSlot('done');
       }
     }
   }
@@ -143,16 +171,43 @@ export class ReviewGateway implements OnGatewayConnection {
     return undefined;
   }
 
+  /** Fields that clients are allowed to override via WS config. */
+  private static readonly ALLOWED_OVERRIDE_FIELDS = new Set([
+    'model', 'timeoutMs', 'maxRetries', 'streaming', 'protocol',
+  ]);
+
   private extractConfig(data: Record<string, unknown>): CouncilConfig | undefined {
     if (data.config && typeof data.config === 'object' && !Array.isArray(data.config)) {
       const partial = data.config as Partial<CouncilConfig>;
-      let merged: CouncilConfig;
-      if (!partial.decisionMaker) {
-        const serverCfg = this.configService.getConfig();
-        merged = { ...serverCfg, ...partial, decisionMaker: serverCfg.decisionMaker };
-      } else {
-        merged = data.config as CouncilConfig;
-      }
+      const serverCfg = this.configService.getConfig();
+
+      // Strip security-sensitive fields (cliPath, cliArgs) — only allow safe overrides
+      const sanitizeReviewer = (override: Record<string, unknown>, base: { name: string; cliPath: string; cliArgs: string[] }) => {
+        const safe: Record<string, unknown> = { name: base.name, cliPath: base.cliPath, cliArgs: base.cliArgs };
+        for (const key of Object.keys(override)) {
+          if (ReviewGateway.ALLOWED_OVERRIDE_FIELDS.has(key)) {
+            safe[key] = override[key];
+          }
+        }
+        return safe;
+      };
+
+      const mergedReviewers = serverCfg.reviewers.map((base) => {
+        const override = partial.reviewers?.find((r) => r.name === base.name);
+        return override ? sanitizeReviewer(override as unknown as Record<string, unknown>, base) : base;
+      });
+
+      const mergedDm = partial.decisionMaker
+        ? sanitizeReviewer(partial.decisionMaker as unknown as Record<string, unknown>, serverCfg.decisionMaker)
+        : serverCfg.decisionMaker;
+
+      const merged = {
+        ...serverCfg,
+        reviewers: mergedReviewers,
+        decisionMaker: mergedDm,
+        review: partial.review ?? serverCfg.review,
+      } as CouncilConfig;
+
       const validation = this.configService.validateConfigData(
         merged as unknown as Record<string, unknown>,
       );
@@ -172,6 +227,15 @@ export class ReviewGateway implements OnGatewayConnection {
     }
     if (typeof value !== 'string' || value.trim() === '') {
       throw new Error(`Field "${field}" must be a non-empty string`);
+    }
+    return value;
+  }
+
+  private validateBatchSize(data: Record<string, unknown>): number | undefined {
+    const value = data.batchSize;
+    if (value === undefined || value === null) return undefined;
+    if (typeof value !== 'number' || !Number.isInteger(value) || value < 1 || value > MAX_BATCH_SIZE) {
+      throw new Error(`Field "batchSize" must be an integer between 1 and ${MAX_BATCH_SIZE}`);
     }
     return value;
   }
@@ -263,9 +327,7 @@ export class ReviewGateway implements OnGatewayConnection {
       const extensions = this.validateStringArray(data, 'extensions');
       const checks = this.validateStringArray(data, 'checks');
       const extra = this.validateString(data, 'extra', false);
-      const batchSize = data.batchSize !== undefined && data.batchSize !== null
-        ? (typeof data.batchSize === 'number' ? data.batchSize : undefined)
-        : undefined;
+      const batchSize = this.validateBatchSize(data);
       const configOverride = this.extractConfig(data);
       const config = configOverride ?? this.configService.getConfig();
       this.sendInitialProgress(client, config);

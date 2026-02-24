@@ -8,12 +8,24 @@ const SENSITIVE_FLAGS = new Set([
   '--refresh-token', '--credentials', '-k', '-p',
 ]);
 
+const SECRET_PATTERN = /^(sk-|ghp_|gho_|ghu_|ghs_|ghr_|glpat-|xox[bsrap]-|key_|token_)/i;
+
+function looksLikeSecret(value: string): boolean {
+  if (value.length < 8) return false;
+  if (SECRET_PATTERN.test(value)) return true;
+  // Base64-like long strings (32+ chars)
+  if (value.length >= 32 && /^[A-Za-z0-9+/=_-]+$/.test(value)) return true;
+  return false;
+}
+
 function maskCliArgs(args: string[]): string[] {
   return args.map((arg, i) => {
     if (i > 0 && SENSITIVE_FLAGS.has(args[i - 1])) return '[REDACTED]';
     for (const flag of SENSITIVE_FLAGS) {
       if (arg.startsWith(`${flag}=`)) return `${flag}=[REDACTED]`;
     }
+    // Mask positional args that look like secrets
+    if (!arg.startsWith('-') && looksLikeSecret(arg)) return '[REDACTED]';
     return arg;
   });
 }
