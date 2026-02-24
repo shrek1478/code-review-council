@@ -61,7 +61,7 @@ jobs:
 
       - name: Publish
         run: |
-          npm config set @shrek1478:registry https://registry.npmjs.org
+          echo "//registry.npmjs.org/:_authToken=\${NODE_AUTH_TOKEN}" > .npmrc
           PKG_NAME=$(node -p "require('./package.json').name")
           VERSION=$(node -p "require('./package.json').version")
           echo "Publishing ${PKG_NAME}@${VERSION}"
