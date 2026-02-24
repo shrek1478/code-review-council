@@ -3,7 +3,7 @@
   "info": {
     "title": "Code Review Council API",
     "description": "AI-powered code review council using multiple LLM reviewers. Reviews are initiated via WebSocket at ws://localhost:3100/ws/reviews. Config endpoints use REST.",
-    "version": "0.1.20",
+    "version": "0.2.0",
     "license": {
       "name": "MIT"
     }
