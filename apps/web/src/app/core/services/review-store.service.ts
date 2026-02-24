@@ -128,13 +128,15 @@ export class ReviewStore {
   }
 
   private static readonly MAX_DELTA_SIZE = 5 * 1024 * 1024; // 5MB per reviewer
+  private readonly reviewerDeltaSizes = new Map<string, number>();
 
   appendDelta(reviewer: string, content: string): void {
     this.reviewerDeltaChunks.update((map) => {
       const next = new Map(map);
       const existing = next.get(reviewer) ?? [];
-      const currentSize = existing.reduce((sum, s) => sum + s.length, 0);
+      const currentSize = this.reviewerDeltaSizes.get(reviewer) ?? 0;
       if (currentSize + content.length > ReviewStore.MAX_DELTA_SIZE) return next;
+      this.reviewerDeltaSizes.set(reviewer, currentSize + content.length);
       // New array reference ensures Angular Signal change detection triggers
       next.set(reviewer, [...existing, content]);
       return next;
@@ -163,6 +165,7 @@ export class ReviewStore {
     this.result.set(null);
     this.error.set(null);
     this.reviewerDeltaChunks.set(new Map());
+    this.reviewerDeltaSizes.clear();
     this.reviewerToolActivity.set(new Map());
   }
 }

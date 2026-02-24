@@ -11,7 +11,10 @@ async function bootstrap() {
   app.useWebSocketAdapter(new WsAdapter(app));
   app.setGlobalPrefix('api');
   // 限制 CORS 來源為 localhost 任意 port（本機開發工具）
-  app.enableCors({ origin: /^http:\/\/localhost(:\d+)?$/, credentials: true });
+  app.enableCors({
+    origin: /^https?:\/\/localhost(:\d+)?$/,
+    credentials: true,
+  });
   await app.listen(3100, '127.0.0.1');
   const logger = new Logger('Bootstrap');
   logger.log('API server running on http://localhost:3100');

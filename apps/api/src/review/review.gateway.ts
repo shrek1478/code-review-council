@@ -14,7 +14,7 @@ interface WsIncoming {
 
 const MAX_CONCURRENT_REVIEWS = 1;
 
-@WebSocketGateway({ path: '/ws/reviews' })
+@WebSocketGateway({ path: '/ws/reviews', maxPayload: 1 * 1024 * 1024 })
 export class ReviewGateway implements OnGatewayConnection {
   private activeReviews = 0;
 
@@ -57,11 +57,13 @@ export class ReviewGateway implements OnGatewayConnection {
     client.on('message', (raw: RawData) => {
       let msg: WsIncoming;
       try {
-        msg = JSON.parse(
+        const text =
           typeof raw === 'string'
             ? raw
-            : Buffer.from(raw as ArrayBuffer).toString('utf-8'),
-        );
+            : Array.isArray(raw)
+              ? Buffer.concat(raw).toString('utf-8')
+              : Buffer.from(raw as ArrayBuffer).toString('utf-8');
+        msg = JSON.parse(text);
       } catch {
         this.send(client, 'error', { message: 'Invalid JSON' });
         return;
