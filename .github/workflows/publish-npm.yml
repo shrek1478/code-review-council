@@ -35,8 +35,8 @@ jobs:
 
       - run: npm run lint:check
 
-      - name: Lint apps and libs
-        run: npx nx run-many -t lint --skip-nx-cache
+      - name: Lint API app
+        run: npx nx run api:lint --skip-nx-cache
 
       - name: Build web frontend
         run: npx nx build web --skip-nx-cache

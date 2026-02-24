@@ -3,12 +3,22 @@ import { ConfigService } from '../../../../src/config/config.service.js';
 import type { CouncilConfig } from '../../../../src/config/config.types.js';
 
 const SENSITIVE_FLAGS = new Set([
-  '--api-key', '--token', '--secret', '--password', '--auth',
-  '--bearer-token', '--client-secret', '--access-token',
-  '--refresh-token', '--credentials', '-k', '-p',
+  '--api-key',
+  '--token',
+  '--secret',
+  '--password',
+  '--auth',
+  '--bearer-token',
+  '--client-secret',
+  '--access-token',
+  '--refresh-token',
+  '--credentials',
+  '-k',
+  '-p',
 ]);
 
-const SECRET_PATTERN = /^(sk-|ghp_|gho_|ghu_|ghs_|ghr_|glpat-|xox[bsrap]-|key_|token_)/i;
+const SECRET_PATTERN =
+  /^(sk-|ghp_|gho_|ghu_|ghs_|ghr_|glpat-|xox[bsrap]-|key_|token_)/i;
 
 function looksLikeSecret(value: string): boolean {
   if (value.length < 8) return false;

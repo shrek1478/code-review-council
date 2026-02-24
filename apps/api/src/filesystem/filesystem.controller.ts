@@ -1,7 +1,16 @@
-import { Controller, Get, Post, Query, Body, ConsoleLogger, Inject, ForbiddenException, NotFoundException, BadRequestException } from '@nestjs/common';
-import { readdir, writeFile, mkdir, access, realpath } from 'node:fs/promises';
+import {
+  Controller,
+  Get,
+  Post,
+  Query,
+  Body,
+  Inject,
+  ForbiddenException,
+  NotFoundException,
+  BadRequestException,
+} from '@nestjs/common';
+import { readdir, writeFile, mkdir, realpath } from 'node:fs/promises';
 import { join, resolve, sep, basename } from 'node:path';
-import { constants } from 'node:fs';
 import { execFile } from 'node:child_process';
 import { homedir } from 'node:os';
 import { ConfigService } from '../../../../src/config/config.service.js';
@@ -82,15 +91,19 @@ export class FilesystemController {
     }
     // 限制只允許 home 目錄以下（含 home 本身）
     if (targetPath !== root && !targetPath.startsWith(root + sep)) {
-      throw new ForbiddenException('Access outside home directory is not allowed');
+      throw new ForbiddenException(
+        'Access outside home directory is not allowed',
+      );
     }
     let entries: import('node:fs').Dirent[];
     try {
       entries = await readdir(targetPath, { withFileTypes: true });
     } catch (error: unknown) {
       const err = error as NodeJS.ErrnoException;
-      if (err.code === 'ENOENT') throw new NotFoundException('Directory not found');
-      if (err.code === 'EACCES') throw new ForbiddenException('Permission denied');
+      if (err.code === 'ENOENT')
+        throw new NotFoundException('Directory not found');
+      if (err.code === 'EACCES')
+        throw new ForbiddenException('Permission denied');
       throw error;
     }
 
@@ -153,7 +166,10 @@ export class FilesystemController {
       );
     }
     await mkdir(configDir, { recursive: true, mode: 0o700 });
-    await writeFile(configPath, JSON.stringify(config, null, 2), { encoding: 'utf-8', mode: 0o600 });
+    await writeFile(configPath, JSON.stringify(config, null, 2), {
+      encoding: 'utf-8',
+      mode: 0o600,
+    });
     await this.configService.loadConfig(configPath);
     return { success: true };
   }
