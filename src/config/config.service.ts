@@ -130,7 +130,7 @@ export class ConfigService {
   }
 
   private static readonly SAFE_LANGUAGE = /^[a-zA-Z-]{2,10}$/;
-  private static readonly SAFE_MODEL = /^[A-Za-z0-9._:\/-]{1,100}$/;
+  private static readonly SAFE_MODEL = /^[A-Za-z0-9._:/-]{1,100}$/;
 
   private applyEnvOverrides(config: CouncilConfig): void {
     const model = process.env.DECISION_MAKER_MODEL;
@@ -521,7 +521,7 @@ export class ConfigService {
     const DANGEROUS_LONG_FLAGS = ['--eval', '--exec', '--import', '--require'];
     const DANGEROUS_SHORT_FLAGS = ['-c', '-e', '-r'];
     // Shell metacharacters that could enable command injection
-    // eslint-disable-next-line no-control-regex
+
     const SHELL_META_REGEX = /[|;&`$(){}[\]<>!]/;
     for (const arg of cliArgs) {
       if (arg.length > MAX_CLI_ARG_LENGTH) {

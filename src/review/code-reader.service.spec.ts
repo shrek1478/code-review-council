@@ -1,9 +1,6 @@
 import { Test } from '@nestjs/testing';
 import { ConsoleLogger } from '@nestjs/common';
-import {
-  CodeReaderService,
-  DEFAULT_EXCLUDE_PATTERNS,
-} from './code-reader.service.js';
+import { CodeReaderService } from './code-reader.service.js';
 import { ConfigService } from '../config/config.service.js';
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { writeFile, mkdtemp, rm, mkdir } from 'node:fs/promises';
