@@ -118,10 +118,6 @@ npx nx run web:build
 ### 1. 全域安裝
 
 ```bash
-# 設定 GitHub Packages registry
-echo "@shrek1478:registry=https://npm.pkg.github.com" >> ~/.npmrc
-
-# 全域安裝
 npm install -g @shrek1478/code-review-council
 ```
 
