@@ -180,6 +180,16 @@ interface AgentSelection extends AgentDetectionResult {
         </div>
       }
 
+      @if (configWarning(); as warning) {
+        <div
+          class="p-2 rounded text-xs"
+          style="background: var(--p-orange-50); border: 1px solid var(--p-orange-200); color: var(--p-orange-600)"
+        >
+          <i class="pi pi-exclamation-triangle" style="margin-right: 0.25rem"></i>
+          {{ warning }}
+        </div>
+      }
+
       @if (!showAddForm()) {
         <button
           (click)="showAddForm.set(true)"
@@ -199,6 +209,7 @@ export class ReviewerSelectorComponent implements OnInit {
 
   agents = signal<AgentSelection[]>([]);
   detecting = signal(true);
+  configWarning = signal('');
 
   showAddForm = signal(false);
   newCliName = '';
@@ -294,31 +305,31 @@ export class ReviewerSelectorComponent implements OnInit {
     const decisionMakers = selected.filter((a) => a.role === 'decisionMaker');
     const reviewers = selected.filter((a) => a.role === 'reviewer');
 
+    if (decisionMakers.length === 0 && selected.length > 0) {
+      this.configWarning.set('Please assign exactly one CLI as Decision Maker.');
+    } else if (decisionMakers.length > 1) {
+      this.configWarning.set('Only one Decision Maker is allowed. Please change extra ones to Reviewer.');
+    } else {
+      this.configWarning.set('');
+    }
+
     const base = this.store.config();
     const dm = decisionMakers.length === 1 ? decisionMakers[0] : null;
 
+    const toReviewerConfig = (a: AgentSelection) => ({
+      name: a.name,
+      cliPath: a.cliPath,
+      cliArgs: a.cliArgs,
+      ...(a.protocol ? { protocol: a.protocol } : {}),
+      ...(a.model ? { model: a.model } : {}),
+      timeoutMs: 600000,
+      maxRetries: 0,
+    });
+
     const config = {
-      reviewers: reviewers.map((a) => ({
-        name: a.name,
-        cliPath: a.cliPath,
-        cliArgs: a.cliArgs,
-        ...(a.protocol ? { protocol: a.protocol } : {}),
-        ...(a.model ? { model: a.model } : {}),
-        timeoutMs: 600000,
-        maxRetries: 0,
-      })),
+      reviewers: reviewers.map(toReviewerConfig),
       ...(dm
-        ? {
-            decisionMaker: {
-              name: dm.name,
-              cliPath: dm.cliPath,
-              cliArgs: dm.cliArgs,
-              ...(dm.protocol ? { protocol: dm.protocol } : {}),
-              ...(dm.model ? { model: dm.model } : {}),
-              timeoutMs: 600000,
-              maxRetries: 0,
-            },
-          }
+        ? { decisionMaker: toReviewerConfig(dm) }
         : {}),
       review: base?.review ?? {
         defaultChecks: ['code-quality', 'security', 'performance', 'readability', 'best-practices'],

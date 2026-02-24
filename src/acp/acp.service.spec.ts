@@ -502,8 +502,8 @@ describe('AcpService', () => {
         { name: 'Codex', cliPath: 'codex-acp', cliArgs: [] },
       ]);
       expect(killed).toBe(2);
-      expect(killSpy).toHaveBeenCalledWith(11111, 'SIGKILL');
-      expect(killSpy).toHaveBeenCalledWith(22222, 'SIGKILL');
+      expect(killSpy).toHaveBeenCalledWith(11111, 'SIGTERM');
+      expect(killSpy).toHaveBeenCalledWith(22222, 'SIGTERM');
     });
 
     it('should skip own process PID', async () => {
@@ -512,8 +512,8 @@ describe('AcpService', () => {
         { name: 'Codex', cliPath: 'codex-acp', cliArgs: [] },
       ]);
       expect(killed).toBe(1);
-      expect(killSpy).not.toHaveBeenCalledWith(process.pid, 'SIGKILL');
-      expect(killSpy).toHaveBeenCalledWith(99999, 'SIGKILL');
+      expect(killSpy).not.toHaveBeenCalledWith(process.pid, 'SIGTERM');
+      expect(killSpy).toHaveBeenCalledWith(99999, 'SIGTERM');
     });
 
     it('should not throw when kill fails (process already gone)', async () => {
@@ -531,21 +531,26 @@ describe('AcpService', () => {
       let capturedArgs: string[] = [];
       (vi.mocked(execFile) as any).mockImplementationOnce(
         (_cmd: string, args: string[], _opts: unknown, cb: Function) => {
-          capturedArgs = args as string[];
+          capturedArgs = args;
           cb(null, '', '');
         },
       );
       await service.cleanupOrphanedProcesses([
         { name: 'Gemini', cliPath: 'gemini', cliArgs: ['--experimental-acp'] },
       ]);
-      expect(capturedArgs).toEqual(['-f', '-P', '1', 'gemini.*--experimental-acp']);
+      expect(capturedArgs).toEqual([
+        '-f',
+        '-P',
+        '1',
+        'gemini.*--experimental-acp',
+      ]);
     });
 
     it('should use plain cliPath pattern when no --experimental-acp', async () => {
       let capturedArgs: string[] = [];
       (vi.mocked(execFile) as any).mockImplementationOnce(
         (_cmd: string, args: string[], _opts: unknown, cb: Function) => {
-          capturedArgs = args as string[];
+          capturedArgs = args;
           cb(null, '', '');
         },
       );

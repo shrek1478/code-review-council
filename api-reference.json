@@ -2,7 +2,7 @@
   "openapi": "3.0.3",
   "info": {
     "title": "Code Review Council API",
-    "description": "AI-powered code review council using multiple LLM reviewers. Supports diff-based, file-based, and full codebase reviews with SSE streaming for real-time progress.",
+    "description": "AI-powered code review council using multiple LLM reviewers. Reviews are initiated via WebSocket at ws://localhost:3100/ws/reviews. Config endpoints use REST.",
     "version": "0.1.3",
     "license": {
       "name": "MIT"
@@ -14,160 +14,44 @@
       "description": "Local development server"
     }
   ],
+  "x-websocket": {
+    "url": "ws://localhost:3100/ws/reviews",
+    "description": "WebSocket endpoint for all review operations. Send JSON messages with { event, data } format. Max 1 concurrent review.",
+    "events": {
+      "client-to-server": {
+        "start:diff": {
+          "description": "Start a diff review",
+          "data": { "$ref": "#/components/schemas/ReviewDiffRequest" }
+        },
+        "start:file": {
+          "description": "Start a file review",
+          "data": { "$ref": "#/components/schemas/ReviewFileRequest" }
+        },
+        "start:codebase": {
+          "description": "Start a codebase review",
+          "data": { "$ref": "#/components/schemas/ReviewCodebaseRequest" }
+        }
+      },
+      "server-to-client": {
+        "progress": {
+          "description": "Reviewer progress update (status: sending | done | error)"
+        },
+        "delta": {
+          "description": "Streaming content chunk from a reviewer"
+        },
+        "tool-activity": {
+          "description": "Tool usage activity from a reviewer agent"
+        },
+        "result": {
+          "description": "Final review result with all reviews and decision"
+        },
+        "error": {
+          "description": "Error message"
+        }
+      }
+    }
+  },
   "paths": {
-    "/api/reviews/diff": {
-      "post": {
-        "summary": "Start a diff review",
-        "description": "Starts a code review based on the git diff between the current branch and a base branch. Returns a reviewId that can be used to subscribe to SSE events for progress and results.",
-        "operationId": "startDiffReview",
-        "tags": ["Reviews"],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/ReviewDiffRequest"
-              }
-            }
-          }
-        },
-        "responses": {
-          "201": {
-            "description": "Review started successfully",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ReviewStartedResponse"
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "Invalid request body"
-          }
-        }
-      }
-    },
-    "/api/reviews/file": {
-      "post": {
-        "summary": "Start a file review",
-        "description": "Starts a code review for one or more specific files. Returns a reviewId that can be used to subscribe to SSE events for progress and results.",
-        "operationId": "startFileReview",
-        "tags": ["Reviews"],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/ReviewFileRequest"
-              }
-            }
-          }
-        },
-        "responses": {
-          "201": {
-            "description": "Review started successfully",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ReviewStartedResponse"
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "Invalid request body"
-          }
-        }
-      }
-    },
-    "/api/reviews/codebase": {
-      "post": {
-        "summary": "Start a codebase review",
-        "description": "Starts a full codebase review for all matching files in a directory. Files are batched by size for processing. Returns a reviewId that can be used to subscribe to SSE events for progress and results.",
-        "operationId": "startCodebaseReview",
-        "tags": ["Reviews"],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/ReviewCodebaseRequest"
-              }
-            }
-          }
-        },
-        "responses": {
-          "201": {
-            "description": "Review started successfully",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ReviewStartedResponse"
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "Invalid request body"
-          }
-        }
-      }
-    },
-    "/api/reviews/{reviewId}/events": {
-      "get": {
-        "summary": "SSE stream for review progress and result",
-        "description": "Opens a Server-Sent Events (SSE) stream that emits real-time progress updates and the final review result. Event types include: 'progress' (reviewer progress), 'dm-progress' (decision-maker progress), 'result' (final review result), and 'error' (error details).",
-        "operationId": "getReviewEvents",
-        "tags": ["Reviews"],
-        "parameters": [
-          {
-            "name": "reviewId",
-            "in": "path",
-            "required": true,
-            "description": "The review identifier returned by a review start endpoint",
-            "schema": {
-              "type": "string",
-              "example": "review-a1b2c3d4"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "SSE event stream opened successfully",
-            "content": {
-              "text/event-stream": {
-                "schema": {
-                  "type": "string",
-                  "description": "Server-Sent Events stream. Each event has a type (progress, dm-progress, result, error) and JSON data payload."
-                },
-                "examples": {
-                  "progress": {
-                    "summary": "Reviewer progress event",
-                    "value": "event: progress\ndata: {\"reviewer\":\"Gemini\",\"status\":\"reviewing\"}\n\n"
-                  },
-                  "dm-progress": {
-                    "summary": "Decision-maker progress event",
-                    "value": "event: dm-progress\ndata: {\"status\":\"analyzing\"}\n\n"
-                  },
-                  "result": {
-                    "summary": "Final result event",
-                    "value": "event: result\ndata: {\"id\":\"review-a1b2c3d4\",\"status\":\"completed\",\"individualReviews\":[],\"decision\":{}}\n\n"
-                  },
-                  "error": {
-                    "summary": "Error event",
-                    "value": "event: error\ndata: {\"message\":\"Review failed\"}\n\n"
-                  }
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "Review not found"
-          }
-        }
-      }
-    },
     "/api/config": {
       "get": {
         "summary": "Get current effective config",
@@ -311,17 +195,6 @@
           "extra": {
             "type": "string",
             "description": "Extra instructions for reviewers"
-          }
-        }
-      },
-      "ReviewStartedResponse": {
-        "type": "object",
-        "required": ["reviewId"],
-        "properties": {
-          "reviewId": {
-            "type": "string",
-            "description": "Unique identifier for the started review, used to subscribe to SSE events",
-            "example": "review-a1b2c3d4"
           }
         }
       },

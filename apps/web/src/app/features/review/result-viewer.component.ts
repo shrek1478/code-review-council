@@ -303,10 +303,18 @@ export class ResultViewerComponent {
     return s !== 'done' && s !== 'error';
   }
 
+  private mdCache = new Map<string, SafeHtml>();
+
   renderMarkdown(text: string): SafeHtml {
+    const cached = this.mdCache.get(text);
+    if (cached) return cached;
     const raw = marked.parse(text, { async: false }) as string;
     const html = DOMPurify.sanitize(raw);
-    return this.sanitizer.bypassSecurityTrustHtml(html);
+    const result = this.sanitizer.bypassSecurityTrustHtml(html);
+    // Keep cache bounded — only cache latest per unique content
+    if (this.mdCache.size > 20) this.mdCache.clear();
+    this.mdCache.set(text, result);
+    return result;
   }
 
   copyText(text: string): void {

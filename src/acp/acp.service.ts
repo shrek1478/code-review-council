@@ -5,6 +5,7 @@ import {
   OnModuleDestroy,
 } from '@nestjs/common';
 import { execFile } from 'node:child_process';
+import { randomUUID } from 'node:crypto';
 import { isAbsolute } from 'node:path';
 import {
   CopilotClient,
@@ -32,6 +33,7 @@ export class AcpService implements OnModuleDestroy {
   private clients = new Set<AcpClientHandle>();
   private stopping = false;
   private resolvedPaths = new Map<string, string>();
+  readonly sessionId = randomUUID().slice(0, 8);
 
   constructor(@Inject(ConsoleLogger) private readonly logger: ConsoleLogger) {
     this.logger.setContext(AcpService.name);
@@ -118,6 +120,7 @@ export class AcpService implements OnModuleDestroy {
       cliArgs: config.cliArgs,
       protocol: config.protocol ?? 'acp',
       ...(cwd ? { cwd } : {}),
+      env: { ...process.env, CRC_SESSION: this.sessionId },
     };
     const client = new CopilotClient(opts);
     await client.start();
@@ -332,7 +335,7 @@ export class AcpService implements OnModuleDestroy {
             resolve([]);
             return;
           }
-          const pids = (stdout as string)
+          const pids = stdout
             .split('\n')
             .map((s) => parseInt(s.trim(), 10))
             .filter((n) => !isNaN(n) && n > 0);
@@ -345,6 +348,8 @@ export class AcpService implements OnModuleDestroy {
   /**
    * Kills orphaned ACP client processes left by a previous interrupted run.
    * Uses `pgrep -f -P 1` to match orphan processes (PPID=1) by their full command line.
+   * Matches are further filtered by CRC_SESSION env to avoid killing processes
+   * from other running instances.
    * No-op on Windows. Returns the number of processes killed.
    */
   async cleanupOrphanedProcesses(configs: ReviewerConfig[]): Promise<number> {
@@ -361,14 +366,21 @@ export class AcpService implements OnModuleDestroy {
       }
     }
 
+    // Collect PIDs of currently managed clients to avoid killing our own
+    const managedPids = new Set<number>();
+    for (const handle of this.clients) {
+      const pid = (handle.client as unknown as { pid?: number }).pid;
+      if (pid) managedPids.add(pid);
+    }
+
     let killed = 0;
     for (const [pattern, name] of patterns) {
       const pids = await this.findProcesses(pattern);
       for (const pid of pids) {
-        if (pid === process.pid) continue;
+        if (pid === process.pid || managedPids.has(pid)) continue;
         try {
-          process.kill(pid, 'SIGKILL');
-          this.logger.log(`Killed ${name} (PID ${pid})`);
+          process.kill(pid, 'SIGTERM');
+          this.logger.log(`Killed orphaned ${name} (PID ${pid})`);
           killed++;
         } catch {
           // Process already gone — silently skip

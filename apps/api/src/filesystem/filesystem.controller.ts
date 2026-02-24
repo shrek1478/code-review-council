@@ -94,7 +94,7 @@ export class FilesystemController {
       .sort((a, b) => a.name.localeCompare(b.name))
       .map((entry) => ({
         name: entry.name,
-        path: join(targetPath, entry.name),
+        path: join(targetPath, entry.name).replace(/\\/g, '/'),
         isDirectory: true,
       }));
   }

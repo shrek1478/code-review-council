@@ -157,11 +157,32 @@ export class ReviewGateway implements OnGatewayConnection {
         merged as unknown as Record<string, unknown>,
       );
       if (!validation.valid) {
-        return undefined;
+        throw new Error(`Invalid config override: ${validation.error}`);
       }
       return merged;
     }
     return undefined;
+  }
+
+  private validateString(data: Record<string, unknown>, field: string, required: boolean): string | undefined {
+    const value = data[field];
+    if (value === undefined || value === null) {
+      if (required) throw new Error(`Missing required field: "${field}"`);
+      return undefined;
+    }
+    if (typeof value !== 'string' || value.trim() === '') {
+      throw new Error(`Field "${field}" must be a non-empty string`);
+    }
+    return value;
+  }
+
+  private validateStringArray(data: Record<string, unknown>, field: string): string[] | undefined {
+    const value = data[field];
+    if (value === undefined || value === null) return undefined;
+    if (!Array.isArray(value) || !value.every((v) => typeof v === 'string')) {
+      throw new Error(`Field "${field}" must be an array of strings`);
+    }
+    return value;
   }
 
   private async runDiffReview(
@@ -169,15 +190,19 @@ export class ReviewGateway implements OnGatewayConnection {
     data: Record<string, unknown>,
   ): Promise<void> {
     try {
+      const repoPath = this.validateString(data, 'repoPath', true)!;
+      const baseBranch = this.validateString(data, 'baseBranch', false) ?? 'main';
+      const checks = this.validateStringArray(data, 'checks');
+      const extra = this.validateString(data, 'extra', false);
       const configOverride = this.extractConfig(data);
       const config = configOverride ?? this.configService.getConfig();
       this.sendInitialProgress(client, config);
       const { onDelta, onReviewerDone, onToolActivity, onDmStart, onDmDelta } = this.createCallbacks(client);
       const result = await this.reviewService.reviewDiff(
-        data.repoPath as string,
-        (data.baseBranch as string) ?? 'main',
-        (data.checks as string[]) ?? config.review.defaultChecks,
-        data.extra as string | undefined,
+        repoPath,
+        baseBranch,
+        checks ?? config.review.defaultChecks,
+        extra,
         onDelta,
         onReviewerDone,
         onToolActivity,
@@ -199,14 +224,20 @@ export class ReviewGateway implements OnGatewayConnection {
     data: Record<string, unknown>,
   ): Promise<void> {
     try {
+      const filePaths = this.validateStringArray(data, 'filePaths');
+      if (!filePaths || filePaths.length === 0) {
+        throw new Error('Field "filePaths" must be a non-empty array of strings');
+      }
+      const checks = this.validateStringArray(data, 'checks');
+      const extra = this.validateString(data, 'extra', false);
       const configOverride = this.extractConfig(data);
       const config = configOverride ?? this.configService.getConfig();
       this.sendInitialProgress(client, config);
       const { onDelta, onReviewerDone, onToolActivity, onDmStart, onDmDelta } = this.createCallbacks(client);
       const result = await this.reviewService.reviewFiles(
-        data.filePaths as string[],
-        (data.checks as string[]) ?? config.review.defaultChecks,
-        data.extra as string | undefined,
+        filePaths,
+        checks ?? config.review.defaultChecks,
+        extra,
         onDelta,
         onReviewerDone,
         onToolActivity,
@@ -228,20 +259,27 @@ export class ReviewGateway implements OnGatewayConnection {
     data: Record<string, unknown>,
   ): Promise<void> {
     try {
+      const directory = this.validateString(data, 'directory', true)!;
+      const extensions = this.validateStringArray(data, 'extensions');
+      const checks = this.validateStringArray(data, 'checks');
+      const extra = this.validateString(data, 'extra', false);
+      const batchSize = data.batchSize !== undefined && data.batchSize !== null
+        ? (typeof data.batchSize === 'number' ? data.batchSize : undefined)
+        : undefined;
       const configOverride = this.extractConfig(data);
       const config = configOverride ?? this.configService.getConfig();
       this.sendInitialProgress(client, config);
       const { onDelta, onReviewerDone, onToolActivity, onDmStart, onDmDelta } = this.createCallbacks(client);
       const result = await this.reviewService.reviewCodebase(
-        data.directory as string,
+        directory,
         {
-          extensions: (data.extensions as string[] | undefined)?.map((e) =>
+          extensions: extensions?.map((e) =>
             e.startsWith('.') ? e : `.${e}`,
           ),
-          maxBatchSize: data.batchSize as number | undefined,
+          maxBatchSize: batchSize,
         },
-        (data.checks as string[]) ?? config.review.defaultChecks,
-        data.extra as string | undefined,
+        checks ?? config.review.defaultChecks,
+        extra,
         onDelta,
         onReviewerDone,
         onToolActivity,

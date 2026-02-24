@@ -93,7 +93,15 @@ export class ReviewStore {
   readonly progress = signal<Map<string, ReviewProgressEvent>>(new Map());
   readonly result = signal<ReviewResult | null>(null);
   readonly error = signal<string | null>(null);
-  readonly reviewerDeltas = signal<Map<string, string>>(new Map());
+  private readonly reviewerDeltaChunks = signal<Map<string, string[]>>(new Map());
+  readonly reviewerDeltas = computed(() => {
+    const chunks = this.reviewerDeltaChunks();
+    const result = new Map<string, string>();
+    for (const [key, arr] of chunks) {
+      result.set(key, arr.join(''));
+    }
+    return result;
+  });
   readonly reviewerToolActivity = signal<Map<string, string>>(new Map());
 
   readonly activeReviewers = computed(() => {
@@ -120,9 +128,10 @@ export class ReviewStore {
   }
 
   appendDelta(reviewer: string, content: string): void {
-    this.reviewerDeltas.update((map) => {
+    this.reviewerDeltaChunks.update((map) => {
       const next = new Map(map);
-      next.set(reviewer, (next.get(reviewer) ?? '') + content);
+      const chunks = next.get(reviewer) ?? [];
+      next.set(reviewer, [...chunks, content]);
       return next;
     });
   }
@@ -148,7 +157,7 @@ export class ReviewStore {
     this.progress.set(new Map());
     this.result.set(null);
     this.error.set(null);
-    this.reviewerDeltas.set(new Map());
+    this.reviewerDeltaChunks.set(new Map());
     this.reviewerToolActivity.set(new Map());
   }
 }
