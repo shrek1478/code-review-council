@@ -33,8 +33,8 @@ export class ReviewGateway implements OnGatewayConnection {
 
   handleConnection(client: WebSocket, req: IncomingMessage): void {
     const origin = req.headers.origin;
-    if (origin && !ReviewGateway.ALLOWED_ORIGIN.test(origin)) {
-      this.logger.warn(`Rejected WebSocket connection from origin: ${origin}`);
+    if (!origin || !ReviewGateway.ALLOWED_ORIGIN.test(origin)) {
+      this.logger.warn(`Rejected WebSocket connection from origin: ${origin ?? '(none)'}`);
       client.close(1008, 'Origin not allowed');
       return;
     }

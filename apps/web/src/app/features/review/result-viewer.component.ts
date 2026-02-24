@@ -309,7 +309,18 @@ export class ResultViewerComponent {
     const cached = this.mdCache.get(text);
     if (cached) return cached;
     const raw = marked.parse(text, { async: false }) as string;
-    const html = DOMPurify.sanitize(raw);
+    const html = DOMPurify.sanitize(raw, {
+      ALLOWED_TAGS: [
+        'h1', 'h2', 'h3', 'h4', 'h5', 'h6',
+        'p', 'br', 'hr',
+        'ul', 'ol', 'li',
+        'table', 'thead', 'tbody', 'tr', 'th', 'td',
+        'pre', 'code', 'blockquote',
+        'strong', 'em', 'del', 'a', 'img', 'span', 'div',
+        'details', 'summary', 'sup', 'sub',
+      ],
+      ALLOWED_ATTR: ['href', 'src', 'alt', 'title', 'class', 'id', 'target', 'rel'],
+    });
     const result = this.sanitizer.bypassSecurityTrustHtml(html);
     // Keep cache bounded — only cache latest per unique content
     if (this.mdCache.size > 20) this.mdCache.clear();
