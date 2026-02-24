@@ -66,7 +66,12 @@ export class FilesystemController {
   async listDirectory(
     @Query('path') dirPath?: string,
   ): Promise<DirectoryEntry[]> {
-    const root = this.defaultRoot;
+    let root: string;
+    try {
+      root = await realpath(this.defaultRoot);
+    } catch {
+      root = this.defaultRoot;
+    }
     const resolved = resolve(dirPath || root);
     // 展開 symlink 後再做邊界檢查，防止 symlink 繞過
     let targetPath: string;

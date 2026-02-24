@@ -322,15 +322,19 @@ export class ReviewerSelectorComponent implements OnInit {
     const base = this.store.config();
     const dm = decisionMakers.length === 1 ? decisionMakers[0] : null;
 
-    const toReviewerConfig = (a: AgentSelection) => ({
-      name: a.name,
-      cliPath: a.cliPath,
-      cliArgs: a.cliArgs,
-      ...(a.protocol ? { protocol: a.protocol } : {}),
-      ...(a.model ? { model: a.model } : {}),
-      timeoutMs: 600000,
-      maxRetries: 0,
-    });
+    const toReviewerConfig = (a: AgentSelection) => {
+      const existing = base?.reviewers?.find((r) => r.name === a.name)
+        ?? (base?.decisionMaker?.name === a.name ? base.decisionMaker : undefined);
+      return {
+        name: a.name,
+        cliPath: a.cliPath,
+        cliArgs: a.cliArgs,
+        ...(a.protocol ? { protocol: a.protocol } : {}),
+        ...(a.model ? { model: a.model } : {}),
+        timeoutMs: existing?.timeoutMs ?? 600000,
+        maxRetries: existing?.maxRetries ?? 0,
+      };
+    };
 
     const config = {
       reviewers: reviewers.map(toReviewerConfig),
