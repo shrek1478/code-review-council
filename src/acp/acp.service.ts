@@ -381,10 +381,11 @@ export class AcpService implements OnModuleDestroy {
 
     const patterns = new Map<string, string>();
     for (const config of configs) {
+      const escaped = config.cliPath.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
       const hasAcpFlag = config.cliArgs.includes('--experimental-acp');
       const pattern = hasAcpFlag
-        ? `${config.cliPath}.*--experimental-acp`
-        : config.cliPath;
+        ? `${escaped}.*--experimental-acp`
+        : escaped;
       if (!patterns.has(pattern)) {
         patterns.set(pattern, config.name);
       }

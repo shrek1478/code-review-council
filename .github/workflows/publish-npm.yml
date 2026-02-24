@@ -33,7 +33,7 @@ jobs:
 
       - run: npm run build
 
-      - run: npm run lint
+      - run: npm run lint:check
 
       - name: Build web frontend
         run: npx nx build web --skip-nx-cache

@@ -147,8 +147,8 @@ export class FilesystemController {
         `Invalid configuration: ${validation.error}`,
       );
     }
-    await mkdir(configDir, { recursive: true });
-    await writeFile(configPath, JSON.stringify(config, null, 2), 'utf-8');
+    await mkdir(configDir, { recursive: true, mode: 0o700 });
+    await writeFile(configPath, JSON.stringify(config, null, 2), { encoding: 'utf-8', mode: 0o600 });
     await this.configService.loadConfig(configPath);
     return { success: true };
   }
